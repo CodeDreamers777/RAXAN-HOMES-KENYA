@@ -23,6 +23,10 @@ import room4 from './assets/room4.jpg';
 // Import the ProfileScreen and PropertyPage components
 import ProfileScreen from './ProfileScreen';
 import PropertyPage from './PropertyPage';
+import { LoginScreen, SignupScreen } from './AuthScreens'; // Assuming you save the new code in AuthScreens.js
+
+
+
 
 const featuredProperties = [
   { id: '1', image: room1, title: 'Cozy Apartment', location: 'New York', price: '$120/night', rating: 4.5 },
@@ -113,6 +117,16 @@ function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator>
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Signup"
+          component={SignupScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="Home"
           component={TabNavigator}

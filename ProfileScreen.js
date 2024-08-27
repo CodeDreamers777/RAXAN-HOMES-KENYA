@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 // Import user profile image
 import userProfileImage from './assets/user-profile.jpg';
 
 function ProfileScreen() {
   const [showModal, setShowModal] = useState(false);
+  const navigation = useNavigation();
+
+  const handleLogout = () => {
+    // Perform any logout logic here (e.g., clearing tokens, user data, etc.)
+    // Then navigate to the Login screen
+    navigation.navigate('Login');
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -35,8 +43,8 @@ function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.profileSection}>
-        <TouchableOpacity style={styles.logoutButton}>
+<View style={styles.profileSection}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
