@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,26 +8,56 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import raxanLogo from "./assets/raxan-logo.jpeg";
 
+const API_BASE_URL = "https://k031s30h-8000.euw.devtunnels.ms";
+
+const fetchCSRFToken = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/get-csrf-token/`, {
+      method: "GET",
+      credentials: "include",
+    });
+    const data = await response.json();
+    return data.csrfToken;
+  } catch (error) {
+    console.error("Error fetching CSRF token:", error);
+    return null;
+  }
+};
+
 function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [csrfToken, setCSRFToken] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const getCSRFToken = async () => {
+      const token = await fetchCSRFToken();
+      setCSRFToken(token);
+    };
+    getCSRFToken();
+  }, []);
 
   const handleLogin = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch("YOUR_LOGIN_ENDPOINT_URL", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/login/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken,
         },
         body: JSON.stringify({
-          username: email,
+          email: email,
           password: password,
         }),
+        credentials: "include",
       });
 
       const data = await response.json();
@@ -37,25 +67,27 @@ function LoginScreen({ navigation }) {
           data.Message === "User already logged in" ||
           data.Message === "User logged in successfully"
         ) {
-          // Store the access token
-          await AsyncStorage.setItem("accessToken", data.access);
-
-          // Navigate to the Home screen
+          if (data.access) {
+            await AsyncStorage.setItem("accessToken", data.access);
+          } else {
+            console.warn("Access token is undefined. Not storing in AsyncStorage.");
+          }
           navigation.navigate("Home");
         }
       } else {
-        // Handle login failure
         Alert.alert(
           "Login Failed",
-          "Please check your credentials and try again.",
+          "Please check your credentials and try again."
         );
       }
     } catch (error) {
       console.error("Login error:", error);
       Alert.alert(
         "Error",
-        "An error occurred while logging in. Please try again.",
+        "An error occurred while logging in. Please try again."
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -100,8 +132,12 @@ function LoginScreen({ navigation }) {
           />
         </View>
       </View>
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
+      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={isLoading}>
+        {isLoading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Login</Text>
+        )}
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
         <Text style={styles.linkText}>Don't have an account? Sign up</Text>
@@ -116,6 +152,16 @@ function SignupScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [csrfToken, setCSRFToken] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const getCSRFToken = async () => {
+      const token = await fetchCSRFToken();
+      setCSRFToken(token);
+    };
+    getCSRFToken();
+  }, []);
 
   const handleSignup = async () => {
     if (password !== confirmPassword) {
@@ -123,11 +169,13 @@ function SignupScreen({ navigation }) {
       return;
     }
 
+    setIsLoading(true);
     try {
-      const response = await fetch("YOUR_SIGNUP_ENDPOINT_URL", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken,
         },
         body: JSON.stringify({
           username,
@@ -136,17 +184,16 @@ function SignupScreen({ navigation }) {
           phone_number: phoneNumber,
           email,
         }),
+        credentials: "include",
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // User created successfully
         Alert.alert("Success", "Account created successfully", [
           { text: "OK", onPress: () => navigation.navigate("Login") },
         ]);
       } else {
-        // Handle errors
         if (
           data.username &&
           data.username.includes("Username already exists")
@@ -160,8 +207,10 @@ function SignupScreen({ navigation }) {
       console.error("Signup error:", error);
       Alert.alert(
         "Error",
-        "An error occurred while signing up. Please try again.",
+        "An error occurred while signing up. Please try again."
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -253,8 +302,12 @@ function SignupScreen({ navigation }) {
           />
         </View>
       </View>
-      <TouchableOpacity style={styles.button} onPress={handleSignup}>
-        <Text style={styles.buttonText}>Sign Up</Text>
+      <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={isLoading}>
+        {isLoading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Sign Up</Text>
+        )}
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate("Login")}>
         <Text style={styles.linkText}>Already have an account? Log in</Text>
