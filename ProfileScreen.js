@@ -1,19 +1,57 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  Modal,
+  Alert,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Import user profile image
-import userProfileImage from './assets/user-profile.jpg';
+import userProfileImage from "./assets/user-profile.jpg";
 
 function ProfileScreen() {
   const [showModal, setShowModal] = useState(false);
   const navigation = useNavigation();
 
-  const handleLogout = () => {
-    // Perform any logout logic here (e.g., clearing tokens, user data, etc.)
-    // Then navigate to the Login screen
-    navigation.navigate('Login');
+  const handleLogout = async () => {
+    try {
+      const token = await AsyncStorage.getItem("accessToken");
+
+      const response = await fetch("YOUR_LOGOUT_ENDPOINT_URL", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        // Clear the access token from storage
+        await AsyncStorage.removeItem("accessToken");
+
+        // Navigate to the Login screen
+        navigation.navigate("Login");
+      } else {
+        // Handle logout failure
+        Alert.alert(
+          "Logout Failed",
+          "An error occurred while logging out. Please try again.",
+        );
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+      Alert.alert(
+        "Error",
+        "An error occurred while logging out. Please try again.",
+      );
+    }
   };
 
   return (
@@ -43,7 +81,7 @@ function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-<View style={styles.profileSection}>
+      <View style={styles.profileSection}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -77,14 +115,14 @@ function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: "#f2f2f2",
   },
   profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: "#fff",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -104,22 +142,22 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
-    color: '#333',
+    color: "#333",
   },
   profileLocation: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginBottom: 10,
   },
   editProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   editProfileText: {
     fontSize: 16,
-    color: '#4CAF50',
+    color: "#4CAF50",
     marginLeft: 5,
   },
   profileSection: {
@@ -127,11 +165,11 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   addPlaceButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -141,18 +179,18 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   addPlaceText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   settingsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
     padding: 15,
     borderRadius: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -163,14 +201,14 @@ const styles = StyleSheet.create({
   },
   settingsText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   logoutButton: {
-    backgroundColor: '#e53935',
+    backgroundColor: "#e53935",
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -180,39 +218,39 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   logoutText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     padding: 15,
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
-    width: '100%',
+    width: "100%",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     flex: 1,
-    textAlign: 'center',
-    color: '#333',
+    textAlign: "center",
+    color: "#333",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 20,
     borderRadius: 10,
-    width: '90%',
-    alignItems: 'center',
-    shadowColor: '#000',
+    width: "90%",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,

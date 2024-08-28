@@ -1,15 +1,62 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TextInput, TouchableOpacity, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import raxanLogo from './assets/raxan-logo.jpeg';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  SafeAreaView,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  Alert,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import raxanLogo from "./assets/raxan-logo.jpeg";
 
 function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handleLogin = () => {
-    // Instead of actual login logic, just navigate to the Home screen
-    navigation.navigate('Home');
+  const handleLogin = async () => {
+    try {
+      const response = await fetch("YOUR_LOGIN_ENDPOINT_URL", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (
+          data.Message === "User already logged in" ||
+          data.Message === "User logged in successfully"
+        ) {
+          // Store the access token
+          await AsyncStorage.setItem("accessToken", data.access);
+
+          // Navigate to the Home screen
+          navigation.navigate("Home");
+        }
+      } else {
+        // Handle login failure
+        Alert.alert(
+          "Login Failed",
+          "Please check your credentials and try again.",
+        );
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      Alert.alert(
+        "Error",
+        "An error occurred while logging in. Please try again.",
+      );
+    }
   };
 
   return (
@@ -20,7 +67,12 @@ function LoginScreen({ navigation }) {
       </View>
       <View style={styles.inputContainer}>
         <View style={styles.inputWrapper}>
-          <Ionicons name="mail-outline" size={24} color="#666" style={styles.inputIcon} />
+          <Ionicons
+            name="mail-outline"
+            size={24}
+            color="#666"
+            style={styles.inputIcon}
+          />
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -32,7 +84,12 @@ function LoginScreen({ navigation }) {
           />
         </View>
         <View style={styles.inputWrapper}>
-          <Ionicons name="lock-closed-outline" size={24} color="#666" style={styles.inputIcon} />
+          <Ionicons
+            name="lock-closed-outline"
+            size={24}
+            color="#666"
+            style={styles.inputIcon}
+          />
           <TextInput
             style={styles.input}
             placeholder="Password"
@@ -46,7 +103,7 @@ function LoginScreen({ navigation }) {
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+      <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
         <Text style={styles.linkText}>Don't have an account? Sign up</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -54,9 +111,59 @@ function LoginScreen({ navigation }) {
 }
 
 function SignupScreen({ navigation }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+
+  const handleSignup = async () => {
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+
+    try {
+      const response = await fetch("YOUR_SIGNUP_ENDPOINT_URL", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+          confirm_password: confirmPassword,
+          phone_number: phoneNumber,
+          email,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // User created successfully
+        Alert.alert("Success", "Account created successfully", [
+          { text: "OK", onPress: () => navigation.navigate("Login") },
+        ]);
+      } else {
+        // Handle errors
+        if (
+          data.username &&
+          data.username.includes("Username already exists")
+        ) {
+          Alert.alert("Error", "Username already exists");
+        } else {
+          Alert.alert("Error", "Failed to create account. Please try again.");
+        }
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      Alert.alert(
+        "Error",
+        "An error occurred while signing up. Please try again.",
+      );
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,17 +173,27 @@ function SignupScreen({ navigation }) {
       </View>
       <View style={styles.inputContainer}>
         <View style={styles.inputWrapper}>
-          <Ionicons name="person-outline" size={24} color="#666" style={styles.inputIcon} />
+          <Ionicons
+            name="person-outline"
+            size={24}
+            color="#666"
+            style={styles.inputIcon}
+          />
           <TextInput
             style={styles.input}
-            placeholder="Full Name"
+            placeholder="Username"
             placeholderTextColor="#666"
-            value={name}
-            onChangeText={setName}
+            value={username}
+            onChangeText={setUsername}
           />
         </View>
         <View style={styles.inputWrapper}>
-          <Ionicons name="mail-outline" size={24} color="#666" style={styles.inputIcon} />
+          <Ionicons
+            name="mail-outline"
+            size={24}
+            color="#666"
+            style={styles.inputIcon}
+          />
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -88,7 +205,28 @@ function SignupScreen({ navigation }) {
           />
         </View>
         <View style={styles.inputWrapper}>
-          <Ionicons name="lock-closed-outline" size={24} color="#666" style={styles.inputIcon} />
+          <Ionicons
+            name="call-outline"
+            size={24}
+            color="#666"
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Phone Number"
+            placeholderTextColor="#666"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="phone-pad"
+          />
+        </View>
+        <View style={styles.inputWrapper}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={24}
+            color="#666"
+            style={styles.inputIcon}
+          />
           <TextInput
             style={styles.input}
             placeholder="Password"
@@ -98,11 +236,27 @@ function SignupScreen({ navigation }) {
             secureTextEntry
           />
         </View>
+        <View style={styles.inputWrapper}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={24}
+            color="#666"
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            placeholderTextColor="#666"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+        </View>
       </View>
-      <TouchableOpacity style={styles.button} onPress={() => console.log('Signup pressed')}>
+      <TouchableOpacity style={styles.button} onPress={handleSignup}>
         <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
         <Text style={styles.linkText}>Already have an account? Log in</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -112,12 +266,12 @@ function SignupScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f2',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#f2f2f2",
+    alignItems: "center",
+    justifyContent: "center",
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
   },
   logo: {
@@ -127,20 +281,20 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   inputContainer: {
-    width: '80%',
+    width: "80%",
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     borderRadius: 25,
     marginBottom: 15,
     paddingHorizontal: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -156,22 +310,22 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 15,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   button: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
     paddingVertical: 15,
     paddingHorizontal: 50,
     borderRadius: 25,
     marginTop: 20,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   linkText: {
-    color: '#4CAF50',
+    color: "#4CAF50",
     fontSize: 16,
     marginTop: 20,
   },
