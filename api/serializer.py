@@ -3,57 +3,66 @@ from .models import Profile
 from django.contrib.auth.models import User
 
 
-class SignupSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(write_only=True)
+class SignupSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
-    email = serializers.EmailField(write_only=True)
-    phone_number = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = [
-            "username",
-            "password",
-            "confirm_password",
-            "phone_number",
-            "email",
-        ]
+    email = serializers.EmailField()
+    phone_number = serializers.CharField(max_length=20)
+    profile_picture = serializers.ImageField(required=False)
 
     def validate(self, data):
-        username = data.get("username")
-        email = data.get("email")
-        password = data.get("password")
-        confirm_password = data.get("confirm_password")
-        print(confirm_password)
-
-        if password != confirm_password:
+        if data["password"] != data["confirm_password"]:
             raise serializers.ValidationError(
                 {"confirm_password": "Passwords do not match"}
             )
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(username=data["username"]).exists():
             raise serializers.ValidationError({"username": "Username already exists"})
-
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email=data["email"]).exists():
             raise serializers.ValidationError({"email": "Email already exists"})
-
         return data
 
     def create(self, validated_data):
-        username = validated_data.pop("username")
-        password = validated_data.pop("password")
-        validated_data.pop(
-            "confirm_password"
-        )  # Remove confirm_password as it is not needed for User
+        username = validated_data["username"]
+        email = validated_data["email"]
+        password = validated_data["password"]
+        phone_number = validated_data["phone_number"]
+        profile_picture = validated_data.get("profile_picture")
 
-        # Create the user
-        new_user = User.objects.create_user(
-            username=username, password=password, email=validated_data.pop("email")
+        user = User.objects.create_user(
+            username=username, email=email, password=password
         )
 
-        # Update the user profile with the additional data
-        new_user.profile.phone_number = validated_data.get("phone_number")
-        new_user.profile.profile_picture = validated_data.get("profile_picture")
-        new_user.profile.save()
+        profile = Profile.objects.get(user=user)
+        profile.username = username  # Update username in Profile
+        profile.email = email  # Update email in Profile
+        profile.phone_number = phone_number
+        if profile_picture:
+            profile.profile_picture = profile_picture
+        profile.save()
 
-        return new_user
+        return user
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = [
+            "phone_number",
+            "email",
+            "profile_picture",
+            "updated",
+            "created",
+            "username",
+        ]
+        read_only_fields = ["updated", "created"]
+
+    def update(self, instance, validated_data):
+        instance.phone_number = validated_data.get(
+            "phone_number", instance.phone_number
+        )
+        instance.email = validated_data.get("email", instance.email)
+        if "profile_picture" in validated_data:
+            instance.profile_picture = validated_data["profile_picture"]
+        instance.save()
+        return instance

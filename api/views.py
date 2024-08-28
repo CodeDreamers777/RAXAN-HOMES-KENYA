@@ -10,6 +10,20 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth import get_user_model
+from django.middleware.csrf import get_token
+from django.http import JsonResponse
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import Profile
+from .serializer import ProfileSerializer
+
+
+User = get_user_model()
+
+
+def get_csrf_token(request):
+    return JsonResponse({"csrfToken": get_token(request)})
 
 
 class HealthCheckView(APIView):
@@ -22,19 +36,44 @@ class HealthCheckView(APIView):
         )
 
 
+class ProfileAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    @method_decorator(jwt_required)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def get(self, request):
+        profile = request.user.profile
+        serializer = ProfileSerializer(profile)
+        return Response(serializer.data)
+
+    def put(self, request):
+        profile = request.user.profile
+        serializer = ProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 class LoginView(APIView):
     def post(self, request):
         if request.user.is_authenticated:
             return Response({"success": True, "Message": "User already logged in"})
-
         try:
-            username = request.data.get("username").lower()
+            email = request.data.get("email").lower()
             password = request.data.get("password")
 
-            user = authenticate(request, username=username, password=password)
+            # Get the user by email
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response({"success": False, "Message": "User does not exist"})
 
-            if user is not None:
+            # Authenticate using email and password
+            if user.check_password(password):
                 login(request, user)
                 refresh = RefreshToken.for_user(user)
                 return Response(
@@ -47,8 +86,6 @@ class LoginView(APIView):
                 )
             else:
                 return Response({"success": False, "Message": "Invalid credentials"})
-        except User.DoesNotExist:
-            return Response({"success": False, "Message": "User does not exist"})
         except Exception as e:
             return Response(
                 {"success": False, "error": str(e)},
@@ -56,6 +93,22 @@ class LoginView(APIView):
             )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
+class LogoutView(APIView):
+    permission_classes = [
+        IsAuthenticated
+    ]  # Ensures the user must be authenticated to log out
+
+    def post(self, request):
+        # Use Django's logout method to log the user out
+        logout(request)
+        return Response(
+            {"success": True, "message": "User logged out successfully"},
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class SignupView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = SignupSerializer(data=request.data)
