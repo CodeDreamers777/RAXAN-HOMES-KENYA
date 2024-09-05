@@ -17,6 +17,7 @@ from django.http import JsonResponse
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Profile
 from .serializer import ProfileSerializer
+from .utils.send_mail import send_email_via_mailgun
 
 
 User = get_user_model()
@@ -24,6 +25,31 @@ User = get_user_model()
 
 def get_csrf_token(request):
     return JsonResponse({"csrfToken": get_token(request)})
+
+
+class SendEmailView(APIView):
+    def get(self, request):
+        # Hardcoded email data for testing
+        subject = "Test Email from Django"
+        text = "This is a test email sent from Django REST Framework using Mailgun."
+        to_email = (
+            "crispusgikonyo@gmail.com"  # Replace with the actual recipient's email
+        )
+
+        # Call the Mailgun utility function
+        response = send_email_via_mailgun(subject, text, to_email)
+        print("This is res", response)
+
+        # Check the response from Mailgun
+        if response.status_code == 200:
+            return Response(
+                {"message": "Email sent successfully!"}, status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"error": f"Failed to send email: {response.text}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class HealthCheckView(APIView):
