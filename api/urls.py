@@ -10,4 +10,15 @@ urlpatterns = [
     path("get-csrf-token/", views.get_csrf_token),
     path("profile/", views.ProfileAPIView.as_view()),
     path("send-mail/", views.SendEmailView.as_view()),
+    path("properties/", views.PropertyListView.as_view(), name="property-list"),
+    path(
+        "rental-properties/",
+        views.CreateRentalPropertyView.as_view(),
+        name="create-rental-property",
+    ),
+    path(
+        "properties-for-sale/",
+        views.CreatePropertyForSaleView.as_view(),
+        name="create-property-for-sale",
+    ),
 ]

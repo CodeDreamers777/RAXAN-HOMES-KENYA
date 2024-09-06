@@ -43,7 +43,6 @@ class BaseProperty(models.Model):
         ("APT", "Apartment"),
         ("HOUSE", "House"),
         ("VILLA", "Villa"),
-        ("LAND", "Land"),
         ("OTHER", "Other"),
     ]
 
@@ -81,6 +80,7 @@ class RentalProperty(BaseProperty):
         )
 
 
+# todo add finished and offplan
 class PropertyForSale(BaseProperty):
     price = models.DecimalField(max_digits=12, decimal_places=2)
     is_sold = models.BooleanField(default=False)

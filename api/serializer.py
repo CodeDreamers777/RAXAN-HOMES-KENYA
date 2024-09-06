@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Profile
+from .models import Profile, RentalProperty, PropertyForSale, PropertyImage, Amenity
 from django.contrib.auth.models import User
 
 
@@ -66,3 +66,53 @@ class ProfileSerializer(serializers.ModelSerializer):
             instance.profile_picture = validated_data["profile_picture"]
         instance.save()
         return instance
+
+
+class AmenitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Amenity
+        fields = ["id", "name"]
+
+
+class PropertyImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyImage
+        fields = ["id", "image"]
+
+
+class BasePropertySerializer(serializers.ModelSerializer):
+    amenities = AmenitySerializer(many=True)
+    images = PropertyImageSerializer(many=True, read_only=True)
+
+    class Meta:
+        fields = [
+            "id",
+            "name",
+            "description",
+            "location",
+            "property_type",
+            "bedrooms",
+            "bathrooms",
+            "area",
+            "amenities",
+            "host",
+            "images",
+        ]
+
+
+class RentalPropertySerializer(BasePropertySerializer):
+    class Meta(BasePropertySerializer.Meta):
+        model = RentalProperty
+        fields = BasePropertySerializer.Meta.fields + [
+            "price_per_night",
+            "max_guests",
+            "check_in_time",
+            "check_out_time",
+            "is_available",
+        ]
+
+
+class PropertyForSaleSerializer(BasePropertySerializer):
+    class Meta(BasePropertySerializer.Meta):
+        model = PropertyForSale
+        fields = BasePropertySerializer.Meta.fields + ["price", "is_sold", "year_built"]
