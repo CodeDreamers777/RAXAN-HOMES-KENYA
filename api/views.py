@@ -152,6 +152,7 @@ class SignupView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class PropertyListView(generics.ListAPIView):
     @method_decorator(jwt_required)
     def dispatch(self, *args, **kwargs):
@@ -182,6 +183,7 @@ class PropertyListView(generics.ListAPIView):
         )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class CreateRentalPropertyView(generics.CreateAPIView):
     queryset = RentalProperty.objects.all()
     serializer_class = RentalPropertySerializer
@@ -200,6 +202,7 @@ class CreateRentalPropertyView(generics.CreateAPIView):
         )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class CreatePropertyForSaleView(generics.CreateAPIView):
     queryset = PropertyForSale.objects.all()
     serializer_class = PropertyForSaleSerializer
