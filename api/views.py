@@ -191,9 +191,9 @@ class PropertyViewSet(viewsets.ViewSet):
             serializer = PropertyForSaleSerializer(property)
         return Response(serializer.data)
 
-    def create(self, request):
+def create(self, request):
+        logger.info(f"Received create request with data: {request.data}")
         property_type = request.data.get("property_category")
-        print("This is data", request.data)
         if property_type == "rental":
             serializer = RentalPropertySerializer(data=request.data)
         elif property_type == "sale":
@@ -204,9 +204,12 @@ class PropertyViewSet(viewsets.ViewSet):
             )
 
         if serializer.is_valid():
+            logger.info("Serializer is valid")
             profile, created = Profile.objects.get_or_create(user=request.user)
             property = serializer.save(host=profile)
+            logger.info(f"Property created with id: {property.id}")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        logger.error(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):

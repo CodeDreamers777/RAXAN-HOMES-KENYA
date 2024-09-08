@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import Profile, RentalProperty, PropertyForSale, PropertyImage, Amenity
 from django.contrib.auth.models import User
+import logging
+import json
 
 
 class SignupSerializer(serializers.Serializer):
@@ -68,6 +70,9 @@ class ProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
+logger = logging.getLogger(__name__)
+
+
 class PropertyImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyImage
@@ -88,7 +93,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
         ),
         write_only=True,
         required=False,
-        source="images",  # This maps 'images' from the request to 'uploaded_images' in the serializer
+        source="images",
     )
     host = serializers.PrimaryKeyRelatedField(read_only=True)
     amenities = serializers.ListField(
@@ -113,16 +118,20 @@ class BasePropertySerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+        logger.info(f"Creating property with data: {validated_data}")
         amenities_data = validated_data.pop("amenities", [])
         uploaded_images = validated_data.pop("images", [])
+        logger.info(f"Uploaded images: {uploaded_images}")
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
         self._handle_images(instance, uploaded_images)
         return instance
 
     def update(self, instance, validated_data):
+        logger.info(f"Updating property with data: {validated_data}")
         amenities_data = validated_data.pop("amenities", None)
         uploaded_images = validated_data.pop("images", [])
+        logger.info(f"Uploaded images: {uploaded_images}")
         instance = super().update(instance, validated_data)
         if amenities_data is not None:
             self._handle_amenities(instance, amenities_data)
@@ -134,7 +143,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
             try:
                 amenities_data = json.loads(amenities_data)
             except json.JSONDecodeError:
-                amenities_data = [amenities_data]  # treat it as a single amenity
+                amenities_data = [amenities_data]
         amenities = []
         for name in amenities_data:
             amenity, _ = Amenity.objects.get_or_create(name=name.strip().lower())
@@ -142,8 +151,15 @@ class BasePropertySerializer(serializers.ModelSerializer):
         instance.amenities.set(amenities)
 
     def _handle_images(self, instance, image_files):
+        logger.info(f"Handling images for property {instance.id}")
+        logger.info(f"Number of image files: {len(image_files)}")
         for image_file in image_files:
-            PropertyImage.objects.create(property=instance, image=image_file)
+            try:
+                logger.info(f"Attempting to save image: {image_file}")
+                PropertyImage.objects.create(property=instance, image=image_file)
+                logger.info("Image saved successfully")
+            except Exception as e:
+                logger.error(f"Error saving image: {str(e)}")
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
