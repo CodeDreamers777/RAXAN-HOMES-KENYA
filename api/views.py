@@ -194,7 +194,7 @@ class PropertyViewSet(viewsets.ViewSet):
             serializer = PropertyForSaleSerializer(property)
         return Response(serializer.data)
 
-def create(self, request):
+    def create(self, request):
         logger.info(f"Received create request with data: {request.data}")
         property_type = request.data.get("property_category")
         if property_type == "rental":
