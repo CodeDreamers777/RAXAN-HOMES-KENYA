@@ -198,10 +198,15 @@ class PropertyViewSet(viewsets.ViewSet):
         print(f"Received create request with data: {request.data}")
         print(f"Files in request: {request.FILES}")
         property_type = request.data.get("property_category")
+
+        # Prepare the data for the serializer
+        serializer_data = request.data.copy()
+        serializer_data["uploaded_images"] = request.FILES.getlist("images")
+
         if property_type == "rental":
-            serializer = RentalPropertySerializer(data=request.data)
+            serializer = RentalPropertySerializer(data=serializer_data)
         elif property_type == "sale":
-            serializer = PropertyForSaleSerializer(data=request.data)
+            serializer = PropertyForSaleSerializer(data=serializer_data)
         else:
             return Response(
                 {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
@@ -213,6 +218,7 @@ class PropertyViewSet(viewsets.ViewSet):
             property = serializer.save(host=profile)
             print(f"Property created with id: {property.id}")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         print(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
