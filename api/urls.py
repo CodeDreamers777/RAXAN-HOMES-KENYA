@@ -1,6 +1,10 @@
 from django.urls import path
 from . import views
+from rest_framework.routers import DefaultRouter
 
+# Create a router and register our viewset with it.
+router = DefaultRouter()
+router.register(r"properties", views.PropertyViewSet, basename="property")
 
 urlpatterns = [
     path("health-check/", views.HealthCheckView.as_view()),
@@ -10,15 +14,6 @@ urlpatterns = [
     path("get-csrf-token/", views.get_csrf_token),
     path("profile/", views.ProfileAPIView.as_view()),
     path("send-mail/", views.SendEmailView.as_view()),
-    path("properties/", views.PropertyListView.as_view(), name="property-list"),
-    path(
-        "rental-properties/",
-        views.CreateRentalPropertyView.as_view(),
-        name="create-rental-property",
-    ),
-    path(
-        "properties-for-sale/",
-        views.CreatePropertyForSaleView.as_view(),
-        name="create-property-for-sale",
-    ),
+    # Include the router URLs in our urlpatterns
+    *router.urls,
 ]

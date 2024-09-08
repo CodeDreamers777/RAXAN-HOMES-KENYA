@@ -4,7 +4,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .utils.decorator import jwt_required
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status, generics
+from rest_framework import status, viewsets
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
@@ -16,7 +16,7 @@ from django.middleware.csrf import get_token
 from django.http import JsonResponse
 from collections import defaultdict
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import RentalProperty, PropertyForSale
+from .models import RentalProperty, PropertyForSale, Profile
 from .serializer import (
     RentalPropertySerializer,
     PropertyForSaleSerializer,
@@ -153,69 +153,83 @@ class SignupView(APIView):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class PropertyListView(generics.ListAPIView):
-    @method_decorator(jwt_required)
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
+class PropertyViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
 
-    def list(self, request, *args, **kwargs):
+    def get_queryset(self):
         rental_properties = RentalProperty.objects.all()
         properties_for_sale = PropertyForSale.objects.all()
+        return list(rental_properties) + list(properties_for_sale)
 
-        rental_serializer = RentalPropertySerializer(rental_properties, many=True)
-        sale_serializer = PropertyForSaleSerializer(properties_for_sale, many=True)
+    def get_object(self, pk):
+        try:
+            return RentalProperty.objects.get(pk=pk)
+        except RentalProperty.DoesNotExist:
+            try:
+                return PropertyForSale.objects.get(pk=pk)
+            except PropertyForSale.DoesNotExist:
+                return None
 
-        # Categorize rental properties by property type
-        rental_by_type = defaultdict(list)
-        for prop in rental_serializer.data:
-            rental_by_type[prop["property_type"]].append(prop)
+    def list(self, request):
+        queryset = self.get_queryset()
+        serialized_data = []
+        for property in queryset:
+            if isinstance(property, RentalProperty):
+                serializer = RentalPropertySerializer(property)
+            else:
+                serializer = PropertyForSaleSerializer(property)
+            serialized_data.append(serializer.data)
+        return Response(serialized_data)
 
-        # Categorize properties for sale by property type
-        sale_by_type = defaultdict(list)
-        for prop in sale_serializer.data:
-            sale_by_type[prop["property_type"]].append(prop)
+    def retrieve(self, request, pk=None):
+        property = self.get_object(pk)
+        if property is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
-        return Response(
-            {
-                "rental_properties": dict(rental_by_type),
-                "properties_for_sale": dict(sale_by_type),
-            }
-        )
+        if isinstance(property, RentalProperty):
+            serializer = RentalPropertySerializer(property)
+        else:
+            serializer = PropertyForSaleSerializer(property)
+        return Response(serializer.data)
 
+    def create(self, request):
+        property_type = request.data.get("property_type")
+        if property_type == "rental":
+            serializer = RentalPropertySerializer(data=request.data)
+        elif property_type == "sale":
+            serializer = PropertyForSaleSerializer(data=request.data)
+        else:
+            return Response(
+                {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-@method_decorator(csrf_exempt, name="dispatch")
-class CreateRentalPropertyView(generics.CreateAPIView):
-    queryset = RentalProperty.objects.all()
-    serializer_class = RentalPropertySerializer
+        if serializer.is_valid():
+            profile, created = Profile.objects.get_or_create(user=request.user)
+            property = serializer.save(host=profile)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @method_decorator(jwt_required)
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
+    def update(self, request, pk=None):
+        property = self.get_object(pk)
+        if property is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(
-            serializer.data, status=status.HTTP_201_CREATED, headers=headers
-        )
+        if property.host.user != request.user:
+            return Response(
+                {"error": "You do not have permission to update this property"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
+        if isinstance(property, RentalProperty):
+            serializer = RentalPropertySerializer(
+                property, data=request.data, partial=True
+            )
+        else:
+            serializer = PropertyForSaleSerializer(
+                property, data=request.data, partial=True
+            )
 
-@method_decorator(csrf_exempt, name="dispatch")
-class CreatePropertyForSaleView(generics.CreateAPIView):
-    queryset = PropertyForSale.objects.all()
-    serializer_class = PropertyForSaleSerializer
-
-    @method_decorator(jwt_required)
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(
-            serializer.data, status=status.HTTP_201_CREATED, headers=headers
-        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

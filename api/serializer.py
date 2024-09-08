@@ -68,12 +68,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
-class AmenitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Amenity
-        fields = ["id", "name"]
-
-
 class PropertyImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyImage
@@ -81,10 +75,11 @@ class PropertyImageSerializer(serializers.ModelSerializer):
 
 
 class BasePropertySerializer(serializers.ModelSerializer):
-    amenities = AmenitySerializer(many=True)
     images = PropertyImageSerializer(many=True, read_only=True)
+    host = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
+        abstract = True
         fields = [
             "id",
             "name",
