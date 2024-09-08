@@ -82,6 +82,13 @@ class AmenitySerializer(serializers.ModelSerializer):
 
 class BasePropertySerializer(serializers.ModelSerializer):
     images = PropertyImageSerializer(many=True, read_only=True)
+    uploaded_images = serializers.ListField(
+        child=serializers.ImageField(
+            max_length=1000000, allow_empty_file=False, use_url=False
+        ),
+        write_only=True,
+        required=False,
+    )
     host = serializers.PrimaryKeyRelatedField(read_only=True)
     amenities = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
@@ -101,19 +108,24 @@ class BasePropertySerializer(serializers.ModelSerializer):
             "amenities",
             "host",
             "images",
+            "uploaded_images",
         ]
 
     def create(self, validated_data):
         amenities_data = validated_data.pop("amenities", [])
+        uploaded_images = validated_data.pop("uploaded_images", [])
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
+        self._handle_images(instance, uploaded_images)
         return instance
 
     def update(self, instance, validated_data):
         amenities_data = validated_data.pop("amenities", None)
+        uploaded_images = validated_data.pop("uploaded_images", [])
         instance = super().update(instance, validated_data)
         if amenities_data is not None:
             self._handle_amenities(instance, amenities_data)
+        self._handle_images(instance, uploaded_images)
         return instance
 
     def _handle_amenities(self, instance, amenities_data):
@@ -122,6 +134,10 @@ class BasePropertySerializer(serializers.ModelSerializer):
             amenity, _ = Amenity.objects.get_or_create(name=name.strip().lower())
             amenities.append(amenity)
         instance.amenities.set(amenities)
+
+    def _handle_images(self, instance, image_files):
+        for image_file in image_files:
+            PropertyImage.objects.create(property=instance, image=image_file)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
