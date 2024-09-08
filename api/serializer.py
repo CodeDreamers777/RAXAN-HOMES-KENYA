@@ -74,9 +74,18 @@ class PropertyImageSerializer(serializers.ModelSerializer):
         fields = ["id", "image"]
 
 
+class AmenitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Amenity
+        fields = ["id", "name"]
+
+
 class BasePropertySerializer(serializers.ModelSerializer):
     images = PropertyImageSerializer(many=True, read_only=True)
     host = serializers.PrimaryKeyRelatedField(read_only=True)
+    amenities = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
 
     class Meta:
         abstract = True
@@ -93,6 +102,33 @@ class BasePropertySerializer(serializers.ModelSerializer):
             "host",
             "images",
         ]
+
+    def create(self, validated_data):
+        amenities_data = validated_data.pop("amenities", [])
+        instance = super().create(validated_data)
+        self._handle_amenities(instance, amenities_data)
+        return instance
+
+    def update(self, instance, validated_data):
+        amenities_data = validated_data.pop("amenities", None)
+        instance = super().update(instance, validated_data)
+        if amenities_data is not None:
+            self._handle_amenities(instance, amenities_data)
+        return instance
+
+    def _handle_amenities(self, instance, amenities_data):
+        amenities = []
+        for name in amenities_data:
+            amenity, _ = Amenity.objects.get_or_create(name=name.strip().lower())
+            amenities.append(amenity)
+        instance.amenities.set(amenities)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["amenities"] = AmenitySerializer(
+            instance.amenities.all(), many=True
+        ).data
+        return representation
 
 
 class RentalPropertySerializer(BasePropertySerializer):

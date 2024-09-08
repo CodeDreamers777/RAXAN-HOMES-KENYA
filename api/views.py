@@ -204,25 +204,7 @@ class PropertyViewSet(viewsets.ViewSet):
 
         if serializer.is_valid():
             profile, created = Profile.objects.get_or_create(user=request.user)
-
-            # Create the property without saving it to the database yet
-            property = serializer.save(host=profile, commit=False)
-
-            # Process amenities
-            amenity_names = request.data.get("amenities", [])
-            amenities = []
-            for name in amenity_names:
-                amenity, created = Amenity.objects.get_or_create(
-                    name=name.strip().lower()
-                )
-                amenities.append(amenity)
-
-            # Save the property to the database
-            property.save()
-
-            # Add amenities to the property
-            property.amenities.set(amenities)
-
+            property = serializer.save(host=profile)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -244,18 +226,6 @@ class PropertyViewSet(viewsets.ViewSet):
                 property, data=request.data, partial=True
             )
         if serializer.is_valid():
-            updated_property = serializer.save()
-
-            # Process amenities
-            amenity_names = request.data.get("amenities", [])
-            if amenity_names:
-                amenities = []
-                for name in amenity_names:
-                    amenity, created = Amenity.objects.get_or_create(
-                        name=name.strip().lower()
-                    )
-                    amenities.append(amenity)
-                updated_property.amenities.set(amenities)
-
+            serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
