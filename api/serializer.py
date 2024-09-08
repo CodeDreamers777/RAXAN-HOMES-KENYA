@@ -88,6 +88,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
         ),
         write_only=True,
         required=False,
+        source="images",  # This maps 'images' from the request to 'uploaded_images' in the serializer
     )
     host = serializers.PrimaryKeyRelatedField(read_only=True)
     amenities = serializers.ListField(
@@ -113,7 +114,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         amenities_data = validated_data.pop("amenities", [])
-        uploaded_images = validated_data.pop("uploaded_images", [])
+        uploaded_images = validated_data.pop("images", [])
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
         self._handle_images(instance, uploaded_images)
@@ -121,7 +122,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         amenities_data = validated_data.pop("amenities", None)
-        uploaded_images = validated_data.pop("uploaded_images", [])
+        uploaded_images = validated_data.pop("images", [])
         instance = super().update(instance, validated_data)
         if amenities_data is not None:
             self._handle_amenities(instance, amenities_data)
@@ -129,6 +130,11 @@ class BasePropertySerializer(serializers.ModelSerializer):
         return instance
 
     def _handle_amenities(self, instance, amenities_data):
+        if isinstance(amenities_data, str):
+            try:
+                amenities_data = json.loads(amenities_data)
+            except json.JSONDecodeError:
+                amenities_data = [amenities_data]  # treat it as a single amenity
         amenities = []
         for name in amenities_data:
             amenity, _ = Amenity.objects.get_or_create(name=name.strip().lower())
