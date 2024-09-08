@@ -16,7 +16,7 @@ from django.middleware.csrf import get_token
 from django.http import JsonResponse
 from collections import defaultdict
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import RentalProperty, PropertyForSale, Profile
+from .models import RentalProperty, PropertyForSale, Profile, Amenity
 from .serializer import (
     RentalPropertySerializer,
     PropertyForSaleSerializer,
@@ -185,7 +185,6 @@ class PropertyViewSet(viewsets.ViewSet):
         property = self.get_object(pk)
         if property is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
-
         if isinstance(property, RentalProperty):
             serializer = RentalPropertySerializer(property)
         else:
@@ -205,7 +204,25 @@ class PropertyViewSet(viewsets.ViewSet):
 
         if serializer.is_valid():
             profile, created = Profile.objects.get_or_create(user=request.user)
-            property = serializer.save(host=profile)
+
+            # Create the property without saving it to the database yet
+            property = serializer.save(host=profile, commit=False)
+
+            # Process amenities
+            amenity_names = request.data.get("amenities", [])
+            amenities = []
+            for name in amenity_names:
+                amenity, created = Amenity.objects.get_or_create(
+                    name=name.strip().lower()
+                )
+                amenities.append(amenity)
+
+            # Save the property to the database
+            property.save()
+
+            # Add amenities to the property
+            property.amenities.set(amenities)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -213,13 +230,11 @@ class PropertyViewSet(viewsets.ViewSet):
         property = self.get_object(pk)
         if property is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
-
         if property.host.user != request.user:
             return Response(
                 {"error": "You do not have permission to update this property"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         if isinstance(property, RentalProperty):
             serializer = RentalPropertySerializer(
                 property, data=request.data, partial=True
@@ -228,8 +243,19 @@ class PropertyViewSet(viewsets.ViewSet):
             serializer = PropertyForSaleSerializer(
                 property, data=request.data, partial=True
             )
-
         if serializer.is_valid():
-            serializer.save()
+            updated_property = serializer.save()
+
+            # Process amenities
+            amenity_names = request.data.get("amenities", [])
+            if amenity_names:
+                amenities = []
+                for name in amenity_names:
+                    amenity, created = Amenity.objects.get_or_create(
+                        name=name.strip().lower()
+                    )
+                    amenities.append(amenity)
+                updated_property.amenities.set(amenities)
+
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
