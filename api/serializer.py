@@ -3,6 +3,7 @@ from .models import Profile, RentalProperty, PropertyForSale, PropertyImage, Ame
 from django.contrib.auth.models import User
 import logging
 import json
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
 class SignupSerializer(serializers.Serializer):
@@ -118,20 +119,20 @@ class BasePropertySerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        logger.info(f"Creating property with data: {validated_data}")
+        print(f"Creating property with data: {validated_data}")
         amenities_data = validated_data.pop("amenities", [])
         uploaded_images = validated_data.pop("images", [])
-        logger.info(f"Uploaded images: {uploaded_images}")
+        print(f"Uploaded images: {uploaded_images}")
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
         self._handle_images(instance, uploaded_images)
         return instance
 
     def update(self, instance, validated_data):
-        logger.info(f"Updating property with data: {validated_data}")
+        print(f"Updating property with data: {validated_data}")
         amenities_data = validated_data.pop("amenities", None)
         uploaded_images = validated_data.pop("images", [])
-        logger.info(f"Uploaded images: {uploaded_images}")
+        print(f"Uploaded images: {uploaded_images}")
         instance = super().update(instance, validated_data)
         if amenities_data is not None:
             self._handle_amenities(instance, amenities_data)
@@ -139,27 +140,62 @@ class BasePropertySerializer(serializers.ModelSerializer):
         return instance
 
     def _handle_amenities(self, instance, amenities_data):
+        print(f"Handling amenities: {amenities_data}")
         if isinstance(amenities_data, str):
             try:
                 amenities_data = json.loads(amenities_data)
             except json.JSONDecodeError:
                 amenities_data = [amenities_data]
+
+        if (
+            isinstance(amenities_data, list)
+            and len(amenities_data) == 1
+            and isinstance(amenities_data[0], str)
+        ):
+            try:
+                amenities_data = json.loads(amenities_data[0])
+            except json.JSONDecodeError:
+                pass  # Keep it as is if it's not a valid JSON string
+
         amenities = []
         for name in amenities_data:
-            amenity, _ = Amenity.objects.get_or_create(name=name.strip().lower())
+            name = name.strip().lower()
+            print(f"Processing amenity: {name}")
+            amenity, _ = Amenity.objects.get_or_create(name=name)
             amenities.append(amenity)
         instance.amenities.set(amenities)
+        print(f"Amenities set for property {instance.id}: {amenities}")
 
     def _handle_images(self, instance, image_files):
-        logger.info(f"Handling images for property {instance.id}")
-        logger.info(f"Number of image files: {len(image_files)}")
+        print(f"Handling images for property {instance.id}")
+        print(f"Number of image files: {len(image_files)}")
         for image_file in image_files:
             try:
-                logger.info(f"Attempting to save image: {image_file}")
-                PropertyImage.objects.create(property=instance, image=image_file)
-                logger.info("Image saved successfully")
+                print(f"Attempting to save image: {image_file}")
+                if isinstance(image_file, InMemoryUploadedFile):
+                    print(f"Image file name: {image_file.name}")
+                    print(f"Image file size: {image_file.size}")
+                    print(f"Image file content type: {image_file.content_type}")
+
+                    # Try to read the file content
+                    file_content = image_file.read()
+                    print(
+                        f"Successfully read {len(file_content)} bytes from the image file"
+                    )
+
+                    # Important: Seek back to the beginning of the file
+                    image_file.seek(0)
+
+                    new_image = PropertyImage(property=instance, image=image_file)
+                    new_image.save()
+                    print(f"Image saved successfully with id: {new_image.id}")
+                else:
+                    print(f"Unexpected type for image_file: {type(image_file)}")
             except Exception as e:
-                logger.error(f"Error saving image: {str(e)}")
+                print(f"Error saving image: {str(e)}")
+                import traceback
+
+                print(traceback.format_exc())
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
