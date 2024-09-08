@@ -23,6 +23,9 @@ from .serializer import (
     ProfileSerializer,
 )
 from .utils.send_mail import send_email_via_mailgun
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 User = get_user_model()
