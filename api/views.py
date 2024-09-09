@@ -162,7 +162,7 @@ class PropertyViewSet(viewsets.ViewSet):
     def get_queryset(self):
         rental_properties = RentalProperty.objects.all()
         properties_for_sale = PropertyForSale.objects.all()
-        return list(rental_properties) + list(properties_for_sale)
+        return rental_properties, properties_for_sale
 
     def get_object(self, pk):
         try:
@@ -174,15 +174,27 @@ class PropertyViewSet(viewsets.ViewSet):
                 return None
 
     def list(self, request):
-        queryset = self.get_queryset()
-        serialized_data = []
-        for property in queryset:
-            if isinstance(property, RentalProperty):
-                serializer = RentalPropertySerializer(property)
-            else:
-                serializer = PropertyForSaleSerializer(property)
-            serialized_data.append(serializer.data)
-        return Response(serialized_data)
+        rental_properties, properties_for_sale = self.get_queryset()
+
+        # Serialize the rental properties
+        rental_property_serializer = RentalPropertySerializer(
+            rental_properties, many=True
+        )
+        rental_properties_data = rental_property_serializer.data
+
+        # Serialize the properties for sale
+        property_for_sale_serializer = PropertyForSaleSerializer(
+            properties_for_sale, many=True
+        )
+        properties_for_sale_data = property_for_sale_serializer.data
+
+        # Return the categorized data
+        return Response(
+            {
+                "rental_properties": rental_properties_data,
+                "properties_for_sale": properties_for_sale_data,
+            }
+        )
 
     def retrieve(self, request, pk=None):
         property = self.get_object(pk)
