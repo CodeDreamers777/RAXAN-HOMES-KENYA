@@ -1,13 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity, Modal, Alert, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useEffect } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  Modal,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import AddPropertyPage from "./AddProperty";
 
 // Import default user profile image
-import defaultUserProfileImage from './assets/user-profile.jpg';
+import defaultUserProfileImage from "../../assets/user-profile.jpg";
 
-const API_BASE_URL = "https://k031s30h-8000.euw.devtunnels.ms";
+const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
 const fetchCSRFToken = async () => {
   try {
@@ -25,11 +36,15 @@ const fetchCSRFToken = async () => {
 
 function ProfileScreen() {
   const [showModal, setShowModal] = useState(false);
-  const [csrfToken, setCSRFToken] = useState('');
+  const [csrfToken, setCSRFToken] = useState("");
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const navigation = useNavigation();
+
+  const handleAddPlace = () => {
+    navigation.navigate("AddProperty");
+  };
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -37,29 +52,31 @@ function ProfileScreen() {
         const token = await fetchCSRFToken();
         setCSRFToken(token);
 
-        const accessToken = await AsyncStorage.getItem('accessToken');
+        const accessToken = await AsyncStorage.getItem("accessToken");
         if (!accessToken) {
-          throw new Error('No access token found');
+          throw new Error("No access token found");
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
+const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        Referer: API_BASE_URL, // Set the Referer header
+      },
+    });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch profile');
+          console.log(response)
+          throw new Error("Failed to fetch profile");
         }
 
         const profileData = await response.json();
         console.log(profileData);
         setProfile(profileData);
       } catch (error) {
-        console.error('Error fetching profile:', error);
-        Alert.alert('Error', 'Failed to load profile. Please try again.');
+        console.error("Error fetching profile:", error);
+        Alert.alert("Error", "Failed to load profile. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -71,28 +88,37 @@ function ProfileScreen() {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      const accessToken = await AsyncStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/api/v1/logout/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken,
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        credentials: 'include',
-      });
+      const accessToken = await AsyncStorage.getItem("accessToken");
+ const response = await fetch(`${API_BASE_URL}/api/v1/logout/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
+        Authorization: `Bearer ${accessToken}`,
+        Referer: API_BASE_URL, // Set the Referer header
+      },
+      credentials: "include",
+    });
 
       const data = await response.json();
+      console.log(data)
 
       if (data.success) {
-        await AsyncStorage.removeItem('accessToken');
-        navigation.navigate('Login');
+        await AsyncStorage.removeItem("accessToken");
+        navigation.navigate("Login");
       } else {
-        Alert.alert('Logout Failed', data.message || 'An error occurred while logging out. Please try again.');
+        Alert.alert(
+          "Logout Failed",
+          data.message ||
+            "An error occurred while logging out. Please try again.",
+        );
       }
     } catch (error) {
-      console.error('Logout error:', error);
-      Alert.alert('Error', 'An error occurred while logging out. Please try again.');
+      console.error("Logout error:", error);
+      Alert.alert(
+        "Error",
+        "An error occurred while logging out. Please try again.",
+      );
     } finally {
       setLoggingOut(false);
     }
@@ -109,14 +135,20 @@ function ProfileScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.profileHeader}>
-        <Image 
-          source={profile?.profile_picture ? { uri: profile.profile_picture } : defaultUserProfileImage} 
-          style={styles.profileImage} 
+        <Image
+          source={
+            profile?.profile_picture
+              ? { uri: profile.profile_picture }
+              : defaultUserProfileImage
+          }
+          style={styles.profileImage}
         />
         <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>{profile?.username || 'N/A'}</Text>
-          <Text style={styles.profileEmail}>{profile?.email || 'N/A'}</Text>
-          <Text style={styles.profilePhone}>{profile?.phone_number || 'Phone not provided'}</Text>
+          <Text style={styles.profileName}>{profile?.username || "N/A"}</Text>
+          <Text style={styles.profileEmail}>{profile?.email || "N/A"}</Text>
+          <Text style={styles.profilePhone}>
+            {profile?.phone_number || "Phone not provided"}
+          </Text>
           <TouchableOpacity style={styles.editProfileButton}>
             <Ionicons name="pencil" size={18} color="#4CAF50" />
             <Text style={styles.editProfileText}>Edit Profile</Text>
@@ -124,8 +156,8 @@ function ProfileScreen() {
         </View>
       </View>
 
-      <View style={styles.profileSection}>
-        <TouchableOpacity style={styles.addPlaceButton}>
+ <View style={styles.profileSection}>
+        <TouchableOpacity style={styles.addPlaceButton} onPress={handleAddPlace}>
           <Text style={styles.addPlaceText}>Add your place</Text>
         </TouchableOpacity>
       </View>
@@ -138,7 +170,11 @@ function ProfileScreen() {
       </View>
 
       <View style={styles.profileSection}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} disabled={loggingOut}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          disabled={loggingOut}
+        >
           {loggingOut ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
@@ -156,14 +192,22 @@ function ProfileScreen() {
             <Text style={styles.modalTitle}>Profile</Text>
           </View>
           <View style={styles.modalContent}>
-            <Image 
-              source={profile?.profile_picture ? { uri: profile.profile_picture } : defaultUserProfileImage} 
-              style={styles.profileImage} 
+            <Image
+              source={
+                profile?.profile_picture
+                  ? { uri: profile.profile_picture }
+                  : defaultUserProfileImage
+              }
+              style={styles.profileImage}
             />
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profile?.user?.username || 'N/A'}</Text>
-              <Text style={styles.profileEmail}>{profile?.email || 'N/A'}</Text>
-              <Text style={styles.profilePhone}>{profile?.phone_number || 'Phone not provided'}</Text>
+              <Text style={styles.profileName}>
+                {profile?.user?.username || "N/A"}
+              </Text>
+              <Text style={styles.profileEmail}>{profile?.email || "N/A"}</Text>
+              <Text style={styles.profilePhone}>
+                {profile?.phone_number || "Phone not provided"}
+              </Text>
               <TouchableOpacity style={styles.editProfileButton}>
                 <Ionicons name="pencil" size={18} color="#4CAF50" />
                 <Text style={styles.editProfileText}>Edit Profile</Text>
@@ -183,8 +227,8 @@ const styles = StyleSheet.create({
   },
   loaderContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: "#f2f2f2",
   },
   profileHeader: {

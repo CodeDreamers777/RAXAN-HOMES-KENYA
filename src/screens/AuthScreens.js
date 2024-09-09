@@ -12,9 +12,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import raxanLogo from "./assets/raxan-logo.jpeg";
+import raxanLogo from "../../assets/raxan-logo.jpeg";
 
-const API_BASE_URL = "https://k031s30h-8000.euw.devtunnels.ms";
+const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
 const fetchCSRFToken = async () => {
   try {
@@ -23,6 +23,7 @@ const fetchCSRFToken = async () => {
       credentials: "include",
     });
     const data = await response.json();
+    console.log(data)
     return data.csrfToken;
   } catch (error) {
     console.error("Error fetching CSRF token:", error);
@@ -52,6 +53,8 @@ function LoginScreen({ navigation }) {
         headers: {
           "Content-Type": "application/json",
           "X-CSRFToken": csrfToken,
+                  Referer: API_BASE_URL, // Set the Referer header
+
         },
         body: JSON.stringify({
           email: email,
@@ -61,6 +64,7 @@ function LoginScreen({ navigation }) {
       });
 
       const data = await response.json();
+      console.log(data)
 
       if (data.success) {
         if (
@@ -70,21 +74,23 @@ function LoginScreen({ navigation }) {
           if (data.access) {
             await AsyncStorage.setItem("accessToken", data.access);
           } else {
-            console.warn("Access token is undefined. Not storing in AsyncStorage.");
+            console.warn(
+              "Access token is undefined. Not storing in AsyncStorage.",
+            );
           }
           navigation.navigate("Home");
         }
       } else {
         Alert.alert(
           "Login Failed",
-          "Please check your credentials and try again."
+          "Please check your credentials and try again.",
         );
       }
     } catch (error) {
       console.error("Login error:", error);
       Alert.alert(
         "Error",
-        "An error occurred while logging in. Please try again."
+        "An error occurred while logging in. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -132,7 +138,11 @@ function LoginScreen({ navigation }) {
           />
         </View>
       </View>
-      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={isLoading}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
         {isLoading ? (
           <ActivityIndicator color="#fff" />
         ) : (
@@ -176,6 +186,8 @@ function SignupScreen({ navigation }) {
         headers: {
           "Content-Type": "application/json",
           "X-CSRFToken": csrfToken,
+                  Referer: API_BASE_URL, // Set the Referer header
+
         },
         body: JSON.stringify({
           username,
@@ -207,7 +219,7 @@ function SignupScreen({ navigation }) {
       console.error("Signup error:", error);
       Alert.alert(
         "Error",
-        "An error occurred while signing up. Please try again."
+        "An error occurred while signing up. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -302,7 +314,11 @@ function SignupScreen({ navigation }) {
           />
         </View>
       </View>
-      <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={isLoading}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleSignup}
+        disabled={isLoading}
+      >
         {isLoading ? (
           <ActivityIndicator color="#fff" />
         ) : (

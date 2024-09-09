@@ -2,8 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import starIcon from './assets/star.png';
-import halfStarIcon from './assets/rating.png';
+import starIcon from '../../assets/star.png';
+import halfStarIcon from '../../assets/rating.png';
 
 
 function RatingStars({ rating }) {
