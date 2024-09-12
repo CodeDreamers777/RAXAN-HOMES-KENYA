@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
 from .models import (
+    UserType,
     Profile,
     RentalProperty,
     PropertyForSale,
@@ -12,10 +13,18 @@ from .models import (
 )
 
 
+@admin.register(UserType)
+class UserTypeAdmin(admin.ModelAdmin):
+    list_display = ("user", "user_type")
+    list_filter = ("user_type",)
+    search_fields = ("user__username", "user__email")
+
+
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "phone_number", "created", "updated")
+    list_display = ("user", "phone_number", "email", "created", "updated")
     search_fields = ("user__username", "user__email", "phone_number")
+    list_filter = ("user__usertype__user_type",)
 
 
 class PropertyImageInline(GenericTabularInline):
@@ -29,19 +38,20 @@ class RentalPropertyAdmin(admin.ModelAdmin):
         "name",
         "location",
         "property_type",
-        "price_per_night",
+        "price_per_month",
         "is_available",
+        "host",
     )
     list_filter = ("property_type", "is_available")
-    search_fields = ("name", "location")
+    search_fields = ("name", "location", "host__user__username")
     inlines = [PropertyImageInline]
 
 
 @admin.register(PropertyForSale)
 class PropertyForSaleAdmin(admin.ModelAdmin):
-    list_display = ("name", "location", "property_type", "price", "is_sold")
+    list_display = ("name", "location", "property_type", "price", "is_sold", "host")
     list_filter = ("property_type", "is_sold")
-    search_fields = ("name", "location")
+    search_fields = ("name", "location", "host__user__username")
     inlines = [PropertyImageInline]
 
 
@@ -49,13 +59,14 @@ class PropertyForSaleAdmin(admin.ModelAdmin):
 class BookingAdmin(admin.ModelAdmin):
     list_display = (
         "property",
-        "guest",
+        "client",
         "check_in_date",
         "check_out_date",
+        "guests",
         "is_confirmed",
     )
     list_filter = ("is_confirmed", "check_in_date", "check_out_date")
-    search_fields = ("property__name", "guest__user__username", "identification_number")
+    search_fields = ("property__name", "client__user__username")
 
 
 @admin.register(Review)
