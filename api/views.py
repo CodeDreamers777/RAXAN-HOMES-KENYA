@@ -147,9 +147,13 @@ class SignupView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
             return Response(
-                {"success": True, "Message": "User Created successfully"},
+                {
+                    "success": True,
+                    "Message": "User Created successfully",
+                    "user_type": user.usertype.user_type,
+                },
                 status=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -175,40 +179,20 @@ class PropertyViewSet(viewsets.ViewSet):
 
     def list(self, request):
         rental_properties, properties_for_sale = self.get_queryset()
-
-        # Serialize the rental properties
         rental_property_serializer = RentalPropertySerializer(
             rental_properties, many=True
         )
-        rental_properties_data = rental_property_serializer.data
-
-        # Serialize the properties for sale
         property_for_sale_serializer = PropertyForSaleSerializer(
             properties_for_sale, many=True
         )
-        properties_for_sale_data = property_for_sale_serializer.data
-
-        # Return the categorized data
         return Response(
             {
-                "rental_properties": rental_properties_data,
-                "properties_for_sale": properties_for_sale_data,
+                "rental_properties": rental_property_serializer.data,
+                "properties_for_sale": property_for_sale_serializer.data,
             }
         )
 
-    def retrieve(self, request, pk=None):
-        property = self.get_object(pk)
-        if property is None:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        if isinstance(property, RentalProperty):
-            serializer = RentalPropertySerializer(property)
-        else:
-            serializer = PropertyForSaleSerializer(property)
-        return Response(serializer.data)
-
     def create(self, request):
-        print(f"Received create request with data: {request.data}")
-        print(f"Files in request: {request.FILES}")
         property_type = request.data.get("property_category")
         if property_type == "rental":
             serializer = RentalPropertySerializer(data=request.data)
@@ -220,19 +204,24 @@ class PropertyViewSet(viewsets.ViewSet):
             )
 
         if serializer.is_valid():
-            print("Serializer is valid")
-            profile, created = Profile.objects.get_or_create(user=request.user)
+            profile = request.user.profile
+            if profile.user.usertype.user_type != "SELLER":
+                return Response(
+                    {"error": "Only sellers can create properties"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             property = serializer.save(host=profile)
-            print(f"Property created with id: {property.id}")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        print(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
         property = self.get_object(pk)
         if property is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        if property.host.user != request.user:
+        if (
+            property.host.user != request.user
+            or request.user.usertype.user_type != "SELLER"
+        ):
             return Response(
                 {"error": "You do not have permission to update this property"},
                 status=status.HTTP_403_FORBIDDEN,

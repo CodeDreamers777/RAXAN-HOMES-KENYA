@@ -7,7 +7,24 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.validators import RegexValidator
 
 
+class UserType(models.Model):
+    USER_TYPES = [
+        ("CLIENT", "Client"),
+        ("SELLER", "Seller"),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user_type = models.CharField(max_length=10, choices=USER_TYPES)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_user_type_display()}"
+
+
 class Profile(models.Model):
+    IDENTIFICATION_CHOICES = [
+        ("ID", "National ID"),
+        ("PASSPORT", "Passport"),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=20)
     email = models.EmailField(default="example@example.com")
@@ -18,14 +35,37 @@ class Profile(models.Model):
     updated = models.DateTimeField(auto_now=True)
     created = models.DateTimeField(auto_now_add=True)
 
+    # Fields for sellers only
+    identification_type = models.CharField(
+        max_length=8, choices=IDENTIFICATION_CHOICES, null=True, blank=True
+    )
+    identification_number = models.CharField(
+        max_length=50,
+        validators=[
+            RegexValidator(
+                regex=r"^[A-Za-z0-9-]*$",
+                message="Identification number must contain only letters, numbers, and hyphens.",
+            ),
+        ],
+        null=True,
+        blank=True,
+    )
+
     def __str__(self):
         return self.user.username
+
+    def save(self, *args, **kwargs):
+        if hasattr(self.user, "usertype") and self.user.usertype.user_type == "SELLER":
+            if not self.identification_type or not self.identification_number:
+                raise ValueError("Sellers must provide identification information.")
+        super().save(*args, **kwargs)
 
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
+        UserType.objects.create(user=instance, user_type="CLIENT")  # Default to CLIENT
 
 
 @receiver(post_save, sender=User)
@@ -68,12 +108,18 @@ class BaseProperty(models.Model):
     def __str__(self):
         return self.name
 
+    def delete(self, *args, **kwargs):
+        # Delete associated images
+        PropertyImage.objects.filter(
+            content_type=ContentType.objects.get_for_model(self), object_id=self.id
+        ).delete()
+        # Call the "real" delete() method
+        super().delete(*args, **kwargs)
+
 
 class RentalProperty(BaseProperty):
-    price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
+    price_per_month = models.DecimalField(max_digits=10, decimal_places=2)
     max_guests = models.PositiveIntegerField()
-    check_in_time = models.TimeField()
-    check_out_time = models.TimeField()
     is_available = models.BooleanField(default=True)
 
     def images(self):
@@ -82,7 +128,6 @@ class RentalProperty(BaseProperty):
         )
 
 
-# todo add finished and offplan
 class PropertyForSale(BaseProperty):
     price = models.DecimalField(max_digits=12, decimal_places=2)
     is_sold = models.BooleanField(default=False)
@@ -105,37 +150,20 @@ class PropertyImage(models.Model):
 
 
 class Booking(models.Model):
-    IDENTIFICATION_CHOICES = [
-        ("ID", "National ID"),
-        ("PASSPORT", "Passport"),
-    ]
-
     property = models.ForeignKey(RentalProperty, on_delete=models.CASCADE)
-    guest = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    client = models.ForeignKey(Profile, on_delete=models.CASCADE)
     check_in_date = models.DateField()
     check_out_date = models.DateField()
     guests = models.PositiveIntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     is_confirmed = models.BooleanField(default=False)
 
-    # New fields
-    identification_type = models.CharField(max_length=8, choices=IDENTIFICATION_CHOICES)
-    identification_number = models.CharField(
-        max_length=50,
-        validators=[
-            RegexValidator(
-                regex=r"^[A-Za-z0-9-]*$",
-                message="Identification number must contain only letters, numbers, and hyphens.",
-            ),
-        ],
-    )
-
     def __str__(self):
-        return f"Booking for {self.property.name} by {self.guest.user.username}"
+        return f"Booking for {self.property.name} by {self.client.user.username}"
 
 
 class Review(models.Model):
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    content_type = models.ForeignField(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     property = GenericForeignKey("content_type", "object_id")
     reviewer = models.ForeignKey(Profile, on_delete=models.CASCADE)
