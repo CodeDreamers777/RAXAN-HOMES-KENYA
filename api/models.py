@@ -163,7 +163,7 @@ class Booking(models.Model):
 
 
 class Review(models.Model):
-    content_type = models.ForeignField(ContentType, on_delete=models.CASCADE)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     property = GenericForeignKey("content_type", "object_id")
     reviewer = models.ForeignKey(Profile, on_delete=models.CASCADE)
