@@ -6,6 +6,7 @@ from .models import (
     PropertyImage,
     Amenity,
     UserType,
+    Review,
 )
 from django.contrib.auth.models import User
 import json
@@ -272,3 +273,25 @@ class PropertyForSaleSerializer(BasePropertySerializer):
     class Meta(BasePropertySerializer.Meta):
         model = PropertyForSale
         fields = BasePropertySerializer.Meta.fields + ["price", "is_sold", "year_built"]
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    property_name = serializers.SerializerMethodField()
+    reviewer_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = [
+            "id",
+            "property_name",
+            "reviewer_name",
+            "rating",
+            "comment",
+            "created_at",
+        ]
+
+    def get_property_name(self, obj):
+        return str(obj.property)
+
+    def get_reviewer_name(self, obj):
+        return obj.reviewer.user.username

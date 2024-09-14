@@ -1,4 +1,6 @@
 from django.shortcuts import render
+from django.db.models import Q
+
 from .serializer import SignupSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from .utils.decorator import jwt_required
@@ -17,12 +19,14 @@ from django.middleware.csrf import get_token
 from django.http import JsonResponse
 from collections import defaultdict
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import RentalProperty, PropertyForSale, Profile, Amenity
+from .models import RentalProperty, PropertyForSale, Profile, Amenity, Review
 from .serializer import (
     RentalPropertySerializer,
     PropertyForSaleSerializer,
     ProfileSerializer,
+    ReviewSerializer,
 )
+from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
 import logging
 
@@ -269,3 +273,31 @@ class PropertyViewSet(viewsets.ViewSet):
                 "properties_for_sale": property_for_sale_serializer.data,
             }
         )
+
+    @action(detail=False, methods=["get"])
+    def user_property_reviews(self, request):
+        user_profile = request.user.profile
+
+        # Get all properties owned by the user
+        rental_properties = RentalProperty.objects.filter(host=user_profile)
+        properties_for_sale = PropertyForSale.objects.filter(host=user_profile)
+
+        # Get content types for both property models
+        rental_content_type = ContentType.objects.get_for_model(RentalProperty)
+        sale_content_type = ContentType.objects.get_for_model(PropertyForSale)
+
+        # Get all reviews for the user's properties
+        reviews = Review.objects.filter(
+            (
+                Q(content_type=rental_content_type)
+                & Q(object_id__in=rental_properties.values_list("id", flat=True))
+            )
+            | (
+                Q(content_type=sale_content_type)
+                & Q(object_id__in=properties_for_sale.values_list("id", flat=True))
+            )
+        ).order_by("-created_at")
+
+        serializer = ReviewSerializer(reviews, many=True)
+
+        return Response(serializer.data)
