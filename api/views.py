@@ -99,13 +99,11 @@ class LoginView(APIView):
         try:
             email = request.data.get("email").lower()
             password = request.data.get("password")
-
             # Get the user by email
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
                 return Response({"success": False, "Message": "User does not exist"})
-
             # Authenticate using email and password
             if user.check_password(password):
                 login(request, user)
@@ -176,6 +174,18 @@ class PropertyViewSet(viewsets.ViewSet):
                 return PropertyForSale.objects.get(pk=pk)
             except PropertyForSale.DoesNotExist:
                 return None
+
+    def retrieve(self, request, pk=None):
+        property = self.get_object(pk)
+        if property is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if isinstance(property, RentalProperty):
+            serializer = RentalPropertySerializer(property)
+        else:
+            serializer = PropertyForSaleSerializer(property)
+
+        return Response(serializer.data)
 
     def list(self, request):
         rental_properties, properties_for_sale = self.get_queryset()
