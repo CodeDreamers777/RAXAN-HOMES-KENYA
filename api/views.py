@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.middleware.csrf import get_token
@@ -248,3 +249,23 @@ class PropertyViewSet(viewsets.ViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=["get"])
+    def user_properties(self, request):
+        user_profile = request.user.profile
+        rental_properties = RentalProperty.objects.filter(host=user_profile)
+        properties_for_sale = PropertyForSale.objects.filter(host=user_profile)
+
+        rental_property_serializer = RentalPropertySerializer(
+            rental_properties, many=True
+        )
+        property_for_sale_serializer = PropertyForSaleSerializer(
+            properties_for_sale, many=True
+        )
+
+        return Response(
+            {
+                "rental_properties": rental_property_serializer.data,
+                "properties_for_sale": property_for_sale_serializer.data,
+            }
+        )
