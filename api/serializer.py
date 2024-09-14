@@ -56,7 +56,8 @@ class SignupSerializer(serializers.Serializer):
             username=username, email=email, password=password
         )
 
-        UserType.objects.create(user=user, user_type=user_type)
+        # Create or update UserType
+        UserType.objects.update_or_create(user=user, defaults={"user_type": user_type})
 
         profile = Profile.objects.get(user=user)
         profile.username = username
