@@ -21,9 +21,11 @@ class SignupSerializer(serializers.Serializer):
     profile_picture = serializers.ImageField(required=False)
     user_type = serializers.ChoiceField(choices=UserType.USER_TYPES)
     identification_type = serializers.ChoiceField(
-        choices=Profile.IDENTIFICATION_CHOICES, required=False
+        choices=Profile.IDENTIFICATION_CHOICES, required=False, allow_null=True
     )
-    identification_number = serializers.CharField(max_length=50, required=False)
+    identification_number = serializers.CharField(
+        max_length=50, required=False, allow_null=True
+    )
 
     def validate(self, data):
         if data["password"] != data["confirm_password"]:
@@ -34,12 +36,26 @@ class SignupSerializer(serializers.Serializer):
             raise serializers.ValidationError({"username": "Username already exists"})
         if User.objects.filter(email=data["email"]).exists():
             raise serializers.ValidationError({"email": "Email already exists"})
-        if data["user_type"] == "SELLER" and (
-            not data.get("identification_type") or not data.get("identification_number")
-        ):
-            raise serializers.ValidationError(
-                {"identification": "Sellers must provide identification information"}
-            )
+
+        # Check identification only for sellers
+        if data["user_type"] == "SELLER":
+            if not data.get("identification_type"):
+                raise serializers.ValidationError(
+                    {
+                        "identification_type": "Identification type is required for sellers"
+                    }
+                )
+            if not data.get("identification_number"):
+                raise serializers.ValidationError(
+                    {
+                        "identification_number": "Identification number is required for sellers"
+                    }
+                )
+        else:
+            # For non-sellers, remove identification fields if they are null
+            data.pop("identification_type", None)
+            data.pop("identification_number", None)
+
         return data
 
     def create(self, validated_data):
@@ -49,8 +65,6 @@ class SignupSerializer(serializers.Serializer):
         phone_number = validated_data["phone_number"]
         profile_picture = validated_data.get("profile_picture")
         user_type = validated_data["user_type"]
-        identification_type = validated_data.get("identification_type")
-        identification_number = validated_data.get("identification_number")
 
         user = User.objects.create_user(
             username=username, email=email, password=password
@@ -65,9 +79,14 @@ class SignupSerializer(serializers.Serializer):
         profile.phone_number = phone_number
         if profile_picture:
             profile.profile_picture = profile_picture
+
         if user_type == "SELLER":
-            profile.identification_type = identification_type
-            profile.identification_number = identification_number
+            profile.identification_type = validated_data.get("identification_type")
+            profile.identification_number = validated_data.get("identification_number")
+        else:
+            profile.identification_type = None
+            profile.identification_number = None
+
         profile.save()
 
         return user
