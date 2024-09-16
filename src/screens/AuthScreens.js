@@ -9,10 +9,14 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import raxanLogo from "../../assets/raxan-logo.jpeg";
+import { Picker } from "@react-native-picker/picker";
+import RaxanLogo from "../../assets/raxan-logo.jpeg";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
@@ -23,7 +27,7 @@ const fetchCSRFToken = async () => {
       credentials: "include",
     });
     const data = await response.json();
-    console.log(data)
+    console.log(data);
     return data.csrfToken;
   } catch (error) {
     console.error("Error fetching CSRF token:", error);
@@ -53,8 +57,7 @@ function LoginScreen({ navigation }) {
         headers: {
           "Content-Type": "application/json",
           "X-CSRFToken": csrfToken,
-                  Referer: API_BASE_URL, // Set the Referer header
-
+          Referer: API_BASE_URL,
         },
         body: JSON.stringify({
           email: email,
@@ -64,26 +67,25 @@ function LoginScreen({ navigation }) {
       });
 
       const data = await response.json();
-      console.log(data)
+      console.log("Login response:", data);
 
       if (data.success) {
         if (
           data.Message === "User already logged in" ||
           data.Message === "User logged in successfully"
         ) {
+          // No need to check for access token in case of "User already logged in"
           if (data.access) {
             await AsyncStorage.setItem("accessToken", data.access);
-          } else {
-            console.warn(
-              "Access token is undefined. Not storing in AsyncStorage.",
-            );
+            console.log("Access token stored successfully");
           }
-          navigation.navigate("Home");
+          console.log("Navigating to Home screen");
+          navigation.replace("Home"); // Use replace instead of navigate
         }
       } else {
         Alert.alert(
           "Login Failed",
-          "Please check your credentials and try again.",
+          data.Message || "Please check your credentials and try again.",
         );
       }
     } catch (error) {
@@ -99,64 +101,74 @@ function LoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Image source={raxanLogo} style={styles.logo} />
-        <Text style={styles.logoText}>RAXAN HOMES</Text>
-      </View>
-      <View style={styles.inputContainer}>
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="mail-outline"
-            size={24}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#666"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="lock-closed-outline"
-            size={24}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#666"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </View>
-      </View>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleLogin}
-        disabled={isLoading}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
       >
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Login</Text>
-        )}
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-        <Text style={styles.linkText}>Don't have an account? Sign up</Text>
-      </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.scrollViewContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.logoContainer}>
+            <Image source={RaxanLogo} style={styles.logo} />
+            <Text style={styles.logoText}>Raxan Homes</Text>
+          </View>
+          <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="mail-outline"
+                size={24}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor="#666"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={24}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="#666"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Login</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
+            <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function SignupScreen({ navigation }) {
+function SignUpScreen({ navigation }) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -164,6 +176,9 @@ function SignupScreen({ navigation }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [csrfToken, setCSRFToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [accountType, setAccountType] = useState("CLIENT");
+  const [identificationType, setIdentificationType] = useState("ID");
+  const [identificationNumber, setIdentificationNumber] = useState("");
 
   useEffect(() => {
     const getCSRFToken = async () => {
@@ -173,9 +188,14 @@ function SignupScreen({ navigation }) {
     getCSRFToken();
   }, []);
 
-  const handleSignup = async () => {
+  const handleSignUp = async () => {
     if (password !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+
+    if (accountType === "SELLER" && !identificationNumber) {
+      Alert.alert("Error", "Sellers must provide identification information");
       return;
     }
 
@@ -186,8 +206,7 @@ function SignupScreen({ navigation }) {
         headers: {
           "Content-Type": "application/json",
           "X-CSRFToken": csrfToken,
-                  Referer: API_BASE_URL, // Set the Referer header
-
+          Referer: API_BASE_URL,
         },
         body: JSON.stringify({
           username,
@@ -195,11 +214,17 @@ function SignupScreen({ navigation }) {
           confirm_password: confirmPassword,
           phone_number: phoneNumber,
           email,
+          user_type: accountType,
+          identification_type:
+            accountType === "SELLER" ? identificationType : null,
+          identification_number:
+            accountType === "SELLER" ? identificationNumber : null,
         }),
         credentials: "include",
       });
 
       const data = await response.json();
+      console.log(data);
 
       if (response.ok) {
         Alert.alert("Success", "Account created successfully", [
@@ -208,7 +233,7 @@ function SignupScreen({ navigation }) {
       } else {
         if (
           data.username &&
-          data.username.includes("Username already exists")
+          data.username.includes("username already exists")
         ) {
           Alert.alert("Error", "Username already exists");
         } else {
@@ -228,106 +253,157 @@ function SignupScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Image source={raxanLogo} style={styles.logo} />
-        <Text style={styles.logoText}>RAXAN HOMES</Text>
-      </View>
-      <View style={styles.inputContainer}>
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="person-outline"
-            size={24}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor="#666"
-            value={username}
-            onChangeText={setUsername}
-          />
-        </View>
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="mail-outline"
-            size={24}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#666"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="call-outline"
-            size={24}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Phone Number"
-            placeholderTextColor="#666"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-          />
-        </View>
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="lock-closed-outline"
-            size={24}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#666"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </View>
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="lock-closed-outline"
-            size={24}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            placeholderTextColor="#666"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-        </View>
-      </View>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleSignup}
-        disabled={isLoading}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
       >
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Sign Up</Text>
-        )}
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-        <Text style={styles.linkText}>Already have an account? Log in</Text>
-      </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.scrollViewContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.logoContainer}>
+            <Image source={RaxanLogo} style={styles.logo} />
+            <Text style={styles.logoText}>Raxan Homes</Text>
+          </View>
+          <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="person-outline"
+                size={24}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Username"
+                placeholderTextColor="#666"
+                value={username}
+                onChangeText={setUsername}
+              />
+            </View>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="mail-outline"
+                size={24}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor="#666"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="call-outline"
+                size={24}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Phone Number"
+                placeholderTextColor="#666"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+              />
+            </View>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={24}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="#666"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={24}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm Password"
+                placeholderTextColor="#666"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+              />
+            </View>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={accountType}
+                style={styles.picker}
+                onValueChange={(itemValue) => setAccountType(itemValue)}
+              >
+                <Picker.Item label="Client" value="CLIENT" />
+                <Picker.Item label="Seller" value="SELLER" />
+              </Picker>
+            </View>
+            {accountType === "SELLER" && (
+              <>
+                <View style={styles.pickerWrapper}>
+                  <Picker
+                    selectedValue={identificationType}
+                    style={styles.picker}
+                    onValueChange={(itemValue) =>
+                      setIdentificationType(itemValue)
+                    }
+                  >
+                    <Picker.Item label="National ID" value="ID" />
+                    <Picker.Item label="Passport" value="PASSPORT" />
+                  </Picker>
+                </View>
+                <View style={styles.inputWrapper}>
+                  <Ionicons
+                    name="card-outline"
+                    size={24}
+                    color="#666"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder={`${identificationType} Number`}
+                    placeholderTextColor="#666"
+                    value={identificationNumber}
+                    onChangeText={setIdentificationNumber}
+                  />
+                </View>
+              </>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleSignUp}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Sign Up</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+            <Text style={styles.linkText}>Already have an account? Log in</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -336,8 +412,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f2f2f2",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 20,
   },
   logoContainer: {
     alignItems: "center",
@@ -398,6 +481,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 20,
   },
+  pickerWrapper: {
+    backgroundColor: "#fff",
+    borderRadius: 25,
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  picker: {
+    height: 50,
+    width: "100%",
+  },
 });
 
-export { LoginScreen, SignupScreen };
+export { LoginScreen, SignUpScreen };

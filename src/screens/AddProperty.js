@@ -9,16 +9,20 @@ import {
   Alert,
   Image,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useNavigation } from "@react-navigation/native";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
 const AddPropertyPage = () => {
+  const navigation = useNavigation();
+  const [isLoading, setIsLoading] = useState(false);
   const [propertyCategory, setPropertyCategory] = useState("");
   const [propertyType, setPropertyType] = useState("");
   const [name, setName] = useState("");
@@ -29,10 +33,7 @@ const AddPropertyPage = () => {
   const [bathrooms, setBathrooms] = useState("");
   const [area, setArea] = useState("");
   const [maxGuests, setMaxGuests] = useState("");
-  const [checkInTime, setCheckInTime] = useState(new Date());
-  const [checkOutTime, setCheckOutTime] = useState(new Date());
-  const [showCheckInPicker, setShowCheckInPicker] = useState(false);
-  const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
+  const [isAvailable, setIsAvailable] = useState("yes");
   const [amenities, setAmenities] = useState([]);
   const [images, setImages] = useState([]);
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -114,7 +115,7 @@ const AddPropertyPage = () => {
     ];
 
     if (propertyCategory === "rental") {
-      requiredFields.push(maxGuests, checkInTime, checkOutTime);
+      requiredFields.push(maxGuests);
     } else if (propertyCategory === "sale") {
       requiredFields.push(yearBuilt);
     }
@@ -123,7 +124,7 @@ const AddPropertyPage = () => {
       Alert.alert("Error", "Please fill in all required fields.");
       return;
     }
-
+    setIsLoading(true);
     const formData = new FormData();
     formData.append("property_category", propertyCategory);
     formData.append("property_type", propertyType);
@@ -136,10 +137,9 @@ const AddPropertyPage = () => {
     formData.append("amenities", JSON.stringify(amenities));
 
     if (propertyCategory === "rental") {
-      formData.append("price_per_night", price);
+      formData.append("price_per_month", price);
       formData.append("max_guests", maxGuests);
-      formData.append("check_in_time", checkInTime.toTimeString().slice(0, 5));
-      formData.append("check_out_time", checkOutTime.toTimeString().slice(0, 5));
+      formData.append("is_available", isAvailable === "yes");
     } else {
       formData.append("price", price);
       formData.append("year_built", yearBuilt);
@@ -152,7 +152,7 @@ const AddPropertyPage = () => {
         name: `image_${index}.jpg`,
       });
     });
-
+    console.log(formData);
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {
         method: "POST",
@@ -168,40 +168,33 @@ const AddPropertyPage = () => {
       if (response.ok) {
         const data = await response.json();
         console.log("Property added successfully:", data);
-        Alert.alert("Success", "Property added successfully!");
-        // Reset form or navigate back
+        Alert.alert("Success", "Property added successfully!", [
+          { text: "OK", onPress: () => navigation.navigate("Profile") },
+        ]);
       } else {
         const errorData = await response.json();
         console.error("Error adding property:", errorData);
         Alert.alert(
           "Error",
-          "Failed to add property. Please check all fields and try again."
+          "Failed to add property. Please check all fields and try again.",
         );
       }
     } catch (error) {
       console.error("Error submitting property:", error);
       Alert.alert(
         "Error",
-        "An error occurred while adding the property. Please try again."
+        "An error occurred while adding the property. Please try again.",
       );
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const onChangeCheckInTime = (event, selectedDate) => {
-    const currentDate = selectedDate || checkInTime;
-    setShowCheckInPicker(false);
-    setCheckInTime(currentDate);
-  };
-
-  const onChangeCheckOutTime = (event, selectedDate) => {
-    const currentDate = selectedDate || checkOutTime;
-    setShowCheckOutPicker(false);
-    setCheckOutTime(currentDate);
   };
 
   // Generate an array of years from 1900 to current year
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: currentYear - 1899 }, (_, i) => (currentYear - i).toString());
+  const years = Array.from({ length: currentYear - 1899 }, (_, i) =>
+    (currentYear - i).toString(),
+  );
   return (
     <ScrollView style={styles.container}>
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
@@ -286,7 +279,9 @@ const AddPropertyPage = () => {
           />
           <TextInput
             style={styles.input}
-            placeholder={propertyCategory === "rental" ? "Price per Night" : "Sale Price"}
+            placeholder={
+              propertyCategory === "rental" ? "Price per Month" : "Sale Price"
+            }
             placeholderTextColor="#a0a0a0"
             value={price}
             onChangeText={setPrice}
@@ -403,55 +398,22 @@ const AddPropertyPage = () => {
               />
             </View>
 
-            <TouchableOpacity
-              style={styles.inputContainer}
-              onPress={() => setShowCheckInPicker(true)}
-            >
+            <View style={styles.inputContainer}>
               <MaterialIcons
-                name="access-time"
+                name="check-circle"
                 size={24}
                 color="#4CAF50"
                 style={styles.icon}
               />
-              <Text style={styles.input}>
-                Check-in Time: {checkInTime.toLocaleTimeString().slice(0, 5)}
-              </Text>
-            </TouchableOpacity>
-            {showCheckInPicker && (
-              <DateTimePicker
-                testID="checkInTimePicker"
-                value={checkInTime}
-                mode="time"
-                is24Hour={true}
-                display="default"
-                onChange={onChangeCheckInTime}
-              />
-            )}
-
-            <TouchableOpacity
-              style={styles.inputContainer}
-              onPress={() => setShowCheckOutPicker(true)}
-            >
-              <MaterialIcons
-                name="access-time"
-                size={24}
-                color="#4CAF50"
-                style={styles.icon}
-              />
-              <Text style={styles.input}>
-                Check-out Time: {checkOutTime.toLocaleTimeString().slice(0, 5)}
-              </Text>
-            </TouchableOpacity>
-            {showCheckOutPicker && (
-              <DateTimePicker
-                testID="checkOutTimePicker"
-                value={checkOutTime}
-                mode="time"
-                is24Hour={true}
-                display="default"
-                onChange={onChangeCheckOutTime}
-              />
-            )}
+              <Picker
+                selectedValue={isAvailable}
+                style={styles.picker}
+                onValueChange={(itemValue) => setIsAvailable(itemValue)}
+              >
+                <Picker.Item label="Is Available" value="yes" />
+                <Picker.Item label="Not Available" value="no" />
+              </Picker>
+            </View>
           </>
         )}
 
@@ -497,8 +459,16 @@ const AddPropertyPage = () => {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>Submit</Text>
+        <TouchableOpacity
+          style={[styles.submitButton, isLoading && styles.disabledButton]}
+          onPress={handleSubmit}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Submit</Text>
+          )}
         </TouchableOpacity>
       </Animated.View>
     </ScrollView>
@@ -565,6 +535,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
+  disabledButton: {
+    backgroundColor: "#B0BEC5",
+  },
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
@@ -579,7 +552,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   imageWrapper: {
-    position: 'relative',
+    position: "relative",
     margin: 5,
   },
   image: {
@@ -588,10 +561,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   removeImageButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 5,
     right: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderRadius: 12,
     padding: 4,
   },

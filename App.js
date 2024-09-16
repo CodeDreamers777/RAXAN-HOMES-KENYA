@@ -3,7 +3,7 @@ import { View, Text, Image } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Import the custom icons
 import binocularsIcon from "./assets/binoculars.png";
@@ -15,7 +15,7 @@ import profileIcon from "./assets/user.png";
 import HomePage from "./src/screens/HomePage";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import PropertyPage from "./src/screens/PropertyPage";
-import { LoginScreen, SignupScreen } from "./src/screens/AuthScreens";
+import { LoginScreen, SignUpScreen } from "./src/screens/AuthScreens";
 import AddPropertyPage from "./src/screens/AddProperty";
 
 // Create a Wishlist Context
@@ -26,13 +26,13 @@ const Stack = createStackNavigator();
 
 // Placeholder components
 const WishlistScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
     <Text>Wishlist Screen (Coming Soon)</Text>
   </View>
 );
 
 const InboxScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
     <Text>Inbox Screen (Coming Soon)</Text>
   </View>
 );
@@ -77,19 +77,33 @@ function TabNavigator() {
 
 function App() {
   const [wishlist, setWishlist] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [accessToken, setAccessToken] = useState(null);
 
   useEffect(() => {
     loadWishlist();
+    checkAccessToken();
   }, []);
+
+  const checkAccessToken = async () => {
+    try {
+      const token = await AsyncStorage.getItem("accessToken");
+      setAccessToken(token);
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error checking access token:", error);
+      setIsLoading(false);
+    }
+  };
 
   const loadWishlist = async () => {
     try {
-      const storedWishlist = await AsyncStorage.getItem('wishlist');
+      const storedWishlist = await AsyncStorage.getItem("wishlist");
       if (storedWishlist !== null) {
         setWishlist(JSON.parse(storedWishlist));
       }
     } catch (error) {
-      console.error('Error loading wishlist:', error);
+      console.error("Error loading wishlist:", error);
     }
   };
 
@@ -105,9 +119,9 @@ function App() {
 
     setWishlist(updatedWishlist);
     try {
-      await AsyncStorage.setItem('wishlist', JSON.stringify(updatedWishlist));
+      await AsyncStorage.setItem("wishlist", JSON.stringify(updatedWishlist));
     } catch (error) {
-      console.error('Error saving wishlist:', error);
+      console.error("Error saving wishlist:", error);
     }
   };
 
@@ -115,24 +129,31 @@ function App() {
     const updatedWishlist = wishlist.filter((item) => item.id !== propertyId);
     setWishlist(updatedWishlist);
     try {
-      await AsyncStorage.setItem('wishlist', JSON.stringify(updatedWishlist));
+      await AsyncStorage.setItem("wishlist", JSON.stringify(updatedWishlist));
     } catch (error) {
-      console.error('Error saving wishlist:', error);
+      console.error("Error saving wishlist:", error);
     }
   };
 
+  if (isLoading) {
+    // You might want to show a loading screen here
+    return null;
+  }
+
   return (
-    <WishlistContext.Provider value={{ wishlist, toggleWishlist, removeFromWishlist }}>
+    <WishlistContext.Provider
+      value={{ wishlist, toggleWishlist, removeFromWishlist }}
+    >
       <NavigationContainer>
-        <Stack.Navigator>
+        <Stack.Navigator initialRouteName={accessToken ? "Home" : "Login"}>
           <Stack.Screen
             name="Login"
             component={LoginScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen
-            name="Signup"
-            component={SignupScreen}
+            name="SignUp"
+            component={SignUpScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen
@@ -146,10 +167,10 @@ function App() {
             options={{ title: "Property Details" }}
           />
           <Stack.Screen
-  name="AddProperty"
-  component={AddPropertyPage}
-  options={{ title: "Add Property" }}
-/>
+            name="AddProperty"
+            component={AddPropertyPage}
+            options={{ title: "Add Property" }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </WishlistContext.Provider>

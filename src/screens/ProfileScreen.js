@@ -3,12 +3,12 @@ import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   Image,
   TouchableOpacity,
   Modal,
   Alert,
   ActivityIndicator,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -40,6 +40,10 @@ function ProfileScreen() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [favoriteProperties, setFavoriteProperties] = useState([]);
+  const [rentalProperties, setRentalProperties] = useState([]);
+  const [propertiesForSale, setPropertiesForSale] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const navigation = useNavigation();
 
   const handleAddPlace = () => {
@@ -57,23 +61,58 @@ function ProfileScreen() {
           throw new Error("No access token found");
         }
 
-const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        Referer: API_BASE_URL, // Set the Referer header
-      },
-    });
+        const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            Referer: API_BASE_URL,
+          },
+        });
 
         if (!response.ok) {
-          console.log(response)
+          console.log(response);
           throw new Error("Failed to fetch profile");
         }
 
         const profileData = await response.json();
         console.log(profileData);
         setProfile(profileData);
+
+        // Fetch favorite properties (for clients)
+        if (profileData.user_type === "CLIENT") {
+          const favoritesResponse = await fetch(
+            `${API_BASE_URL}/api/v1/favorites/`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            },
+          );
+          const favoritesData = await favoritesResponse.json();
+          setFavoriteProperties(favoritesData);
+        }
+
+        // Fetch listed properties (for sellers)
+        if (profileData.user_type === "SELLER") {
+          const listedResponse = await fetch(
+            `${API_BASE_URL}/api/v1/properties/user_properties/`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            },
+          );
+          const listedData = await listedResponse.json();
+          setRentalProperties(listedData.rental_properties || []);
+          setPropertiesForSale(listedData.properties_for_sale || []);
+        }
+
+        // Fetch reviews (for both clients and sellers)
+        const reviewsResponse = await fetch(
+          `${API_BASE_URL}/api/v1/properties/user_property_reviews/`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        );
+        const reviewsData = await reviewsResponse.json();
+        setReviews(reviewsData);
       } catch (error) {
         console.error("Error fetching profile:", error);
         Alert.alert("Error", "Failed to load profile. Please try again.");
@@ -89,19 +128,19 @@ const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
     setLoggingOut(true);
     try {
       const accessToken = await AsyncStorage.getItem("accessToken");
- const response = await fetch(`${API_BASE_URL}/api/v1/logout/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-        Authorization: `Bearer ${accessToken}`,
-        Referer: API_BASE_URL, // Set the Referer header
-      },
-      credentials: "include",
-    });
+      const response = await fetch(`${API_BASE_URL}/api/v1/logout/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken,
+          Authorization: `Bearer ${accessToken}`,
+          Referer: API_BASE_URL,
+        },
+        credentials: "include",
+      });
 
       const data = await response.json();
-      console.log(data)
+      console.log(data);
 
       if (data.success) {
         await AsyncStorage.removeItem("accessToken");
@@ -124,16 +163,33 @@ const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-      </View>
-    );
-  }
+  const renderPropertyItem = ({ item }) => (
+    <View style={styles.propertyItem}>
+      <Image
+        source={{
+          uri: item.images[0]?.image || "https://via.placeholder.com/150",
+        }}
+        style={styles.propertyImage}
+      />
+      <Text style={styles.propertyTitle}>{item.name}</Text>
+      <Text style={styles.propertyPrice}>
+        {item.price_per_month
+          ? `$${item.price_per_month}/month`
+          : `$${item.price}`}
+      </Text>
+    </View>
+  );
 
-  return (
-    <ScrollView style={styles.container}>
+  const renderReviewItem = ({ item }) => (
+    <View style={styles.reviewItem}>
+      <Text style={styles.reviewAuthor}>{item.author}</Text>
+      <Text style={styles.reviewRating}>Rating: {item.rating}/5</Text>
+      <Text style={styles.reviewContent}>{item.content}</Text>
+    </View>
+  );
+
+  const renderHeader = () => (
+    <>
       <View style={styles.profileHeader}>
         <Image
           source={
@@ -156,12 +212,71 @@ const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
         </View>
       </View>
 
- <View style={styles.profileSection}>
-        <TouchableOpacity style={styles.addPlaceButton} onPress={handleAddPlace}>
-          <Text style={styles.addPlaceText}>Add your place</Text>
-        </TouchableOpacity>
-      </View>
+      {profile?.user_type === "SELLER" && (
+        <View style={styles.profileSection}>
+          <TouchableOpacity
+            style={styles.addPlaceButton}
+            onPress={handleAddPlace}
+          >
+            <Text style={styles.addPlaceText}>Add your place</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
+      {profile?.user_type === "CLIENT" && favoriteProperties.length > 0 && (
+        <View style={styles.profileSection}>
+          <Text style={styles.sectionTitle}>Favorite Properties</Text>
+          <FlatList
+            data={favoriteProperties}
+            renderItem={renderPropertyItem}
+            keyExtractor={(item) => item.id.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          />
+        </View>
+      )}
+
+      {profile?.user_type === "SELLER" &&
+        (rentalProperties.length > 0 || propertiesForSale.length > 0) && (
+          <View style={styles.profileSection}>
+            <Text style={styles.sectionTitle}>Your Listed Properties</Text>
+            {rentalProperties.length > 0 && (
+              <>
+                <Text style={styles.subSectionTitle}>Rental Properties</Text>
+                <FlatList
+                  data={rentalProperties}
+                  renderItem={renderPropertyItem}
+                  keyExtractor={(item) => item.id.toString()}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                />
+              </>
+            )}
+            {propertiesForSale.length > 0 && (
+              <>
+                <Text style={styles.subSectionTitle}>Properties For Sale</Text>
+                <FlatList
+                  data={propertiesForSale}
+                  renderItem={renderPropertyItem}
+                  keyExtractor={(item) => item.id.toString()}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                />
+              </>
+            )}
+          </View>
+        )}
+
+      {reviews.length > 0 && (
+        <View style={styles.profileSection}>
+          <Text style={styles.sectionTitle}>Reviews</Text>
+        </View>
+      )}
+    </>
+  );
+
+  const renderFooter = () => (
+    <>
       <View style={styles.profileSection}>
         <TouchableOpacity style={styles.settingsButton}>
           <Text style={styles.settingsText}>Settings</Text>
@@ -182,6 +297,28 @@ const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
           )}
         </TouchableOpacity>
       </View>
+    </>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <FlatList
+        style={styles.container}
+        data={reviews}
+        renderItem={renderReviewItem}
+        keyExtractor={(item) => item.id.toString()}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
+        showsVerticalScrollIndicator={false}
+      />
 
       <Modal visible={showModal} animationType="slide" transparent>
         <View style={styles.modalContainer}>
@@ -216,7 +353,7 @@ const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </>
   );
 }
 
@@ -282,6 +419,12 @@ const styles = StyleSheet.create({
   profileSection: {
     paddingHorizontal: 20,
     marginVertical: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#333",
   },
   addPlaceButton: {
     backgroundColor: "#4CAF50",
@@ -378,6 +521,74 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  propertyItem: {
+    width: 200,
+    marginRight: 15,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  propertyImage: {
+    width: "100%",
+    height: 120,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  propertyTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 5,
+  },
+  propertyPrice: {
+    fontSize: 14,
+    color: "#4CAF50",
+    fontWeight: "bold",
+  },
+  reviewItem: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  reviewAuthor: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 5,
+  },
+  reviewRating: {
+    fontSize: 14,
+    color: "#FFA000",
+    marginBottom: 5,
+  },
+  reviewContent: {
+    fontSize: 14,
+    color: "#666",
+  },
+  subSectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginTop: 10,
+    marginBottom: 5,
+    color: "#666",
   },
 });
 

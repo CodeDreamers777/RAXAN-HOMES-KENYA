@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,52 +8,16 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
+  RefreshControl,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { WishlistContext } from "../../App";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import FilterModal from "./FilterModal";
 
-// Import property images
-import room1 from "../../assets/room1.jpg";
-import room2 from "../../assets/room2.jpg";
-import room3 from "../../assets/room3.jpg";
-import room4 from "../../assets/room4.jpg";
-import starIcon from "../../assets/star.png";
-import halfStarIcon from "../../assets/rating.png";
-
-const featuredProperties = [
-  {
-    id: "1",
-    image: room1,
-    title: "Cozy Apartment",
-    location: "New York",
-    price: "$120/night",
-    rating: 4.5,
-  },
-  {
-    id: "2",
-    image: room2,
-    title: "Luxury Villa",
-    location: "Los Angeles",
-    price: "$350/night",
-    rating: 4.8,
-  },
-  {
-    id: "3",
-    image: room3,
-    title: "Modern Condo",
-    location: "Miami",
-    price: "$200/night",
-    rating: 4.2,
-  },
-  {
-    id: "4",
-    image: room4,
-    title: "Rustic Cabin",
-    location: "Colorado",
-    price: "$150/night",
-    rating: 4.7,
-  },
-];
+const API_BASE_URL = "https://yakubu.pythonanywhere.com";
+const { width } = Dimensions.get("window");
 
 function RatingStars({ rating }) {
   const fullStars = Math.floor(rating);
@@ -62,51 +26,169 @@ function RatingStars({ rating }) {
   return (
     <View style={styles.ratingContainer}>
       {[...Array(fullStars)].map((_, index) => (
-        <Image
+        <Ionicons
           key={`full-star-${index}`}
-          source={starIcon}
-          style={styles.starIcon}
+          name="star"
+          size={16}
+          color="#FFD700"
         />
       ))}
-      {hasHalfStar && (
-        <Image
-          source={halfStarIcon}
-          style={[styles.starIcon, styles.halfStar]}
+      {hasHalfStar && <Ionicons name="star-half" size={16} color="#FFD700" />}
+      {[...Array(5 - Math.ceil(rating))].map((_, index) => (
+        <Ionicons
+          key={`empty-star-${index}`}
+          name="star-outline"
+          size={16}
+          color="#FFD700"
         />
-      )}
+      ))}
     </View>
   );
 }
 
 function HomePage({ navigation }) {
   const { wishlist, toggleWishlist } = useContext(WishlistContext);
+  const [properties, setProperties] = useState({
+    properties_for_sale: [],
+    rental_properties: [],
+  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [filters, setFilters] = useState({
+    type: "all",
+    priceRange: [0, 1000000],
+    yearBuilt: [1900, new Date().getFullYear()],
+    propertyType: null,
+  });
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      if (!accessToken) {
+        throw new Error("No access token found");
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Referer: API_BASE_URL,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+
+      const data = await response.json();
+      setProperties(data);
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+    }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchProperties().then(() => setRefreshing(false));
+  }, []);
+
+  const getFilteredProperties = () => {
+    let filteredProps = [];
+
+    if (filters.type === "rental") {
+      filteredProps = properties.rental_properties || [];
+    } else if (filters.type === "sale") {
+      filteredProps = properties.properties_for_sale || [];
+    } else {
+      filteredProps = [
+        ...(properties.rental_properties || []),
+        ...(properties.properties_for_sale || []),
+      ];
+    }
+
+    return filteredProps.filter((prop) => {
+      const price = prop.price_per_month || prop.price;
+      const matchesPrice =
+        parseFloat(price) >= filters.priceRange[0] &&
+        parseFloat(price) <= filters.priceRange[1];
+      const matchesType =
+        !filters.propertyType || prop.property_type === filters.propertyType;
+      const matchesYear =
+        prop.year_built >= filters.yearBuilt[0] &&
+        prop.year_built <= filters.yearBuilt[1];
+
+      return matchesPrice && matchesType && matchesYear;
+    });
+  };
 
   const renderProperty = ({ item }) => (
     <TouchableOpacity
       style={styles.propertyCard}
-      onPress={() => navigation.navigate("PropertyPage", { property: item })}
+      onPress={() =>
+        navigation.navigate("PropertyPage", { propertyId: item.id })
+      }
     >
-      <Image source={item.image} style={styles.propertyImage} />
+      <Image
+        source={
+          item.images && item.images.length > 0
+            ? { uri: `${API_BASE_URL}${item.images[0].image}` }
+            : require("../../assets/room1.jpg")
+        }
+        style={styles.propertyImage}
+      />
       <TouchableOpacity
         style={styles.wishlistButton}
         onPress={() => toggleWishlist(item)}
       >
         <Ionicons
-          name={wishlist.some((prop) => prop.id === item.id) ? "heart" : "heart-outline"}
+          name={
+            wishlist.some((prop) => prop.id === item.id)
+              ? "heart"
+              : "heart-outline"
+          }
           size={24}
-          color="#FF6B6B"
+          color="#fff"
         />
       </TouchableOpacity>
+      <View style={styles.priceTag}>
+        <Text style={styles.priceText}>
+          {item.price_per_month
+            ? `$${item.price_per_month}/Month`
+            : `$${item.price}`}
+        </Text>
+      </View>
       <View style={styles.propertyInfo}>
-        <Text style={styles.propertyTitle}>{item.title}</Text>
-        <Text style={styles.propertyLocation}>{item.location}</Text>
+        <Text
+          style={styles.propertyTitle}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.name}
+        </Text>
+        <Text
+          style={styles.propertyLocation}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.location}
+        </Text>
         <View style={styles.propertyDetails}>
-          <Text style={styles.propertyPrice}>{item.price}</Text>
-          <RatingStars rating={item.rating} />
+          <RatingStars rating={item.rating || 0} />
         </View>
       </View>
     </TouchableOpacity>
   );
+
+  const toggleModal = () => {
+    setModalVisible(!modalVisible);
+  };
+
+  const applyFilters = () => {
+    toggleModal();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -123,12 +205,30 @@ function HomePage({ navigation }) {
           placeholderTextColor="#666"
         />
       </View>
-      <Text style={styles.sectionTitle}>Featured Properties</Text>
+      <TouchableOpacity style={styles.filterButton} onPress={toggleModal}>
+        <Text style={styles.filterButtonText}>Filters</Text>
+      </TouchableOpacity>
       <FlatList
-        data={featuredProperties}
+        data={getFilteredProperties()}
         renderItem={renderProperty}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#4a90e2"]}
+            tintColor="#4a90e2"
+          />
+        }
+        contentContainerStyle={styles.listContainer}
+      />
+      <FilterModal
+        modalVisible={modalVisible}
+        toggleModal={toggleModal}
+        filters={filters}
+        setFilters={setFilters}
+        applyFilters={applyFilters}
       />
     </SafeAreaView>
   );
@@ -137,17 +237,16 @@ function HomePage({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
-    paddingHorizontal: 16,
+    backgroundColor: "#f8f8f8",
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 8,
+    borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginVertical: 16,
+    margin: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -161,34 +260,46 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 16,
+  listContainer: {
+    padding: 16,
   },
   propertyCard: {
     backgroundColor: "#fff",
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 2,
+    overflow: "hidden",
   },
   propertyImage: {
     width: "100%",
     height: 200,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    resizeMode: "cover",
   },
   wishlistButton: {
     position: "absolute",
     top: 10,
     right: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderRadius: 50,
-    padding: 5,
+    padding: 8,
+  },
+  priceTag: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  priceText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
   },
   propertyInfo: {
     padding: 16,
@@ -196,6 +307,8 @@ const styles = StyleSheet.create({
   propertyTitle: {
     fontSize: 18,
     fontWeight: "bold",
+    marginBottom: 4,
+    color: "#333",
   },
   propertyLocation: {
     fontSize: 14,
@@ -207,20 +320,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  propertyPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
   ratingContainer: {
     flexDirection: "row",
   },
-  starIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 2,
+  filterButton: {
+    backgroundColor: "#4a90e2",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
-  halfStar: {
-    tintColor: "#FF6B6B",
+  filterButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    textAlign: "center",
   },
 });
 
