@@ -13,7 +13,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import AddPropertyPage from "./AddProperty";
 
 // Import default user profile image
 import defaultUserProfileImage from "../../assets/user-profile.jpg";
@@ -40,14 +39,15 @@ function ProfileScreen() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [favoriteProperties, setFavoriteProperties] = useState([]);
-  const [rentalProperties, setRentalProperties] = useState([]);
-  const [propertiesForSale, setPropertiesForSale] = useState([]);
   const [reviews, setReviews] = useState([]);
   const navigation = useNavigation();
 
   const handleAddPlace = () => {
     navigation.navigate("AddProperty");
+  };
+
+  const handleViewMyListings = () => {
+    navigation.navigate("ViewMyListings");
   };
 
   useEffect(() => {
@@ -78,31 +78,6 @@ function ProfileScreen() {
         const profileData = await response.json();
         console.log(profileData);
         setProfile(profileData);
-
-        // Fetch favorite properties (for clients)
-        if (profileData.user_type === "CLIENT") {
-          const favoritesResponse = await fetch(
-            `${API_BASE_URL}/api/v1/favorites/`,
-            {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            },
-          );
-          const favoritesData = await favoritesResponse.json();
-          setFavoriteProperties(favoritesData);
-        }
-
-        // Fetch listed properties (for sellers)
-        if (profileData.user_type === "SELLER") {
-          const listedResponse = await fetch(
-            `${API_BASE_URL}/api/v1/properties/user_properties/`,
-            {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            },
-          );
-          const listedData = await listedResponse.json();
-          setRentalProperties(listedData.rental_properties || []);
-          setPropertiesForSale(listedData.properties_for_sale || []);
-        }
 
         // Fetch reviews (for both clients and sellers)
         const reviewsResponse = await fetch(
@@ -163,23 +138,6 @@ function ProfileScreen() {
     }
   };
 
-  const renderPropertyItem = ({ item }) => (
-    <View style={styles.propertyItem}>
-      <Image
-        source={{
-          uri: item.images[0]?.image || "https://via.placeholder.com/150",
-        }}
-        style={styles.propertyImage}
-      />
-      <Text style={styles.propertyTitle}>{item.name}</Text>
-      <Text style={styles.propertyPrice}>
-        {item.price_per_month
-          ? `$${item.price_per_month}/month`
-          : `$${item.price}`}
-      </Text>
-    </View>
-  );
-
   const renderReviewItem = ({ item }) => (
     <View style={styles.reviewItem}>
       <Text style={styles.reviewAuthor}>{item.author}</Text>
@@ -220,52 +178,14 @@ function ProfileScreen() {
           >
             <Text style={styles.addPlaceText}>Add your place</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.addPlaceButton, { marginTop: 10 }]}
+            onPress={handleViewMyListings}
+          >
+            <Text style={styles.addPlaceText}>View My Listings</Text>
+          </TouchableOpacity>
         </View>
       )}
-
-      {profile?.user_type === "CLIENT" && favoriteProperties.length > 0 && (
-        <View style={styles.profileSection}>
-          <Text style={styles.sectionTitle}>Favorite Properties</Text>
-          <FlatList
-            data={favoriteProperties}
-            renderItem={renderPropertyItem}
-            keyExtractor={(item) => item.id.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-          />
-        </View>
-      )}
-
-      {profile?.user_type === "SELLER" &&
-        (rentalProperties.length > 0 || propertiesForSale.length > 0) && (
-          <View style={styles.profileSection}>
-            <Text style={styles.sectionTitle}>Your Listed Properties</Text>
-            {rentalProperties.length > 0 && (
-              <>
-                <Text style={styles.subSectionTitle}>Rental Properties</Text>
-                <FlatList
-                  data={rentalProperties}
-                  renderItem={renderPropertyItem}
-                  keyExtractor={(item) => item.id.toString()}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                />
-              </>
-            )}
-            {propertiesForSale.length > 0 && (
-              <>
-                <Text style={styles.subSectionTitle}>Properties For Sale</Text>
-                <FlatList
-                  data={propertiesForSale}
-                  renderItem={renderPropertyItem}
-                  keyExtractor={(item) => item.id.toString()}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                />
-              </>
-            )}
-          </View>
-        )}
 
       {reviews.length > 0 && (
         <View style={styles.profileSection}>
@@ -522,38 +442,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  propertyItem: {
-    width: 200,
-    marginRight: 15,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  propertyImage: {
-    width: "100%",
-    height: 120,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  propertyTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 5,
-  },
-  propertyPrice: {
-    fontSize: 14,
-    color: "#4CAF50",
-    fontWeight: "bold",
-  },
   reviewItem: {
     backgroundColor: "#fff",
     borderRadius: 10,
@@ -581,13 +469,6 @@ const styles = StyleSheet.create({
   },
   reviewContent: {
     fontSize: 14,
-    color: "#666",
-  },
-  subSectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 10,
-    marginBottom: 5,
     color: "#666",
   },
 });
