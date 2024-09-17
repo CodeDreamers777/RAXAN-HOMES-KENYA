@@ -95,34 +95,34 @@ function HomePage({ navigation }) {
     fetchProperties().then(() => setRefreshing(false));
   }, []);
 
-  const getFilteredProperties = () => {
-    let filteredProps = [];
+const getFilteredProperties = () => {
+  let filteredProps = [];
 
-    if (filters.type === "rental") {
-      filteredProps = properties.rental_properties || [];
-    } else if (filters.type === "sale") {
-      filteredProps = properties.properties_for_sale || [];
-    } else {
-      filteredProps = [
-        ...(properties.rental_properties || []),
-        ...(properties.properties_for_sale || []),
-      ];
-    }
+  if (filters.type === "rental") {
+    filteredProps = properties.rental_properties || [];
+  } else if (filters.type === "sale") {
+    filteredProps = properties.properties_for_sale || [];
+  } else {
+    filteredProps = [
+      ...(properties.rental_properties || []),
+      ...(properties.properties_for_sale || []),
+    ];
+  }
 
-    return filteredProps.filter((prop) => {
-      const price = prop.price_per_month || prop.price;
-      const matchesPrice =
-        parseFloat(price) >= filters.priceRange[0] &&
-        parseFloat(price) <= filters.priceRange[1];
-      const matchesType =
-        !filters.propertyType || prop.property_type === filters.propertyType;
-      const matchesYear =
-        prop.year_built >= filters.yearBuilt[0] &&
-        prop.year_built <= filters.yearBuilt[1];
+  return filteredProps.filter((prop) => {
+    const price = prop.price_per_month !== undefined ? prop.price_per_month : prop.price;
+    const matchesPrice =
+      parseFloat(price) >= filters.priceRange[0] &&
+      parseFloat(price) <= filters.priceRange[1];
+    const matchesType =
+      !filters.propertyType || prop.property_type === filters.propertyType;
+    const matchesYear =
+      !prop.year_built || (prop.year_built >= filters.yearBuilt[0] &&
+      prop.year_built <= filters.yearBuilt[1]);
 
-      return matchesPrice && matchesType && matchesYear;
-    });
-  };
+    return matchesPrice && matchesType && matchesYear;
+  });
+};
 
   const renderProperty = ({ item }) => (
     <TouchableOpacity

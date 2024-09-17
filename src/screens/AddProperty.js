@@ -145,13 +145,14 @@ const AddPropertyPage = () => {
       formData.append("year_built", yearBuilt);
     }
 
-    images.forEach((image, index) => {
-      formData.append("uploaded_images", {
-        uri: image,
-        type: "image/jpeg",
-        name: `image_${index}.jpg`,
-      });
-    });
+images.forEach((image, index) => {
+  const filename = image.split('/').pop(); // Extract the filename from the URI
+  formData.append("uploaded_images", {
+    uri: image,
+    type: "image/jpeg",
+    name: filename, // Use the actual filename
+  });
+});
     console.log(formData);
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {

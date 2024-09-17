@@ -49,6 +49,9 @@ function ProfileScreen() {
   const handleViewMyListings = () => {
     navigation.navigate("ViewMyListings");
   };
+  const handleEditProfile = () => {
+    navigation.navigate("EditProfile", { profile });
+  };
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -149,21 +152,21 @@ function ProfileScreen() {
   const renderHeader = () => (
     <>
       <View style={styles.profileHeader}>
-        <Image
-          source={
-            profile?.profile_picture
-              ? { uri: profile.profile_picture }
-              : defaultUserProfileImage
-          }
-          style={styles.profileImage}
-        />
+<Image
+  source={
+    profile?.profile_picture
+      ? { uri: `${API_BASE_URL}${profile.profile_picture}` }
+      : defaultUserProfileImage
+  }
+  style={styles.profileImage}
+/>
         <View style={styles.profileInfo}>
           <Text style={styles.profileName}>{profile?.username || "N/A"}</Text>
           <Text style={styles.profileEmail}>{profile?.email || "N/A"}</Text>
           <Text style={styles.profilePhone}>
             {profile?.phone_number || "Phone not provided"}
           </Text>
-          <TouchableOpacity style={styles.editProfileButton}>
+<TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
             <Ionicons name="pencil" size={18} color="#4CAF50" />
             <Text style={styles.editProfileText}>Edit Profile</Text>
           </TouchableOpacity>

@@ -19,7 +19,7 @@ import { LoginScreen, SignUpScreen } from "./src/screens/AuthScreens";
 import AddPropertyPage from "./src/screens/AddProperty";
 import ViewMyListings from "./src/screens/ViewMyListings";
 import UpdateProperty from "./src/screens/UpdateProperty";
-
+import EditProfileScreen from "./src/screens/EditProfileScreen";
 // Create a Wishlist Context
 export const WishlistContext = createContext();
 
@@ -175,6 +175,7 @@ function App() {
           />
           <Stack.Screen name="ViewMyListings" component={ViewMyListings} />
           <Stack.Screen name="UpdateProperty" component={UpdateProperty} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </WishlistContext.Provider>
