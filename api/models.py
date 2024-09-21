@@ -182,3 +182,19 @@ class RentalPricingPeriod(models.Model):
 
     def __str__(self):
         return f"Pricing for {self.property.name} from {self.start_date} to {self.end_date}"
+
+
+class WishlistItem(models.Model):
+    profile = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name="wishlist_items"
+    )
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    property = GenericForeignKey("content_type", "object_id")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("profile", "content_type", "object_id")
+
+    def __str__(self):
+        return f"{self.profile.user.username}'s wishlist item: {self.property}"

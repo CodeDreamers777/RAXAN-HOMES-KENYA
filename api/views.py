@@ -19,12 +19,20 @@ from django.middleware.csrf import get_token
 from django.http import JsonResponse
 from collections import defaultdict
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import RentalProperty, PropertyForSale, Profile, Amenity, Review
+from .models import (
+    RentalProperty,
+    WishlistItem,
+    PropertyForSale,
+    Profile,
+    Amenity,
+    Review,
+)
 from .serializer import (
     RentalPropertySerializer,
     PropertyForSaleSerializer,
     ProfileSerializer,
     ReviewSerializer,
+    WishlistItemSerializer,
 )
 from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
@@ -301,3 +309,51 @@ class PropertyViewSet(viewsets.ViewSet):
         serializer = ReviewSerializer(reviews, many=True)
 
         return Response(serializer.data)
+
+
+class WishlistView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = Profile.objects.get(user=request.user)
+        wishlist_items = WishlistItem.objects.filter(profile=profile)
+        serializer = WishlistItemSerializer(wishlist_items, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        profile = Profile.objects.get(user=request.user)
+        property_type = request.data.get("property_type")
+        property_id = request.data.get("property_id")
+
+        if property_type not in ["rental", "sale"]:
+            return Response(
+                {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if property_type == "rental":
+            model = RentalProperty
+        else:
+            model = PropertyForSale
+
+        try:
+            property_instance = model.objects.get(id=property_id)
+        except model.DoesNotExist:
+            return Response(
+                {"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        content_type = ContentType.objects.get_for_model(model)
+
+        wishlist_item, created = WishlistItem.objects.get_or_create(
+            profile=profile, content_type=content_type, object_id=property_id
+        )
+
+        if created:
+            return Response(
+                {"message": "Property added to wishlist"},
+                status=status.HTTP_201_CREATED,
+            )
+        else:
+            return Response(
+                {"message": "Property already in wishlist"}, status=status.HTTP_200_OK
+            )

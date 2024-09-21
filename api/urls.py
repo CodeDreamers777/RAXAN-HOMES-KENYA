@@ -14,6 +14,7 @@ urlpatterns = [
     path("get-csrf-token/", views.get_csrf_token),
     path("profile/", views.ProfileAPIView.as_view()),
     path("send-mail/", views.SendEmailView.as_view()),
+    path("wishlist/", views.WishlistView.as_view()),
     # Include the router URLs in our urlpatterns
     *router.urls,
 ]

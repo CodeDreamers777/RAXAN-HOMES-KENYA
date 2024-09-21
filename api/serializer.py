@@ -7,6 +7,7 @@ from .models import (
     Amenity,
     UserType,
     Review,
+    WishlistItem,
 )
 from django.contrib.auth.models import User
 import json
@@ -295,3 +296,13 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def get_reviewer_name(self, obj):
         return obj.reviewer.user.username
+
+
+class WishlistItemSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="property.name")
+    property_type = serializers.CharField(source="content_type.model")
+    username = serializers.CharField(source="profile.user.username")
+
+    class Meta:
+        model = WishlistItem
+        fields = ["id", "property_name", "property_type", "added_at", "username"]
