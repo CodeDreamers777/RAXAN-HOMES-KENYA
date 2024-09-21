@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
+from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -198,3 +199,12 @@ class WishlistItem(models.Model):
 
     def __str__(self):
         return f"{self.profile.user.username}'s wishlist item: {self.property}"
+
+
+@receiver(pre_delete, sender=RentalProperty)
+@receiver(pre_delete, sender=PropertyForSale)
+def remove_from_wishlists(sender, instance, **kwargs):
+    content_type = ContentType.objects.get_for_model(sender)
+    WishlistItem.objects.filter(
+        content_type=content_type, object_id=instance.id
+    ).delete()
