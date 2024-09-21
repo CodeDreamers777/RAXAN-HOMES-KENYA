@@ -357,3 +357,34 @@ class WishlistView(APIView):
             return Response(
                 {"message": "Property already in wishlist"}, status=status.HTTP_200_OK
             )
+
+    def delete(self, request):
+        profile = Profile.objects.get(user=request.user)
+        property_type = request.data.get("property_type")
+        property_id = request.data.get("property_id")
+
+        if property_type not in ["rental", "sale"]:
+            return Response(
+                {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if property_type == "rental":
+            model = RentalProperty
+        else:
+            model = PropertyForSale
+
+        content_type = ContentType.objects.get_for_model(model)
+
+        try:
+            wishlist_item = WishlistItem.objects.get(
+                profile=profile, content_type=content_type, object_id=property_id
+            )
+            wishlist_item.delete()
+            return Response(
+                {"message": "Property removed from wishlist"}, status=status.HTTP_200_OK
+            )
+        except WishlistItem.DoesNotExist:
+            return Response(
+                {"error": "Property not found in wishlist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
