@@ -10,6 +10,7 @@ from .models import (
     Review,
     Amenity,
     RentalPricingPeriod,
+    WishlistItem,
 )
 
 
@@ -101,5 +102,17 @@ class PropertyImageAdmin(admin.ModelAdmin):
 
     def get_property_name(self, obj):
         return obj.property.name
+
+    get_property_name.short_description = "Property"
+
+
+@admin.register(WishlistItem)
+class WishlistItemAdmin(admin.ModelAdmin):
+    list_display = ("profile", "get_property_name", "content_type", "added_at")
+    list_filter = ("added_at", "content_type")
+    search_fields = ("profile__user__username", "object_id")
+
+    def get_property_name(self, obj):
+        return str(obj.property)
 
     get_property_name.short_description = "Property"
