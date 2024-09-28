@@ -239,6 +239,7 @@ class PropertyViewSet(viewsets.ViewSet):
 
     def update(self, request, pk=None):
         property = self.get_object(pk)
+        print(request.data)
         if property is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
         if (
@@ -309,6 +310,23 @@ class PropertyViewSet(viewsets.ViewSet):
         serializer = ReviewSerializer(reviews, many=True)
 
         return Response(serializer.data)
+
+    def destroy(self, request, pk=None):
+        property = self.get_object(pk)
+        if property is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+            if (
+                property.host.user != request.user
+                or request.user.usertype.user_type != "SELLER"
+            ):
+                return Response(
+                    {"error": "You do not have permission to delete this property"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        property.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class WishlistView(APIView):
