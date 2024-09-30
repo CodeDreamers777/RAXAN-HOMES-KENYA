@@ -15,6 +15,14 @@ urlpatterns = [
     path("profile/", views.ProfileAPIView.as_view()),
     path("send-mail/", views.SendEmailView.as_view()),
     path("wishlist/", views.WishlistView.as_view()),
+    path(
+        "initiate-payment/",
+        views.InitiatePaystackPaymentView.as_view(),
+        name="initiate-payment",
+    ),
+    path(
+        "confirm-booking/", views.ConfirmBookingView.as_view(), name="confirm-booking"
+    ),
     # Include the router URLs in our urlpatterns
     *router.urls,
 ]

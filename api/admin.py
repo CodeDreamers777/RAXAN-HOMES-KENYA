@@ -61,12 +61,11 @@ class BookingAdmin(admin.ModelAdmin):
     list_display = (
         "property",
         "client",
-        "check_in_date",
-        "check_out_date",
         "guests",
+        "created_at",
         "is_confirmed",
     )
-    list_filter = ("is_confirmed", "check_in_date", "check_out_date")
+    list_filter = ("is_confirmed", "created_at")
     search_fields = ("property__name", "client__user__username")
 
 

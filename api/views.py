@@ -26,6 +26,7 @@ from .models import (
     Profile,
     Amenity,
     Review,
+    Booking,
 )
 from .serializer import (
     RentalPropertySerializer,
@@ -37,6 +38,8 @@ from .serializer import (
 from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
 import logging
+import requests
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -405,4 +408,137 @@ class WishlistView(APIView):
             return Response(
                 {"error": "Property not found in wishlist"},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+
+class InitiatePaystackPaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        property_id = request.data.get("property_id")
+        guests = request.data.get("guests")
+
+        try:
+            rental_property = RentalProperty.objects.get(id=property_id)
+        except RentalProperty.DoesNotExist:
+            return Response(
+                {"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not rental_property.is_available:
+            return Response(
+                {"error": "Property is not available for booking"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if guests > rental_property.max_guests:
+            return Response(
+                {"error": f"Maximum number of guests is {rental_property.max_guests}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Calculate total price (you might want to implement a more complex pricing logic)
+        total_price = rental_property.price_per_month
+
+        # Prepare the Paystack API request
+        url = "https://api.paystack.co/transaction/initialize"
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "email": request.user.email,
+            "amount": int(total_price * 100),  # Paystack expects amount in kobo
+            "callback_url": f"{settings.FRONTEND_URL}/payment-callback",
+            "metadata": {
+                "property_id": property_id,
+                "guests": guests,
+                "user_id": request.user.id,
+            },
+        }
+
+        # Make the API request to Paystack
+        response = requests.post(url, json=data, headers=headers)
+
+        if response.status_code == 200:
+            response_data = response.json()
+            return Response(
+                {
+                    "authorization_url": response_data["data"]["authorization_url"],
+                    "reference": response_data["data"]["reference"],
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"error": "Failed to initialize payment"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ConfirmBookingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        reference = request.data.get("reference")
+
+        # Verify the payment with Paystack
+        url = f"https://api.paystack.co/transaction/verify/{reference}"
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+        }
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            payment_data = response.json()["data"]
+
+            if payment_data["status"] == "success":
+                metadata = payment_data["metadata"]
+                property_id = metadata["property_id"]
+                guests = metadata["guests"]
+                user_id = metadata["user_id"]
+
+                # Ensure the user making the request is the same who initiated the payment
+                if request.user.id != user_id:
+                    return Response(
+                        {"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED
+                    )
+
+                try:
+                    rental_property = RentalProperty.objects.get(id=property_id)
+                except RentalProperty.DoesNotExist:
+                    return Response(
+                        {"error": "Property not found"},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                # Create the booking
+                booking = Booking.objects.create(
+                    property=rental_property,
+                    client=request.user.profile,
+                    guests=guests,
+                    total_price=payment_data["amount"] / 100,  # Convert back from kobo
+                    is_confirmed=True,
+                )
+
+                # You might want to update the property's availability here
+                rental_property.is_available = False
+                rental_property.save()
+
+                return Response(
+                    {
+                        "message": "Booking confirmed successfully",
+                        "booking_id": booking.id,
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+            else:
+                return Response(
+                    {"error": "Payment was not successful"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            return Response(
+                {"error": "Failed to verify payment"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

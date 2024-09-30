@@ -6,6 +6,7 @@ from django.dispatch import receiver
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.validators import RegexValidator
+from django.utils import timezone
 
 
 class UserType(models.Model):
@@ -152,11 +153,10 @@ class PropertyImage(models.Model):
 class Booking(models.Model):
     property = models.ForeignKey(RentalProperty, on_delete=models.CASCADE)
     client = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    check_in_date = models.DateField()
-    check_out_date = models.DateField()
     guests = models.PositiveIntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     is_confirmed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f"Booking for {self.property.name} by {self.client.user.username}"
