@@ -417,20 +417,17 @@ class InitiatePaystackPaymentView(APIView):
     def post(self, request):
         property_id = request.data.get("property_id")
         guests = request.data.get("guests")
-
         try:
             rental_property = RentalProperty.objects.get(id=property_id)
         except RentalProperty.DoesNotExist:
             return Response(
                 {"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND
             )
-
         if not rental_property.is_available:
             return Response(
                 {"error": "Property is not available for booking"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         if guests > rental_property.max_guests:
             return Response(
                 {"error": f"Maximum number of guests is {rental_property.max_guests}"},
@@ -449,7 +446,6 @@ class InitiatePaystackPaymentView(APIView):
         data = {
             "email": request.user.email,
             "amount": int(total_price * 100),  # Paystack expects amount in kobo
-            "callback_url": f"{settings.FRONTEND_URL}/payment-callback",
             "metadata": {
                 "property_id": property_id,
                 "guests": guests,
@@ -459,12 +455,12 @@ class InitiatePaystackPaymentView(APIView):
 
         # Make the API request to Paystack
         response = requests.post(url, json=data, headers=headers)
-
         if response.status_code == 200:
             response_data = response.json()
             return Response(
                 {
                     "authorization_url": response_data["data"]["authorization_url"],
+                    "access_code": response_data["data"]["access_code"],
                     "reference": response_data["data"]["reference"],
                 },
                 status=status.HTTP_200_OK,
