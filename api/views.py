@@ -484,7 +484,7 @@ class ConfirmBookingView(APIView):
             "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
         }
         response = requests.get(url, headers=headers)
-        print(response.data)
+        print(response.json())
 
         if response.status_code == 200:
             payment_data = response.json()["data"]
