@@ -496,7 +496,7 @@ class ConfirmBookingView(APIView):
                 user_id = metadata["user_id"]
 
                 # Ensure the user making the request is the same who initiated the payment
-                if request.user.id != user_id:
+                if request.user.id != int(user_id):
                     return Response(
                         {"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED
                     )
