@@ -524,6 +524,7 @@ class ConfirmBookingView(APIView):
 
                 return Response(
                     {
+                        "success": True,
                         "message": "Booking confirmed successfully",
                         "booking_id": booking.id,
                     },
