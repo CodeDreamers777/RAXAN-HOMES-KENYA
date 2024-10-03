@@ -178,8 +178,12 @@ class PropertyViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        rental_properties = RentalProperty.objects.all()
+        # Filter rental properties to include only available ones
+        rental_properties = RentalProperty.objects.filter(is_available=True)
+
+        # For properties for sale, we keep all of them as there's no 'is_available' field
         properties_for_sale = PropertyForSale.objects.all()
+
         return rental_properties, properties_for_sale
 
     def get_object(self, pk):
@@ -205,18 +209,18 @@ class PropertyViewSet(viewsets.ViewSet):
 
     def list(self, request):
         rental_properties, properties_for_sale = self.get_queryset()
-        rental_property_serializer = RentalPropertySerializer(
-            rental_properties, many=True
-        )
-        property_for_sale_serializer = PropertyForSaleSerializer(
-            properties_for_sale, many=True
-        )
-        return Response(
-            {
-                "rental_properties": rental_property_serializer.data,
-                "properties_for_sale": property_for_sale_serializer.data,
-            }
-        )
+
+        # Serialize the querysets
+        rental_serializer = RentalPropertySerializer(rental_properties, many=True)
+        sale_serializer = PropertyForSaleSerializer(properties_for_sale, many=True)
+
+        # Combine the serialized data
+        data = {
+            "rental_properties": rental_serializer.data,
+            "properties_for_sale": sale_serializer.data,
+        }
+
+        return Response(data)
 
     def create(self, request):
         property_type = request.data.get("property_category")
