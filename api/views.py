@@ -589,7 +589,6 @@ class HostBookingsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Return bookings for properties owned by the user
         return Booking.objects.filter(property__host=self.request.user.profile)
 
 
@@ -598,7 +597,6 @@ class HostBookingDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Return bookings for properties owned by the user
         return Booking.objects.filter(property__host=self.request.user.profile)
 
     def retrieve(self, request, *args, **kwargs):
