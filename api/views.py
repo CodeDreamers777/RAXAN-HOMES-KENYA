@@ -572,3 +572,39 @@ class BookingDetailView(generics.RetrieveAPIView):
             )
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+
+class HostBookedPropertiesView(generics.ListAPIView):
+    serializer_class = RentalPropertySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return RentalProperty.objects.filter(
+            host=self.request.user.profile, booking__isnull=False
+        ).distinct()
+
+
+class HostBookingsView(generics.ListAPIView):
+    serializer_class = BookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Booking.objects.filter(property__host=self.request.user.profile)
+
+
+class HostBookingDetailView(generics.RetrieveAPIView):
+    serializer_class = BookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Booking.objects.filter(property__host=self.request.user.profile)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.property.host != request.user.profile:
+            return Response(
+                {"error": "You do not have permission to view this booking."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)

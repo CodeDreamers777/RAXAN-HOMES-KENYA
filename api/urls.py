@@ -29,6 +29,17 @@ urlpatterns = [
         views.BookingDetailView.as_view(),
         name="booking-detail",
     ),
+    path(
+        "host/booked-properties/",
+        views.HostBookedPropertiesView.as_view(),
+        name="host-booked-properties",
+    ),
+    path("host/bookings/", views.HostBookingsView.as_view(), name="host-bookings"),
+    path(
+        "host/bookings/<int:pk>/",
+        views.HostBookingDetailView.as_view(),
+        name="host-booking-detail",
+    ),
     # Include the router URLs in our urlpatterns
     *router.urls,
 ]
