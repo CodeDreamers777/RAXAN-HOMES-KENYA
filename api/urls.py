@@ -23,6 +23,12 @@ urlpatterns = [
     path(
         "confirm-booking/", views.ConfirmBookingView.as_view(), name="confirm-booking"
     ),
+    path("api/v1/bookings/", views.BookingListView.as_view(), name="booking-list"),
+    path(
+        "api/v1/bookings/<int:pk>/",
+        views.BookingDetailView.as_view(),
+        name="booking-detail",
+    ),
     # Include the router URLs in our urlpatterns
     *router.urls,
 ]

@@ -6,6 +6,7 @@ from .models import (
     PropertyImage,
     Amenity,
     UserType,
+    Booking,
     Review,
     WishlistItem,
 )
@@ -306,3 +307,19 @@ class WishlistItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = WishlistItem
         fields = ["id", "property_name", "property_type", "added_at", "username"]
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    property = RentalPropertySerializer(read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = [
+            "id",
+            "property",
+            "client",
+            "guests",
+            "total_price",
+            "is_confirmed",
+            "created_at",
+        ]

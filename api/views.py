@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.db.models import Q
+from rest_framework import generics, permissions
 
 from .serializer import SignupSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -34,6 +35,7 @@ from .serializer import (
     ProfileSerializer,
     ReviewSerializer,
     WishlistItemSerializer,
+    BookingSerializer,
 )
 from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
@@ -544,3 +546,29 @@ class ConfirmBookingView(APIView):
                 {"error": "Failed to verify payment"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class BookingListView(generics.ListAPIView):
+    serializer_class = BookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Booking.objects.filter(client=self.request.user.profile)
+
+
+class BookingDetailView(generics.RetrieveAPIView):
+    serializer_class = BookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Booking.objects.filter(client=self.request.user.profile)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.client != request.user.profile:
+            return Response(
+                {"error": "You do not have permission to view this booking."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
