@@ -312,11 +312,13 @@ class WishlistItemSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     client_email = serializers.EmailField(source="client.user.email", read_only=True)
     property_name = serializers.CharField(source="property.name", read_only=True)
+    property_id = serializers.CharField(source="property.id", read_only=True)
 
     class Meta:
         model = Booking
         fields = [
             "id",
+            "property_id",
             "property_name",
             "client_email",
             "guests",
