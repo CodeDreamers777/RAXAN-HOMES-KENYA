@@ -310,14 +310,15 @@ class WishlistItemSerializer(serializers.ModelSerializer):
 
 
 class BookingSerializer(serializers.ModelSerializer):
-    property = RentalPropertySerializer(read_only=True)
+    client_email = serializers.EmailField(source="client.user.email", read_only=True)
+    property_name = serializers.CharField(source="property.name", read_only=True)
 
     class Meta:
         model = Booking
         fields = [
             "id",
-            "property",
-            "client",
+            "property_name",
+            "client_email",
             "guests",
             "total_price",
             "is_confirmed",
