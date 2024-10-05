@@ -40,6 +40,25 @@ urlpatterns = [
         views.HostBookingDetailView.as_view(),
         name="host-booking-detail",
     ),
+    path(
+        "conversations/", views.ConversationListView.as_view(), name="conversation_list"
+    ),
+    path(
+        "conversations/<int:other_user_id>/",
+        views.ConversationDetailView.as_view(),
+        name="conversation_detail",
+    ),
+    path("send-message/", views.SendMessageView.as_view(), name="send_message"),
+    path(
+        "mark-read/<int:other_user_id>/",
+        views.MarkMessagesAsReadView.as_view(),
+        name="mark_messages_as_read",
+    ),
+    path(
+        "unread-count/",
+        views.UnreadMessageCountView.as_view(),
+        name="get_unread_message_count",
+    ),
     # Include the router URLs in our urlpatterns
     *router.urls,
 ]

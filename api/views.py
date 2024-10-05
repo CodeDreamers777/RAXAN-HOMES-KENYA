@@ -28,6 +28,7 @@ from .models import (
     Amenity,
     Review,
     Booking,
+    Message,
 )
 from .serializer import (
     RentalPropertySerializer,
@@ -36,6 +37,8 @@ from .serializer import (
     ReviewSerializer,
     WishlistItemSerializer,
     BookingSerializer,
+    MessageSerializer,
+    MessageCreateSerializer,
 )
 from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
@@ -608,3 +611,64 @@ class HostBookingDetailView(generics.RetrieveAPIView):
             )
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+
+class ConversationListView(generics.ListAPIView):
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user_profile = self.request.user.profile
+        conversations = (
+            Message.objects.filter(Q(sender=user_profile) | Q(receiver=user_profile))
+            .order_by("receiver", "-timestamp")
+            .distinct("receiver")
+        )
+        return conversations
+
+
+class ConversationDetailView(generics.ListAPIView):
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user_profile = self.request.user.profile
+        other_profile_id = self.kwargs["other_user_id"]
+        return Message.objects.filter(
+            (Q(sender=user_profile) & Q(receiver_id=other_profile_id))
+            | (Q(sender_id=other_profile_id) & Q(receiver=user_profile))
+        ).order_by("timestamp")
+
+
+class SendMessageView(generics.CreateAPIView):
+    serializer_class = MessageCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+
+class MarkMessagesAsReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, other_user_id):
+        user_profile = request.user.profile
+        other_profile = Profile.objects.get(id=other_user_id)
+
+        Message.objects.filter(
+            sender=other_profile, receiver=user_profile, is_read=False
+        ).update(is_read=True)
+
+        return Response({"status": "success"})
+
+
+class UnreadMessageCountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user_profile = request.user.profile
+        unread_count = Message.objects.filter(
+            receiver=user_profile, is_read=False
+        ).count()
+
+        return Response({"unread_count": unread_count})

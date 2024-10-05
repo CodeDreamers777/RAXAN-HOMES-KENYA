@@ -9,6 +9,7 @@ from .models import (
     Booking,
     Review,
     WishlistItem,
+    Message,
 )
 from django.contrib.auth.models import User
 import json
@@ -326,3 +327,29 @@ class BookingSerializer(serializers.ModelSerializer):
             "is_confirmed",
             "created_at",
         ]
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender = ProfileSerializer(read_only=True)
+    receiver = ProfileSerializer(read_only=True)
+
+    class Meta:
+        model = Message
+        fields = ["id", "sender", "receiver", "content", "timestamp", "is_read"]
+        read_only_fields = ["timestamp", "is_read"]
+
+
+class MessageCreateSerializer(serializers.ModelSerializer):
+    receiver_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Message
+        fields = ["receiver_id", "content"]
+
+    def create(self, validated_data):
+        sender = self.context["request"].user.profile
+        receiver_id = validated_data.pop("receiver_id")
+        receiver = Profile.objects.get(id=receiver_id)
+        return Message.objects.create(
+            sender=sender, receiver=receiver, **validated_data
+        )
