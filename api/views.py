@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db.models import Q
+from django.db.models import Q, Max
 from rest_framework import generics, permissions
 
 from .serializer import SignupSerializer
@@ -619,12 +619,27 @@ class ConversationListView(generics.ListAPIView):
 
     def get_queryset(self):
         user_profile = self.request.user.profile
-        conversations = (
+
+        # Get the latest message for each conversation
+        latest_messages = (
             Message.objects.filter(Q(sender=user_profile) | Q(receiver=user_profile))
-            .order_by("receiver", "-timestamp")
-            .distinct("receiver")
+            .values("sender", "receiver")
+            .annotate(latest_timestamp=Max("timestamp"))
+            .order_by("-latest_timestamp")
         )
-        return conversations
+
+        # Fetch the actual message objects
+        conversation_messages = []
+        for msg in latest_messages:
+            conversation_message = Message.objects.filter(
+                Q(sender_id=msg["sender"], receiver_id=msg["receiver"])
+                | Q(sender_id=msg["receiver"], receiver_id=msg["sender"]),
+                timestamp=msg["latest_timestamp"],
+            ).first()
+            if conversation_message:
+                conversation_messages.append(conversation_message)
+
+        return conversation_messages
 
 
 class ConversationDetailView(generics.ListAPIView):
