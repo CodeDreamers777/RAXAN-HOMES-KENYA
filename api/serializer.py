@@ -157,7 +157,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
         required=False,
         source="images",
     )
-    host = serializers.PrimaryKeyRelatedField(read_only=True)
+    host = serializers.SerializerMethodField()
     amenities = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
     )
@@ -178,6 +178,9 @@ class BasePropertySerializer(serializers.ModelSerializer):
             "images",
             "uploaded_images",
         ]
+
+    def get_host(self, obj):
+        return {"id": obj.host.id, "username": obj.host.username}
 
     def create(self, validated_data):
         amenities_data = validated_data.pop("amenities", [])
