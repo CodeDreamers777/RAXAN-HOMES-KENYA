@@ -425,21 +425,15 @@ class InitiatePaystackPaymentView(APIView):
 
     def post(self, request):
         property_id = request.data.get("property_id")
-        guests = request.data.get("guests")
         try:
             rental_property = RentalProperty.objects.get(id=property_id)
         except RentalProperty.DoesNotExist:
             return Response(
                 {"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        if not rental_property.is_available:
+        if not rental_property.is_available or rental_property.number_of_units == 0:
             return Response(
                 {"error": "Property is not available for booking"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if guests > rental_property.max_guests:
-            return Response(
-                {"error": f"Maximum number of guests is {rental_property.max_guests}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -457,7 +451,6 @@ class InitiatePaystackPaymentView(APIView):
             "amount": int(total_price * 100),  # Paystack expects amount in kobo
             "metadata": {
                 "property_id": property_id,
-                "guests": guests,
                 "user_id": request.user.id,
             },
         }
@@ -501,7 +494,6 @@ class ConfirmBookingView(APIView):
             if payment_data["status"] == "success":
                 metadata = payment_data["metadata"]
                 property_id = metadata["property_id"]
-                guests = metadata["guests"]
                 user_id = metadata["user_id"]
 
                 # Ensure the user making the request is the same who initiated the payment
@@ -518,17 +510,25 @@ class ConfirmBookingView(APIView):
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
+                # Check if units are still available
+                if rental_property.number_of_units == 0:
+                    return Response(
+                        {"error": "No units available for this property"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 # Create the booking
                 booking = Booking.objects.create(
                     property=rental_property,
                     client=request.user.profile,
-                    guests=guests,
                     total_price=payment_data["amount"] / 100,  # Convert back from kobo
                     is_confirmed=True,
                 )
 
-                # You might want to update the property's availability here
-                rental_property.is_available = False
+                # Update the property's number of units
+                rental_property.number_of_units -= 1
+                if rental_property.number_of_units == 0:
+                    rental_property.is_available = False
                 rental_property.save()
 
                 return Response(

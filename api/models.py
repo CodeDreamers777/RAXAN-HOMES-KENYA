@@ -120,7 +120,7 @@ class BaseProperty(models.Model):
 
 class RentalProperty(BaseProperty):
     price_per_month = models.DecimalField(max_digits=10, decimal_places=2)
-    max_guests = models.PositiveIntegerField()
+    number_of_units = models.PositiveIntegerField()
     is_available = models.BooleanField(default=True)
 
     def images(self):
@@ -153,7 +153,6 @@ class PropertyImage(models.Model):
 class Booking(models.Model):
     property = models.ForeignKey(RentalProperty, on_delete=models.CASCADE)
     client = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    guests = models.PositiveIntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     is_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)

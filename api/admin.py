@@ -61,7 +61,6 @@ class BookingAdmin(admin.ModelAdmin):
     list_display = (
         "property",
         "client",
-        "guests",
         "created_at",
         "is_confirmed",
     )

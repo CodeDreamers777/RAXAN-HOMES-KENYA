@@ -271,7 +271,7 @@ class RentalPropertySerializer(BasePropertySerializer):
         model = RentalProperty
         fields = BasePropertySerializer.Meta.fields + [
             "price_per_month",
-            "max_guests",
+            "number_of_units",
             "is_available",
         ]
 
@@ -326,7 +326,6 @@ class BookingSerializer(serializers.ModelSerializer):
             "property_id",
             "property_name",
             "client_email",
-            "guests",
             "total_price",
             "is_confirmed",
             "created_at",
