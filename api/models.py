@@ -114,6 +114,17 @@ def save_user_profile(sender, instance, **kwargs):
     instance.profile.save()
 
 
+@receiver(post_save, sender=UserType)
+def update_profile_seller_status(sender, instance, **kwargs):
+    if instance.user_type == "SELLER":
+        profile = Profile.objects.get(user=instance.user)
+        profile.is_seller = True
+        free_plan = SubscriptionPlan.objects.get(name="FREE")
+        profile.subscription = free_plan
+        profile.subscription_start_date = timezone.now()
+        profile.save()
+
+
 class Amenity(models.Model):
     name = models.CharField(max_length=50)
 
