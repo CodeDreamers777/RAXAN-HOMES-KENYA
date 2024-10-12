@@ -15,6 +15,8 @@ from .models import (
 from django.contrib.auth.models import User
 import json
 from django.db import transaction
+from django.utils import timezone
+
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
@@ -64,7 +66,6 @@ class SignupSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        print("this is validated_data", validated_data)
         username = validated_data["username"]
         email = validated_data["email"]
         password = validated_data["password"]
@@ -87,10 +88,23 @@ class SignupSerializer(serializers.Serializer):
         profile.phone_number = phone_number
         if profile_picture:
             profile.profile_picture = profile_picture
+
         if user_type == "SELLER":
             profile.is_seller = True
+            if not validated_data.get("identification_type") or not validated_data.get(
+                "identification_number"
+            ):
+                raise serializers.ValidationError(
+                    "Sellers must provide identification information."
+                )
             profile.identification_type = validated_data.get("identification_type")
             profile.identification_number = validated_data.get("identification_number")
+
+            # Set the free subscription plan
+            free_plan = SubscriptionPlan.objects.get(name="FREE")
+            profile.subscription = free_plan
+            profile.subscription_start_date = timezone.now()
+
         profile.save()
 
         return user

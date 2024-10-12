@@ -77,11 +77,7 @@ class Profile(models.Model):
         return self.user.username
 
     def save(self, *args, **kwargs):
-        if self.is_seller:
-            if not self.identification_type or not self.identification_number:
-                raise ValueError("Sellers must provide identification information.")
-            if self.subscription and not self.subscription_start_date:
-                self.subscription_start_date = timezone.now()
+        # Remove the validation check from here
         super().save(*args, **kwargs)
 
     def can_add_property_for_sale(self):
@@ -122,7 +118,6 @@ def update_profile_seller_status(sender, instance, **kwargs):
         free_plan = SubscriptionPlan.objects.get(name="FREE")
         profile.subscription = free_plan
         profile.subscription_start_date = timezone.now()
-        profile.save()
 
 
 class Amenity(models.Model):
