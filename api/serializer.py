@@ -14,6 +14,7 @@ from .models import (
 )
 from django.contrib.auth.models import User
 import json
+from django.db import transaction
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
@@ -41,7 +42,6 @@ class SignupSerializer(serializers.Serializer):
             raise serializers.ValidationError({"username": "Username already exists"})
         if User.objects.filter(email=data["email"]).exists():
             raise serializers.ValidationError({"email": "Email already exists"})
-
         # Check identification only for sellers
         if data["user_type"] == "SELLER":
             if not data.get("identification_type"):
@@ -60,10 +60,11 @@ class SignupSerializer(serializers.Serializer):
             # For non-sellers, remove identification fields if they are null
             data.pop("identification_type", None)
             data.pop("identification_number", None)
-
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
+        print("this is validated_data", validated_data)
         username = validated_data["username"]
         email = validated_data["email"]
         password = validated_data["password"]
@@ -71,27 +72,25 @@ class SignupSerializer(serializers.Serializer):
         profile_picture = validated_data.get("profile_picture")
         user_type = validated_data["user_type"]
 
+        # Create User
         user = User.objects.create_user(
             username=username, email=email, password=password
         )
 
-        # Create or update UserType
-        UserType.objects.update_or_create(user=user, defaults={"user_type": user_type})
+        # Create UserType
+        UserType.objects.create(user=user, user_type=user_type)
 
+        # Update Profile
         profile = Profile.objects.get(user=user)
         profile.username = username
         profile.email = email
         profile.phone_number = phone_number
         if profile_picture:
             profile.profile_picture = profile_picture
-
         if user_type == "SELLER":
+            profile.is_seller = True
             profile.identification_type = validated_data.get("identification_type")
             profile.identification_number = validated_data.get("identification_number")
-        else:
-            profile.identification_type = None
-            profile.identification_number = None
-
         profile.save()
 
         return user
