@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,9 +10,9 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { WishlistContext } from "../../App";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FilterModal from "./FilterModal";
 
@@ -47,7 +47,6 @@ function RatingStars({ rating }) {
 }
 
 function HomePage({ navigation }) {
-  const { wishlist, toggleWishlist } = useContext(WishlistContext);
   const [properties, setProperties] = useState({
     properties_for_sale: [],
     rental_properties: [],
@@ -59,11 +58,48 @@ function HomePage({ navigation }) {
     priceRange: [0, 1000000],
     yearBuilt: [1900, new Date().getFullYear()],
     propertyType: null,
+    bedrooms: [0, 10],
+    bathrooms: [0, 10],
   });
+  const [wishlist, setWishlist] = useState(new Set());
 
   useEffect(() => {
+    fetchCSRFToken();
+    loadWishlistFromStorage();
     fetchProperties();
   }, []);
+
+  const fetchCSRFToken = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/get-csrf-token/`, {
+        method: "GET",
+        credentials: "include",
+      });
+      const data = await response.json();
+      await AsyncStorage.setItem("csrfToken", data.csrfToken);
+    } catch (error) {
+      console.error("Error fetching CSRF token:", error);
+    }
+  };
+
+  const loadWishlistFromStorage = async () => {
+    try {
+      const storedWishlist = await AsyncStorage.getItem('wishlist');
+      if (storedWishlist) {
+        setWishlist(new Set(JSON.parse(storedWishlist)));
+      }
+    } catch (error) {
+      console.error("Error loading wishlist from storage:", error);
+    }
+  };
+
+  const saveWishlistToStorage = async (newWishlist) => {
+    try {
+      await AsyncStorage.setItem('wishlist', JSON.stringify(Array.from(newWishlist)));
+    } catch (error) {
+      console.error("Error saving wishlist to storage:", error);
+    }
+  };
 
   const fetchProperties = async () => {
     try {
@@ -84,7 +120,39 @@ function HomePage({ navigation }) {
       }
 
       const data = await response.json();
-      setProperties(data);
+
+      // Fetch wishlist from the server
+      const wishlistResponse = await fetch(`${API_BASE_URL}/api/v1/wishlist/`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Referer: API_BASE_URL,
+        },
+      });
+
+      if (!wishlistResponse.ok) {
+        throw new Error("Failed to fetch wishlist");
+      }
+
+      const wishlistData = await wishlistResponse.json();
+      const newWishlist = new Set(wishlistData.map((item) => item.property_id));
+
+      // Update local storage and state with the new wishlist
+      setWishlist(newWishlist);
+      saveWishlistToStorage(newWishlist);
+
+      // Update properties with wishlist status
+      const updatedProperties = {
+        properties_for_sale: data.properties_for_sale.map((prop) => ({
+          ...prop,
+          is_in_wishlist: newWishlist.has(prop.id),
+        })),
+        rental_properties: data.rental_properties.map((prop) => ({
+          ...prop,
+          is_in_wishlist: newWishlist.has(prop.id),
+        })),
+      };
+
+      setProperties(updatedProperties);
     } catch (error) {
       console.error("Error fetching properties:", error);
     }
@@ -95,34 +163,98 @@ function HomePage({ navigation }) {
     fetchProperties().then(() => setRefreshing(false));
   }, []);
 
-const getFilteredProperties = () => {
-  let filteredProps = [];
+  const getFilteredProperties = () => {
+    let filteredProps = [];
 
-  if (filters.type === "rental") {
-    filteredProps = properties.rental_properties || [];
-  } else if (filters.type === "sale") {
-    filteredProps = properties.properties_for_sale || [];
-  } else {
-    filteredProps = [
-      ...(properties.rental_properties || []),
-      ...(properties.properties_for_sale || []),
-    ];
-  }
+    if (filters.type === "rental") {
+      filteredProps = properties.rental_properties || [];
+    } else if (filters.type === "sale") {
+      filteredProps = properties.properties_for_sale || [];
+    } else {
+      filteredProps = [
+        ...(properties.rental_properties || []),
+        ...(properties.properties_for_sale || []),
+      ];
+    }
 
-  return filteredProps.filter((prop) => {
-    const price = prop.price_per_month !== undefined ? prop.price_per_month : prop.price;
-    const matchesPrice =
-      parseFloat(price) >= filters.priceRange[0] &&
-      parseFloat(price) <= filters.priceRange[1];
-    const matchesType =
-      !filters.propertyType || prop.property_type === filters.propertyType;
-    const matchesYear =
-      !prop.year_built || (prop.year_built >= filters.yearBuilt[0] &&
-      prop.year_built <= filters.yearBuilt[1]);
+    return filteredProps.filter((prop) => {
+      const price =
+        prop.price_per_month !== undefined ? prop.price_per_month : prop.price;
+      const matchesPrice =
+        parseFloat(price) >= filters.priceRange[0] &&
+        parseFloat(price) <= filters.priceRange[1];
+      const matchesType =
+        !filters.propertyType || prop.property_type === filters.propertyType;
+      const matchesYear =
+        !prop.year_built ||
+        (prop.year_built >= filters.yearBuilt[0] &&
+          prop.year_built <= filters.yearBuilt[1]);
+      const matchesBedrooms =
+        prop.bedrooms >= filters.bedrooms[0] &&
+        prop.bedrooms <= filters.bedrooms[1];
 
-    return matchesPrice && matchesType && matchesYear;
-  });
-};
+      return matchesPrice && matchesType && matchesYear && matchesBedrooms;
+    });
+  };
+
+  const handleWishlistToggle = async (item) => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      const csrfToken = await AsyncStorage.getItem("csrfToken");
+      if (!accessToken || !csrfToken) {
+        throw new Error("No access token or CSRF token found");
+      }
+
+      const method = wishlist.has(item.id) ? "DELETE" : "POST";
+      const propertyType = item.price_per_month ? "rental" : "sale";
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/wishlist/`, {
+        method: method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "X-CSRFToken": csrfToken,
+          Referer: API_BASE_URL,
+        },
+        body: JSON.stringify({
+          property_type: propertyType,
+          property_id: item.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update wishlist");
+      }
+
+      // Update the local wishlist state
+      const newWishlist = new Set(wishlist);
+      if (wishlist.has(item.id)) {
+        newWishlist.delete(item.id);
+      } else {
+        newWishlist.add(item.id);
+      }
+      setWishlist(newWishlist);
+      saveWishlistToStorage(newWishlist);
+
+      // Update the local state to reflect the change
+      setProperties((prevProperties) => ({
+        ...prevProperties,
+        properties_for_sale: prevProperties.properties_for_sale.map((prop) =>
+          prop.id === item.id
+            ? { ...prop, is_in_wishlist: !prop.is_in_wishlist }
+            : prop
+        ),
+        rental_properties: prevProperties.rental_properties.map((prop) =>
+          prop.id === item.id
+            ? { ...prop, is_in_wishlist: !prop.is_in_wishlist }
+            : prop
+        ),
+      }));
+    } catch (error) {
+      console.error("Error updating wishlist:", error);
+      Alert.alert("Error", "Failed to update wishlist. Please try again.");
+    }
+  };
 
   const renderProperty = ({ item }) => (
     <TouchableOpacity
@@ -141,14 +273,10 @@ const getFilteredProperties = () => {
       />
       <TouchableOpacity
         style={styles.wishlistButton}
-        onPress={() => toggleWishlist(item)}
+        onPress={() => handleWishlistToggle(item)}
       >
         <Ionicons
-          name={
-            wishlist.some((prop) => prop.id === item.id)
-              ? "heart"
-              : "heart-outline"
-          }
+          name={wishlist.has(item.id) ? "heart" : "heart-outline"}
           size={24}
           color="#fff"
         />
@@ -190,6 +318,11 @@ const getFilteredProperties = () => {
     toggleModal();
   };
 
+  const handleFilterOptionPress = (option) => {
+    setFilters({ ...filters, type: option });
+    toggleModal();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.searchContainer}>
@@ -205,9 +338,56 @@ const getFilteredProperties = () => {
           placeholderTextColor="#666"
         />
       </View>
-      <TouchableOpacity style={styles.filterButton} onPress={toggleModal}>
-        <Text style={styles.filterButtonText}>Filters</Text>
-      </TouchableOpacity>
+      <View style={styles.filterOptionsContainer}>
+        <TouchableOpacity
+          style={[
+            styles.filterOption,
+            filters.type === "all" && styles.activeFilterOption,
+          ]}
+          onPress={() => handleFilterOptionPress("all")}
+        >
+          <Text
+            style={[
+              styles.filterOptionText,
+              filters.type === "all" && styles.activeFilterOptionText,
+            ]}
+          >
+            All
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterOption,
+            filters.type === "sale" && styles.activeFilterOption,
+          ]}
+          onPress={() => handleFilterOptionPress("sale")}
+        >
+          <Text
+            style={[
+              styles.filterOptionText,
+              filters.type === "sale" && styles.activeFilterOptionText,
+            ]}
+          >
+            For Sale
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterOption,
+            filters.type === "rental" && styles.activeFilterOption,
+          ]}
+          onPress={() => handleFilterOptionPress("rental")}
+        >
+          <Text
+            style={[
+              styles.filterOptionText,
+              filters.type === "rental" && styles.activeFilterOptionText,
+            ]}
+          >
+            Rental
+          </Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={getFilteredProperties()}
         renderItem={renderProperty}
@@ -323,18 +503,28 @@ const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: "row",
   },
-  filterButton: {
-    backgroundColor: "#4a90e2",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 25,
-    marginHorizontal: 16,
+  filterOptionsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
-  filterButtonText: {
-    color: "#fff",
+  filterOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
+  },
+  activeFilterOption: {
+    backgroundColor: "#4a90e2",
+  },
+  filterOptionText: {
+    fontSize: 14,
     fontWeight: "bold",
-    textAlign: "center",
+    color: "#333",
+  },
+  activeFilterOptionText: {
+    color: "#fff",
   },
 });
 

@@ -24,12 +24,16 @@ const FilterModal = ({
   const maxPriceRef = useRef(null);
   const minYearRef = useRef(null);
   const maxYearRef = useRef(null);
+  const minBedroomsRef = useRef(null);
+  const maxBedroomsRef = useRef(null);
+  const minBathroomsRef = useRef(null);
+  const maxBathroomsRef = useRef(null);
 
   const updateFilter = (filterName, index, value) => {
     setFilters((prevFilters) => ({
       ...prevFilters,
       [filterName]: prevFilters[filterName].map((v, i) =>
-        i === index ? value : v
+        i === index ? value : v,
       ),
     }));
   };
@@ -81,8 +85,8 @@ const FilterModal = ({
                       {type === "all"
                         ? "All"
                         : type === "rental"
-                        ? "For Rent"
-                        : "For Sale"}
+                          ? "For Rent"
+                          : "For Sale"}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -126,12 +130,14 @@ const FilterModal = ({
                     key={type}
                     style={[
                       styles.filterOption,
-                      filters.propertyType === type && styles.activeFilterOption,
+                      filters.propertyType === type &&
+                        styles.activeFilterOption,
                     ]}
                     onPress={() =>
                       setFilters({
                         ...filters,
-                        propertyType: filters.propertyType === type ? null : type,
+                        propertyType:
+                          filters.propertyType === type ? null : type,
                       })
                     }
                   >
@@ -179,6 +185,64 @@ const FilterModal = ({
                 </View>
               </View>
             )}
+
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>Bedrooms</Text>
+              <View style={styles.rangeInputContainer}>
+                <TextInput
+                  ref={minBedroomsRef}
+                  style={styles.rangeInput}
+                  placeholder="Min"
+                  keyboardType="numeric"
+                  value={filters.bedrooms[0].toString()}
+                  onChangeText={(text) => {
+                    const value = parseInt(text) || 0;
+                    updateFilter("bedrooms", 0, value);
+                  }}
+                />
+                <Text style={styles.rangeText}>to</Text>
+                <TextInput
+                  ref={maxBedroomsRef}
+                  style={styles.rangeInput}
+                  placeholder="Max"
+                  keyboardType="numeric"
+                  value={filters.bedrooms[1].toString()}
+                  onChangeText={(text) => {
+                    const value = parseInt(text) || 10;
+                    updateFilter("bedrooms", 1, value);
+                  }}
+                />
+              </View>
+            </View>
+
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>Bathrooms</Text>
+              <View style={styles.rangeInputContainer}>
+                <TextInput
+                  ref={minBathroomsRef}
+                  style={styles.rangeInput}
+                  placeholder="Min"
+                  keyboardType="numeric"
+                  value={filters.bathrooms[0].toString()}
+                  onChangeText={(text) => {
+                    const value = parseInt(text) || 0;
+                    updateFilter("bathrooms", 0, value);
+                  }}
+                />
+                <Text style={styles.rangeText}>to</Text>
+                <TextInput
+                  ref={maxBathroomsRef}
+                  style={styles.rangeInput}
+                  placeholder="Max"
+                  keyboardType="numeric"
+                  value={filters.bathrooms[1].toString()}
+                  onChangeText={(text) => {
+                    const value = parseInt(text) || 10;
+                    updateFilter("bathrooms", 1, value);
+                  }}
+                />
+              </View>
+            </View>
           </ScrollView>
           <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
             <Text style={styles.applyButtonText}>Apply Filters</Text>

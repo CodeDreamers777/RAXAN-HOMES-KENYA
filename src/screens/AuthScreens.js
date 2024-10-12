@@ -16,7 +16,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
-import RaxanLogo from "../../assets/raxan-logo.jpeg";
+import RaxanLogo from "../../assets/logo.png";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+
+WebBrowser.maybeCompleteAuthSession();
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
@@ -41,6 +45,13 @@ function LoginScreen({ navigation }) {
   const [csrfToken, setCSRFToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: "YOUR_EXPO_CLIENT_ID",
+    androidClientId: "YOUR_ANDROID_CLIENT_ID",
+    iosClientId: "YOUR_IOS_CLIENT_ID",
+    webClientId: "YOUR_WEB_CLIENT_ID",
+  });
+
   useEffect(() => {
     const getCSRFToken = async () => {
       const token = await fetchCSRFToken();
@@ -48,6 +59,13 @@ function LoginScreen({ navigation }) {
     };
     getCSRFToken();
   }, []);
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      handleGoogleSignIn(authentication.accessToken);
+    }
+  }, [response]);
 
   const handleLogin = async () => {
     setIsLoading(true);
@@ -74,13 +92,12 @@ function LoginScreen({ navigation }) {
           data.Message === "User already logged in" ||
           data.Message === "User logged in successfully"
         ) {
-          // No need to check for access token in case of "User already logged in"
           if (data.access) {
             await AsyncStorage.setItem("accessToken", data.access);
             console.log("Access token stored successfully");
           }
           console.log("Navigating to Home screen");
-          navigation.replace("Home"); // Use replace instead of navigate
+          navigation.replace("Home");
         }
       } else {
         Alert.alert(
@@ -93,6 +110,37 @@ function LoginScreen({ navigation }) {
       Alert.alert(
         "Error",
         "An error occurred while logging in. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async (accessToken) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/v1/google-login/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken,
+        },
+        body: JSON.stringify({ google_access_token: accessToken }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await AsyncStorage.setItem("accessToken", data.access);
+        navigation.replace("Home");
+      } else {
+        Alert.alert("Login Failed", data.Message || "Google sign-in failed");
+      }
+    } catch (error) {
+      console.error("Google Sign-In error:", error);
+      Alert.alert(
+        "Error",
+        "An error occurred while signing in with Google. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -159,6 +207,13 @@ function LoginScreen({ navigation }) {
               <Text style={styles.buttonText}>Login</Text>
             )}
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={() => promptAsync()}
+            disabled={!request}
+          >
+            <Text style={styles.googleButtonText}>Sign in with Google</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
             <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
           </TouchableOpacity>
@@ -180,6 +235,13 @@ function SignUpScreen({ navigation }) {
   const [identificationType, setIdentificationType] = useState("ID");
   const [identificationNumber, setIdentificationNumber] = useState("");
 
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: "YOUR_EXPO_CLIENT_ID",
+    androidClientId: "YOUR_ANDROID_CLIENT_ID",
+    iosClientId: "YOUR_IOS_CLIENT_ID",
+    webClientId: "YOUR_WEB_CLIENT_ID",
+  });
+
   useEffect(() => {
     const getCSRFToken = async () => {
       const token = await fetchCSRFToken();
@@ -187,6 +249,13 @@ function SignUpScreen({ navigation }) {
     };
     getCSRFToken();
   }, []);
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      handleGoogleSignUp(authentication.accessToken);
+    }
+  }, [response]);
 
   const handleSignUp = async () => {
     if (password !== confirmPassword) {
@@ -245,6 +314,48 @@ function SignUpScreen({ navigation }) {
       Alert.alert(
         "Error",
         "An error occurred while signing up. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async (accessToken) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/v1/google-signup/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken,
+        },
+        body: JSON.stringify({
+          google_access_token: accessToken,
+          user_type: accountType,
+          identification_type:
+            accountType === "SELLER" ? identificationType : null,
+          identification_number:
+            accountType === "SELLER" ? identificationNumber : null,
+        }),
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert("Success", "Account created successfully", [
+          { text: "OK", onPress: () => navigation.navigate("Login") },
+        ]);
+      } else {
+        Alert.alert(
+          "Error",
+          data.Message || "Failed to create account. Please try again.",
+        );
+      }
+    } catch (error) {
+      console.error("Google Sign-Up error:", error);
+      Alert.alert(
+        "Error",
+        "An error occurred while signing up with Google. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -399,6 +510,13 @@ function SignUpScreen({ navigation }) {
               <Text style={styles.buttonText}>Sign Up</Text>
             )}
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={() => promptAsync()}
+            disabled={!request}
+          >
+            <Text style={styles.googleButtonText}>Sign up with Google</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("Login")}>
             <Text style={styles.linkText}>Already have an account? Log in</Text>
           </TouchableOpacity>
@@ -498,6 +616,18 @@ const styles = StyleSheet.create({
   picker: {
     height: 50,
     width: "100%",
+  },
+  googleButton: {
+    backgroundColor: "#4285F4",
+    paddingVertical: 15,
+    paddingHorizontal: 50,
+    borderRadius: 25,
+    marginTop: 20,
+  },
+  googleButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
 

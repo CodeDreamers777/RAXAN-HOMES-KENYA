@@ -32,7 +32,7 @@ const AddPropertyPage = () => {
   const [bedrooms, setBedrooms] = useState("");
   const [bathrooms, setBathrooms] = useState("");
   const [area, setArea] = useState("");
-  const [maxGuests, setMaxGuests] = useState("");
+  const [numberOfUnits, setNumberOfUnits] = useState("");
   const [isAvailable, setIsAvailable] = useState("yes");
   const [amenities, setAmenities] = useState([]);
   const [images, setImages] = useState([]);
@@ -115,7 +115,7 @@ const AddPropertyPage = () => {
     ];
 
     if (propertyCategory === "rental") {
-      requiredFields.push(maxGuests);
+      requiredFields.push(numberOfUnits);
     } else if (propertyCategory === "sale") {
       requiredFields.push(yearBuilt);
     }
@@ -138,21 +138,21 @@ const AddPropertyPage = () => {
 
     if (propertyCategory === "rental") {
       formData.append("price_per_month", price);
-      formData.append("max_guests", maxGuests);
+      formData.append("number_of_units", numberOfUnits);
       formData.append("is_available", isAvailable === "yes");
     } else {
       formData.append("price", price);
       formData.append("year_built", yearBuilt);
     }
 
-images.forEach((image, index) => {
-  const filename = image.split('/').pop(); // Extract the filename from the URI
-  formData.append("uploaded_images", {
-    uri: image,
-    type: "image/jpeg",
-    name: filename, // Use the actual filename
-  });
-});
+    images.forEach((image, index) => {
+      const filename = image.split("/").pop(); // Extract the filename from the URI
+      formData.append("uploaded_images", {
+        uri: image,
+        type: "image/jpeg",
+        name: filename, // Use the actual filename
+      });
+    });
     console.log(formData);
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {
@@ -384,17 +384,17 @@ images.forEach((image, index) => {
           <>
             <View style={styles.inputContainer}>
               <MaterialIcons
-                name="group"
+                name="apartment"
                 size={24}
                 color="#4CAF50"
                 style={styles.icon}
               />
               <TextInput
                 style={styles.input}
-                placeholder="Max Guests"
+                placeholder="Number of Units"
                 placeholderTextColor="#a0a0a0"
-                value={maxGuests}
-                onChangeText={setMaxGuests}
+                value={numberOfUnits}
+                onChangeText={setNumberOfUnits}
                 keyboardType="numeric"
               />
             </View>

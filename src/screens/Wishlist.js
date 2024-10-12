@@ -1,144 +1,267 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  StyleSheet,
-  Text,
   View,
+  Text,
   FlatList,
+  StyleSheet,
   Image,
   TouchableOpacity,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
 const WishlistScreen = ({ navigation }) => {
-  const [wishlist, setWishlist] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadWishlist();
+  const fetchWishlist = useCallback(async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      if (!accessToken) {
+        throw new Error("No access token found");
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/wishlist/`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Referer: API_BASE_URL,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch wishlist");
+      }
+
+      const wishlistData = await response.json();
+      const propertiesResponse = await fetch(
+        `${API_BASE_URL}/api/v1/properties/`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Referer: API_BASE_URL,
+          },
+        },
+      );
+
+      if (!propertiesResponse.ok) {
+        throw new Error("Failed to fetch properties");
+      }
+
+      const propertiesData = await propertiesResponse.json();
+
+      const enhancedWishlistItems = wishlistData.map((wishlistItem) => {
+        const property = [
+          ...propertiesData.properties_for_sale,
+          ...propertiesData.rental_properties,
+        ].find((p) => p.name === wishlistItem.property_name);
+        return { ...wishlistItem, ...property, is_in_wishlist: true };
+      });
+
+      setWishlistItems(enhancedWishlistItems);
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      Alert.alert("Error", "Failed to fetch wishlist. Please try again.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  const loadWishlist = async () => {
-    try {
-      const storedWishlist = await AsyncStorage.getItem('wishlist');
-      if (storedWishlist !== null) {
-        setWishlist(JSON.parse(storedWishlist));
-      }
-    } catch (error) {
-      console.error('Error loading wishlist:', error);
-    }
-  };
+  useEffect(() => {
+    fetchWishlist();
+  }, [fetchWishlist]);
 
-  const removeFromWishlist = async (propertyId) => {
-    const updatedWishlist = wishlist.filter((item) => item.id !== propertyId);
-    setWishlist(updatedWishlist);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchWishlist();
+  }, [fetchWishlist]);
+
+  const handleRemoveFromWishlist = async (item) => {
     try {
-      await AsyncStorage.setItem('wishlist', JSON.stringify(updatedWishlist));
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      const csrfToken = await AsyncStorage.getItem("csrfToken");
+      if (!accessToken || !csrfToken) {
+        throw new Error("No access token or CSRF token found");
+      }
+
+      const requestBody = {
+        property_type:
+          item.property_type === "rentalproperty" ? "rental" : "sale",
+        property_id: item.id,
+      };
+
+      console.log("Request Body:", JSON.stringify(requestBody));
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/wishlist/`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "X-CSRFToken": csrfToken,
+          Referer: API_BASE_URL,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to remove from wishlist");
+      }
+
+      // Update local state immediately for responsive UI
+      setWishlistItems((prevItems) =>
+        prevItems.filter((i) => i.id !== item.id),
+      );
     } catch (error) {
-      console.error('Error saving wishlist:', error);
+      console.error("Error removing from wishlist:", error);
+      Alert.alert("Error", "Failed to remove from wishlist. Please try again.");
     }
   };
 
   const renderWishlistItem = ({ item }) => (
-    <View style={styles.wishlistItem}>
-      <Image source={item.image} style={styles.propertyImage} />
+    <TouchableOpacity
+      style={styles.wishlistItem}
+      onPress={() =>
+        navigation.navigate("PropertyPage", { propertyId: item.id })
+      }
+    >
+      <Image
+        source={
+          item.images && item.images.length > 0
+            ? { uri: `${API_BASE_URL}${item.images[0].image}` }
+            : require("../../assets/room1.jpg")
+        }
+        style={styles.propertyImage}
+      />
       <View style={styles.propertyInfo}>
-        <Text style={styles.propertyTitle}>{item.title}</Text>
-        <Text style={styles.propertyLocation}>{item.location}</Text>
-        <Text style={styles.propertyPrice}>{item.price}</Text>
+        <Text style={styles.propertyName}>{item.property_name}</Text>
+        <Text style={styles.propertyType}>
+          {item.property_type === "rentalproperty" ? "Rental" : "For Sale"}
+        </Text>
+        <Text style={styles.propertyPrice}>
+          {item.price_per_month
+            ? `$${item.price_per_month}/Month`
+            : `$${item.price}`}
+        </Text>
+        <Text style={styles.addedAt}>
+          Added: {new Date(item.added_at).toLocaleDateString()}
+        </Text>
       </View>
       <TouchableOpacity
         style={styles.removeButton}
-        onPress={() => removeFromWishlist(item.id)}
+        onPress={() => handleRemoveFromWishlist(item)}
       >
         <Ionicons name="close-circle" size={24} color="#FF6B6B" />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4a90e2" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Wishlist</Text>
-      {wishlist.length === 0 ? (
-        <View style={styles.emptyWishlist}>
-          <Ionicons name="heart-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>Your wishlist is empty</Text>
-        </View>
+      <Text style={styles.title}>My Wishlist</Text>
+      {wishlistItems.length === 0 ? (
+        <Text style={styles.emptyMessage}>Your wishlist is empty.</Text>
       ) : (
         <FlatList
-          data={wishlist}
+          data={wishlistItems}
           renderItem={renderWishlistItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         />
       )}
     </View>
   );
 };
 
-const styles = StyleSheet.css`
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f2',
-    padding: 20,
+    backgroundColor: "#f8f8f8",
+    padding: 16,
   },
-  header: {
+  title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
+    fontWeight: "bold",
+    marginBottom: 16,
+    color: "#333",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  listContainer: {
+    paddingBottom: 16,
   },
   wishlistItem: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    marginBottom: 15,
-    shadowColor: '#000',
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden',
+    shadowRadius: 8,
+    elevation: 2,
   },
   propertyImage: {
     width: 100,
     height: 100,
+    resizeMode: "cover",
   },
   propertyInfo: {
     flex: 1,
-    padding: 15,
-    justifyContent: 'center',
+    padding: 12,
   },
-  propertyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
+  propertyName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 4,
+    color: "#333",
   },
-  propertyLocation: {
+  propertyType: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+    color: "#666",
+    marginBottom: 4,
   },
   propertyPrice: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#4CAF50',
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#4a90e2",
+    marginBottom: 4,
+  },
+  addedAt: {
+    fontSize: 12,
+    color: "#999",
   },
   removeButton: {
-    padding: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 12,
+    justifyContent: "center",
   },
-  emptyWishlist: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    marginTop: 10,
+  emptyMessage: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
+    textAlign: "center",
+    marginTop: 20,
   },
-`;
+});
 
 export default WishlistScreen;

@@ -8,9 +8,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  TextInput,
+  Modal,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 const { width } = Dimensions.get("window");
@@ -87,12 +91,31 @@ const PropertyScreen = ({ route, navigation }) => {
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [paymentUrl, setPaymentUrl] = useState(null);
+  const [showPaymentWebView, setShowPaymentWebView] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [reference, setReference] = useState(null);
+  const [bookingStatus, setBookingStatus] = useState(null);
+  const [bookingMessage, setBookingMessage] = useState("");
+  const [bookingId, setBookingId] = useState(null);
 
   const { propertyId } = route.params;
 
   useEffect(() => {
     fetchPropertyDetails();
   }, []);
+
+  const handleChatWithHost = () => {
+    if (property && property.host) {
+      navigation.navigate("ConversationDetail", {
+        otherUserId: property.host.id,
+        otherUserName: property.host.username,
+        isNewConversation: true,
+      });
+    } else {
+      Alert.alert("Error", "Host information is not available.");
+    }
+  };
 
   const fetchPropertyDetails = async () => {
     try {
@@ -112,16 +135,147 @@ const PropertyScreen = ({ route, navigation }) => {
       );
 
       if (!response.ok) {
-        console.log(response.json());
         throw new Error("Failed to fetch property details");
       }
 
       const data = await response.json();
       setProperty(data);
+      console.log(data);
     } catch (error) {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBookNow = async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      const csrfToken = await AsyncStorage.getItem("csrfToken");
+      if (!accessToken || !csrfToken) {
+        throw new Error("No access token or CSRF token found");
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/initiate-payment/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "X-CSRFToken": csrfToken,
+          Referer: API_BASE_URL,
+        },
+        body: JSON.stringify({
+          property_id: propertyId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to initiate payment");
+      }
+
+      const data = await response.json();
+      console.log("Payment URL received:", data.authorization_url);
+      setPaymentUrl(data.authorization_url);
+      setReference(data.reference);
+      setShowPaymentWebView(true);
+    } catch (error) {
+      console.error("Error initiating payment:", error);
+      Alert.alert("Error", error.message);
+    }
+  };
+
+  const closeWebView = () => {
+    setShowPaymentWebView(false);
+    confirmBooking();
+  };
+
+  const confirmBooking = async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      const csrfToken = await AsyncStorage.getItem("csrfToken");
+      if (!accessToken || !csrfToken) {
+        throw new Error("No access token or CSRF token found");
+      }
+
+      const requestBody = { reference: reference };
+      console.log("Request body:", JSON.stringify(requestBody, null, 2));
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/confirm-booking/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "X-CSRFToken": csrfToken,
+          Referer: API_BASE_URL,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const responseData = await response.json();
+      console.log("Response status:", response.status);
+      console.log("Response data:", JSON.stringify(responseData, null, 2));
+
+      if (response.ok) {
+        if (responseData.success) {
+          setBookingStatus("success");
+          setBookingMessage("Your booking has been confirmed successfully.");
+          setBookingId(responseData.booking_id); // Store the booking ID
+        } else {
+          setBookingStatus("pending");
+          setBookingMessage(
+            "Your booking is pending. Please check back later for confirmation.",
+          );
+        }
+      } else {
+        switch (response.status) {
+          case 400:
+            setBookingStatus("invalid");
+            setBookingMessage(
+              "Invalid booking request. Please check your details and try again.",
+            );
+            break;
+          case 401:
+            setBookingStatus("unauthorized");
+            setBookingMessage(
+              "You are not authorized to make this booking. Please log in and try again.",
+            );
+            break;
+          case 404:
+            setBookingStatus("not_found");
+            setBookingMessage(
+              "The booking or property could not be found. Please try again or contact support.",
+            );
+            break;
+          case 409:
+            setBookingStatus("conflict");
+            setBookingMessage(
+              "This property is no longer available for the selected dates.",
+            );
+            break;
+          default:
+            setBookingStatus("error");
+            setBookingMessage(
+              "An unexpected error occurred. Please try again or contact support.",
+            );
+        }
+      }
+    } catch (error) {
+      console.error("Error confirming booking:", error);
+      setBookingStatus("error");
+      setBookingMessage(
+        "An error occurred while confirming your booking. Please try again or contact support.",
+      );
+    } finally {
+      setShowResultModal(true);
+    }
+  };
+
+  const handleCloseResultModal = () => {
+    setShowResultModal(false);
+    if (bookingStatus === "success") {
+      navigation.navigate("BookingConfirmation", { bookingId: bookingId });
+    } else if (bookingStatus === "pending") {
+      navigation.navigate("BookingsList");
     }
   };
 
@@ -150,6 +304,13 @@ const PropertyScreen = ({ route, navigation }) => {
   }
 
   const isRental = "price_per_month" in property;
+  // Function to format price in Kenyan Shillings
+  const formatPrice = (price) => {
+    // Convert to number if it's a string, then round to nearest whole number
+    const roundedPrice = Math.round(Number(price));
+    // Format with thousands separator
+    return `KSh ${roundedPrice.toLocaleString("en-KE")}`;
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -167,8 +328,8 @@ const PropertyScreen = ({ route, navigation }) => {
         <View style={styles.propertyDetails}>
           <Text style={styles.propertyPrice}>
             {isRental
-              ? `$${property.price_per_month}/Month`
-              : `$${property.price}`}
+              ? `${formatPrice(property.price_per_month)}/Month`
+              : formatPrice(property.price)}
           </Text>
           <RatingStars rating={property.rating || 0} />
         </View>
@@ -196,26 +357,59 @@ const PropertyScreen = ({ route, navigation }) => {
             <Ionicons name="resize-outline" size={24} color="#666" />
             <Text style={styles.detailText}>{property.area} sq ft</Text>
           </View>
-          {isRental && (
-            <View style={styles.detailItem}>
-              <Ionicons name="people-outline" size={24} color="#666" />
-              <Text style={styles.detailText}>
-                Max {property.max_guests} guests
-              </Text>
-            </View>
-          )}
         </View>
         <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => {
-            /* Handle booking or buying */
-          }}
+          style={styles.chatButton}
+          onPress={handleChatWithHost}
         >
-          <Text style={styles.actionButtonText}>
-            {isRental ? "Book Now" : "Buy Now"}
-          </Text>
+          <Ionicons name="chatbubble-outline" size={24} color="#fff" />
+          <Text style={styles.chatButtonText}>Chat with Host</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={handleBookNow}>
+          <Text style={styles.actionButtonText}>Book Now</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={showPaymentWebView} animationType="slide">
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity style={styles.closeButton} onPress={closeWebView}>
+            <Ionicons name="close" size={24} color="#000" />
+          </TouchableOpacity>
+          <WebView
+            source={{ uri: paymentUrl }}
+            onError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.warn("WebView error: ", nativeEvent);
+            }}
+            onHttpError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.warn(
+                "WebView received error status code: ",
+                nativeEvent.statusCode,
+              );
+            }}
+          />
+        </View>
+      </Modal>
+
+      <Modal visible={showResultModal} animationType="fade" transparent>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {bookingStatus === "success"
+                ? "Booking Confirmed"
+                : "Booking Status"}
+            </Text>
+            <Text style={styles.modalMessage}>{bookingMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleCloseResultModal}
+            >
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -336,6 +530,96 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  bookingSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+  },
+  bookingLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  guestsInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 4,
+    padding: 8,
+    marginBottom: 16,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalButton: {
+    backgroundColor: "#FF6B6B",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 4,
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+  closeButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    zIndex: 1,
+    padding: 10,
+  },
+  hostSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  hostTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  hostName: {
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  chatButton: {
+    backgroundColor: "#4CAF50",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  chatButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 8,
   },
 });
 
