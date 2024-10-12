@@ -10,6 +10,7 @@ from .models import (
     Review,
     WishlistItem,
     Message,
+    SubscriptionPlan,
 )
 from django.contrib.auth.models import User
 import json
@@ -96,6 +97,12 @@ class SignupSerializer(serializers.Serializer):
         return user
 
 
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = ["id", "name", "price", "properties_limit"]
+
+
 class ProfileSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
 
@@ -112,6 +119,9 @@ class ProfileSerializer(serializers.ModelSerializer):
             "user_type",
             "identification_type",
             "identification_number",
+            "is_seller",
+            "subscription",
+            "subscription_start_date",
         ]
         read_only_fields = ["updated", "created", "user_type"]
 

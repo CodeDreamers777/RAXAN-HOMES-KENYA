@@ -1,6 +1,8 @@
 from django.shortcuts import render
 from django.db.models import Q, Max
 from rest_framework import generics, permissions
+from django.utils import timezone
+
 
 from .serializer import SignupSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -29,6 +31,8 @@ from .models import (
     Review,
     Booking,
     Message,
+    SubscriptionPlan,
+    Payment,
 )
 from .serializer import (
     RentalPropertySerializer,
@@ -39,6 +43,7 @@ from .serializer import (
     BookingSerializer,
     MessageSerializer,
     MessageCreateSerializer,
+    SubscriptionPlanSerializer,
 )
 from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
@@ -687,3 +692,117 @@ class UnreadMessageCountView(APIView):
         ).count()
 
         return Response({"unread_count": unread_count})
+
+
+class SubscriptionPlanListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        plans = SubscriptionPlan.objects.all()
+        serializer = SubscriptionPlanSerializer(plans, many=True)
+        return Response(serializer.data)
+
+
+class InitiateSubscriptionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        plan_id = request.data.get("plan_id")
+        try:
+            plan = SubscriptionPlan.objects.get(id=plan_id)
+        except SubscriptionPlan.DoesNotExist:
+            return Response(
+                {"error": "Invalid plan ID"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        profile = request.user.profile
+        if not profile.is_seller:
+            return Response(
+                {"error": "Only sellers can subscribe to plans"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Initialize payment with Paystack
+        url = "https://api.paystack.co/transaction/initialize"
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "amount": int(plan.price * 100),  # Amount in kobo
+            "email": request.user.email,
+        }
+
+        response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code == 200:
+            result = response.json()
+            # Create a new Payment object
+            payment = Payment.objects.create(
+                profile=profile,
+                amount=plan.price,
+                reference=result["data"]["reference"],
+                status="pending",
+            )
+            return Response(
+                {
+                    "payment_url": result["data"]["authorization_url"],
+                    "reference": payment.reference,
+                }
+            )
+        else:
+            return Response(
+                {"error": "Unable to initiate payment"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class VerifySubscriptionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        reference = request.data.get("reference")
+        try:
+            payment = Payment.objects.get(
+                reference=reference, profile=request.user.profile
+            )
+        except Payment.DoesNotExist:
+            return Response(
+                {"error": "Invalid payment reference"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Verify payment with Paystack
+        url = f"https://api.paystack.co/transaction/verify/{reference}"
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+        }
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            result = response.json()
+            if result["data"]["status"] == "success":
+                # Update payment status
+                payment.status = "success"
+                payment.save()
+
+                # Update user's subscription
+                profile = request.user.profile
+                profile.subscription = SubscriptionPlan.objects.get(
+                    price=payment.amount
+                )
+                profile.subscription_start_date = timezone.now()
+                profile.save()
+
+                return Response({"message": "Subscription updated successfully"})
+            else:
+                return Response(
+                    {"error": "Payment was not successful"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            return Response(
+                {"error": "Unable to verify payment"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

@@ -7,6 +7,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.validators import RegexValidator
 from django.utils import timezone
+from django.db.models import Count
 
 
 class UserType(models.Model):
@@ -19,6 +20,22 @@ class UserType(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_user_type_display()}"
+
+
+class SubscriptionPlan(models.Model):
+    PLAN_TYPES = [
+        ("FREE", "Free"),
+        ("BASIC", "Basic"),
+        ("PREMIUM", "Premium"),
+    ]
+    name = models.CharField(max_length=20, choices=PLAN_TYPES)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    properties_for_sale_limit = models.PositiveIntegerField(
+        help_text="Number of properties for sale allowed per month. Use 0 for unlimited."
+    )
+
+    def __str__(self):
+        return self.name
 
 
 class Profile(models.Model):
@@ -34,10 +51,11 @@ class Profile(models.Model):
     profile_picture = models.ImageField(
         upload_to="profile_pictures", blank=True, null=True
     )
-    updated = models.DateTimeField(auto_now=True)
-    created = models.DateTimeField(auto_now_add=True)
-
-    # Fields for sellers only
+    is_seller = models.BooleanField(default=False)
+    subscription = models.ForeignKey(
+        SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    subscription_start_date = models.DateTimeField(null=True, blank=True)
     identification_type = models.CharField(
         max_length=8, choices=IDENTIFICATION_CHOICES, null=True, blank=True
     )
@@ -52,15 +70,37 @@ class Profile(models.Model):
         null=True,
         blank=True,
     )
+    updated = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.user.username
 
     def save(self, *args, **kwargs):
-        if hasattr(self.user, "usertype") and self.user.usertype.user_type == "SELLER":
+        if self.is_seller:
             if not self.identification_type or not self.identification_number:
                 raise ValueError("Sellers must provide identification information.")
+            if self.subscription and not self.subscription_start_date:
+                self.subscription_start_date = timezone.now()
         super().save(*args, **kwargs)
+
+    def can_add_property_for_sale(self):
+        if not self.is_seller or not self.subscription:
+            return False
+        if self.subscription.name == "PREMIUM":
+            return True
+
+        start_of_month = timezone.now().replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        properties_this_month = PropertyForSale.objects.filter(
+            host=self, created_at__gte=start_of_month
+        ).count()
+
+        return properties_this_month < self.subscription.properties_for_sale_limit
+
+    def can_add_rental_property(self):
+        return self.is_seller  # Sellers can always add rental properties for free
 
 
 @receiver(post_save, sender=User)
@@ -102,6 +142,7 @@ class BaseProperty(models.Model):
     )
     amenities = models.ManyToManyField(Amenity)
     host = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         abstract = True
@@ -128,6 +169,12 @@ class RentalProperty(BaseProperty):
             content_type=ContentType.objects.get_for_model(self), object_id=self.id
         )
 
+    def save(self, *args, **kwargs):
+        if not self.pk:  # New property being created
+            if not self.host.can_add_rental_property():
+                raise ValueError("Only sellers can add rental properties.")
+        super().save(*args, **kwargs)
+
 
 class PropertyForSale(BaseProperty):
     price = models.DecimalField(max_digits=12, decimal_places=2)
@@ -138,6 +185,14 @@ class PropertyForSale(BaseProperty):
         return PropertyImage.objects.filter(
             content_type=ContentType.objects.get_for_model(self), object_id=self.id
         )
+
+    def save(self, *args, **kwargs):
+        if not self.pk:  # New property being created
+            if not self.host.can_add_property_for_sale():
+                raise ValueError(
+                    "You have reached your limit for properties for sale this month."
+                )
+        super().save(*args, **kwargs)
 
 
 class PropertyImage(models.Model):
@@ -225,3 +280,14 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender} to {self.receiver} at {self.timestamp}"
+
+
+class Payment(models.Model):
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reference = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Payment of {self.amount} by {self.profile.user.username}"
