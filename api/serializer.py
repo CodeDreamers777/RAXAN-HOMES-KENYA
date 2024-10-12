@@ -100,7 +100,7 @@ class SignupSerializer(serializers.Serializer):
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionPlan
-        fields = ["id", "name", "price", "properties_limit"]
+        fields = ["id", "name", "price", "properties_for_sale_limit"]
 
 
 class ProfileSerializer(serializers.ModelSerializer):
