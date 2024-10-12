@@ -142,7 +142,7 @@ class BaseProperty(models.Model):
     )
     amenities = models.ManyToManyField(Amenity)
     host = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         abstract = True

@@ -11,6 +11,9 @@ from .models import (
     Amenity,
     RentalPricingPeriod,
     WishlistItem,
+    Message,
+    SubscriptionPlan,
+    Payment,
 )
 
 
@@ -114,3 +117,26 @@ class WishlistItemAdmin(admin.ModelAdmin):
         return str(obj.property)
 
     get_property_name.short_description = "Property"
+
+
+@admin.register(SubscriptionPlan)
+class SubscriptionPlanAdmin(admin.ModelAdmin):
+    list_display = ("name", "price", "properties_for_sale_limit")
+    list_filter = ("name",)
+    search_fields = ("name",)
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ("profile", "amount", "reference", "status", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("profile__user__username", "reference")
+    date_hierarchy = "created_at"
+
+
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ("sender", "receiver", "content", "timestamp", "is_read")
+    list_filter = ("is_read", "timestamp")
+    search_fields = ("sender__user__username", "receiver__user__username", "content")
+    date_hierarchy = "timestamp"
