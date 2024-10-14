@@ -138,6 +138,12 @@ class BaseProperty(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
     location = models.CharField(max_length=1000)
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
     property_type = models.CharField(
         max_length=5, choices=PROPERTY_TYPES, default="OTHER"
     )

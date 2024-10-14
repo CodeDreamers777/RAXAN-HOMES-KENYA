@@ -178,6 +178,12 @@ class BasePropertySerializer(serializers.ModelSerializer):
     amenities = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
     )
+    latitude = serializers.DecimalField(
+        max_digits=9, decimal_places=6, required=False, allow_null=True
+    )
+    longitude = serializers.DecimalField(
+        max_digits=9, decimal_places=6, required=False, allow_null=True
+    )
 
     class Meta:
         abstract = True
@@ -186,6 +192,8 @@ class BasePropertySerializer(serializers.ModelSerializer):
             "name",
             "description",
             "location",
+            "latitude",
+            "longitude",
             "property_type",
             "bedrooms",
             "bathrooms",
