@@ -88,7 +88,6 @@ class SignupSerializer(serializers.Serializer):
         profile.phone_number = phone_number
         if profile_picture:
             profile.profile_picture = profile_picture
-
         if user_type == "SELLER":
             profile.is_seller = True
             if not validated_data.get("identification_type") or not validated_data.get(
@@ -99,14 +98,8 @@ class SignupSerializer(serializers.Serializer):
                 )
             profile.identification_type = validated_data.get("identification_type")
             profile.identification_number = validated_data.get("identification_number")
-
-            # Set the free subscription plan
-            standard_plan = SubscriptionPlan.objects.get(name="STANDARD")
-            profile.subscription = standard_plan
-            profile.subscription_start_date = timezone.now()
-
+            # Remove the automatic subscription assignment
         profile.save()
-
         return user
 
 

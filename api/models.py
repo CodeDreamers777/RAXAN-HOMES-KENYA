@@ -194,6 +194,8 @@ class PropertyForSale(BaseProperty):
 
     def save(self, *args, **kwargs):
         if not self.pk:  # New property being created
+            if not self.host.subscription:
+                raise ValueError("You need a subscription to add properties for sale.")
             if not self.host.can_add_property_for_sale():
                 raise ValueError(
                     "You have reached your limit for properties for sale this month."
