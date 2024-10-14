@@ -26,6 +26,8 @@ import BookingsScreen from "./src/screens/BookingsScreen";
 import BookingDetailScreen from "./src/screens/BookingDetailScreen";
 import InboxScreen from "./src/screens/InboxScreen"; // Import the new InboxScreen
 import ConversationDetailScreen from "./src/screens/ConversationDetailScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
+import WebViewScreen from "./src/screens/Webview";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -142,6 +144,12 @@ function App() {
           name="ConversationDetail"
           component={ConversationDetailScreen}
           options={({ route }) => ({ title: route.params.otherUserName })}
+        />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen
+          name="WebView"
+          component={WebViewScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>

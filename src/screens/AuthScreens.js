@@ -234,6 +234,7 @@ function SignUpScreen({ navigation }) {
   const [accountType, setAccountType] = useState("CLIENT");
   const [identificationType, setIdentificationType] = useState("ID");
   const [identificationNumber, setIdentificationNumber] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     expoClientId: "YOUR_EXPO_CLIENT_ID",
@@ -258,6 +259,13 @@ function SignUpScreen({ navigation }) {
   }, [response]);
 
   const handleSignUp = async () => {
+    if (!acceptedTerms) {
+      Alert.alert(
+        "Error",
+        "You must accept the terms and conditions to sign up",
+      );
+      return;
+    }
     if (password !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
       return;
@@ -319,6 +327,21 @@ function SignUpScreen({ navigation }) {
       setIsLoading(false);
     }
   };
+  const openWebView = (url) => {
+    navigation.navigate("WebView", { url });
+  };
+  const CustomCheckbox = ({ value, onValueChange }) => (
+    <TouchableOpacity
+      onPress={() => onValueChange(!value)}
+      style={styles.checkbox}
+    >
+      {value ? (
+        <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+      ) : (
+        <Ionicons name="ellipse-outline" size={24} color="#666" />
+      )}
+    </TouchableOpacity>
+  );
 
   const handleGoogleSignUp = async (accessToken) => {
     try {
@@ -499,10 +522,33 @@ function SignUpScreen({ navigation }) {
               </>
             )}
           </View>
+          <View style={styles.termsContainer}>
+            <CustomCheckbox
+              value={acceptedTerms}
+              onValueChange={setAcceptedTerms}
+            />
+            <Text style={styles.termsText}>
+              I accept the{" "}
+              <Text
+                style={styles.linkText}
+                onPress={() => openWebView("https://example.com/terms")}
+              >
+                Terms of Use
+              </Text>{" "}
+              and{" "}
+              <Text
+                style={styles.linkText}
+                onPress={() => openWebView("https://example.com/privacy")}
+              >
+                Privacy Policy
+              </Text>
+            </Text>
+          </View>
+
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, !acceptedTerms && styles.disabledButton]}
             onPress={handleSignUp}
-            disabled={isLoading}
+            disabled={isLoading || !acceptedTerms}
           >
             {isLoading ? (
               <ActivityIndicator color="#fff" />
@@ -628,6 +674,27 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  termsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  checkbox: {
+    marginRight: 10,
+  },
+  termsText: {
+    fontSize: 14,
+    color: "#333",
+    flex: 1,
+  },
+  linkText: {
+    color: "#4CAF50",
+    textDecorationLine: "underline",
+  },
+  disabledButton: {
+    backgroundColor: "#a0a0a0",
   },
 });
 

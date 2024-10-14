@@ -67,17 +67,18 @@ function ProfileScreen() {
   const handleViewMyBookings = () => {
     navigation.navigate("BookingsScreen");
   };
+  const handleSettingsPress = () => {
+    navigation.navigate("Settings");
+  };
 
   const fetchProfileData = async () => {
     try {
       const token = await fetchCSRFToken();
       setCSRFToken(token);
-
       const accessToken = await AsyncStorage.getItem("accessToken");
       if (!accessToken) {
         throw new Error("No access token found");
       }
-
       const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
         method: "GET",
         headers: {
@@ -86,11 +87,9 @@ function ProfileScreen() {
           Referer: API_BASE_URL,
         },
       });
-
       if (!response.ok) {
         throw new Error("Failed to fetch profile");
       }
-
       const profileData = await response.json();
       setProfile(profileData);
       await AsyncStorage.setItem("userType", profileData.user_type);
@@ -105,8 +104,8 @@ function ProfileScreen() {
       const plansData = await plansResponse.json();
       setSubscriptionPlans(plansData);
 
-      // Check if user has a free subscription
-      if (profileData.subscription === 1) {
+      // Check if user has no subscription
+      if (profileData.subscription === null) {
         setShowSubscriptionModal(true);
       }
 
@@ -352,18 +351,11 @@ function ProfileScreen() {
                     {subscriptionPlans[activeTab].properties_for_sale_limit ===
                     0
                       ? "Unlimited listings"
-                      : `${subscriptionPlans[activeTab].properties_for_sale_limit} listings`}
+                      : `${subscriptionPlans[activeTab].properties_for_sale_limit} listings per month`}
                   </Text>
-                  <Text style={styles.feature}>
-                    • Priority customer support
-                  </Text>
-                  <Text style={styles.feature}>• Advanced analytics</Text>
                   {subscriptionPlans[activeTab].name === "PREMIUM" && (
                     <>
                       <Text style={styles.feature}>• Featured listings</Text>
-                      <Text style={styles.feature}>
-                        • Dedicated account manager
-                      </Text>
                     </>
                   )}
                 </View>
@@ -470,7 +462,10 @@ function ProfileScreen() {
       </View>
 
       <View style={styles.profileSection}>
-        <TouchableOpacity style={styles.settingsButton}>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={handleSettingsPress}
+        >
           <Ionicons name="settings-outline" size={24} color="#333" />
           <Text style={styles.settingsText}>Settings</Text>
           <Ionicons name="chevron-forward" size={24} color="#333" />

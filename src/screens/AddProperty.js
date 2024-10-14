@@ -10,13 +10,15 @@ import {
   Image,
   Animated,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import * as Location from "expo-location";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
@@ -29,6 +31,9 @@ const AddPropertyPage = () => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [location, setLocation] = useState("");
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
+  const [showMap, setShowMap] = useState(false);
   const [bedrooms, setBedrooms] = useState("");
   const [bathrooms, setBathrooms] = useState("");
   const [area, setArea] = useState("");
@@ -51,6 +56,42 @@ const AddPropertyPage = () => {
     fetchCSRFToken();
     getAccessToken();
   }, []);
+  const openMap = async () => {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission to access location was denied");
+      return;
+    }
+
+    let currentLocation = await Location.getCurrentPositionAsync({});
+    setLatitude(currentLocation.coords.latitude);
+    setLongitude(currentLocation.coords.longitude);
+    setShowMap(true);
+  };
+
+  const handleMapPress = (event) => {
+    const { coordinate } = event.nativeEvent;
+    setLatitude(coordinate.latitude);
+    setLongitude(coordinate.longitude);
+  };
+
+  const confirmLocation = async () => {
+    try {
+      let address = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+      if (address && address.length > 0) {
+        setLocation(
+          `${address[0].street}, ${address[0].city}, ${address[0].region}, ${address[0].country}`,
+        );
+      }
+      setShowMap(false);
+    } catch (error) {
+      console.error("Error getting address:", error);
+      Alert.alert("Error", "Failed to get address. Please try again.");
+    }
+  };
 
   const fetchCSRFToken = async () => {
     try {
@@ -131,6 +172,8 @@ const AddPropertyPage = () => {
     formData.append("name", name);
     formData.append("description", description);
     formData.append("location", location);
+    formData.append("latitude", latitude.toString());
+    formData.append("longitude", longitude.toString());
     formData.append("bedrooms", bedrooms);
     formData.append("bathrooms", bathrooms);
     formData.append("area", area);
@@ -304,6 +347,9 @@ const AddPropertyPage = () => {
             value={location}
             onChangeText={setLocation}
           />
+          <TouchableOpacity onPress={openMap} style={styles.mapButton}>
+            <MaterialIcons name="map" size={24} color="#4CAF50" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.rowContainer}>
@@ -459,6 +505,35 @@ const AddPropertyPage = () => {
             </View>
           ))}
         </View>
+        <Modal visible={showMap} animationType="slide">
+          <View style={styles.mapContainer}>
+            <MapView
+              style={styles.map}
+              provider={PROVIDER_GOOGLE}
+              mapType="hybrid"
+              initialRegion={{
+                latitude: latitude || 0,
+                longitude: longitude || 0,
+                latitudeDelta: 0.0922,
+                longitudeDelta: 0.0421,
+              }}
+              onPress={handleMapPress}
+            >
+              {latitude && longitude && (
+                <Marker
+                  coordinate={{ latitude, longitude }}
+                  title="Selected Location"
+                />
+              )}
+            </MapView>
+            <TouchableOpacity
+              style={styles.confirmButton}
+              onPress={confirmLocation}
+            >
+              <Text style={styles.confirmButtonText}>Confirm Location</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
 
         <TouchableOpacity
           style={[styles.submitButton, isLoading && styles.disabledButton]}
@@ -572,6 +647,30 @@ const styles = StyleSheet.create({
   picker: {
     flex: 1,
     color: "#333",
+  },
+  mapButton: {
+    padding: 10,
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  map: {
+    flex: 1,
+  },
+  confirmButton: {
+    backgroundColor: "#4CAF50",
+    padding: 15,
+    alignItems: "center",
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
+    borderRadius: 8,
+  },
+  confirmButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });
 

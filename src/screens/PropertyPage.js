@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
-  TextInput,
   Modal,
   Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 const { width } = Dimensions.get("window");
@@ -98,6 +98,7 @@ const PropertyScreen = ({ route, navigation }) => {
   const [bookingStatus, setBookingStatus] = useState(null);
   const [bookingMessage, setBookingMessage] = useState("");
   const [bookingId, setBookingId] = useState(null);
+  const [showMap, setShowMap] = useState(false);
 
   const { propertyId } = route.params;
 
@@ -105,6 +106,16 @@ const PropertyScreen = ({ route, navigation }) => {
     fetchPropertyDetails();
   }, []);
 
+  const handleSeeOnMap = () => {
+    if (property.latitude && property.longitude) {
+      setShowMap(true);
+    } else {
+      Alert.alert(
+        "Error",
+        "Location coordinates are not available for this property.",
+      );
+    }
+  };
   const handleChatWithHost = () => {
     if (property && property.host) {
       navigation.navigate("ConversationDetail", {
@@ -324,7 +335,12 @@ const PropertyScreen = ({ route, navigation }) => {
       )}
       <View style={styles.propertyInfo}>
         <Text style={styles.propertyTitle}>{property.name}</Text>
-        <Text style={styles.propertyLocation}>{property.location}</Text>
+        <View style={styles.locationContainer}>
+          <Text style={styles.propertyLocation}>{property.location}</Text>
+          <TouchableOpacity style={styles.mapButton} onPress={handleSeeOnMap}>
+            <Text style={styles.mapButtonText}>See on Map</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.propertyDetails}>
           <Text style={styles.propertyPrice}>
             {isRental
@@ -391,7 +407,36 @@ const PropertyScreen = ({ route, navigation }) => {
           />
         </View>
       </Modal>
-
+      <Modal visible={showMap} animationType="slide">
+        <View style={styles.mapContainer}>
+          <MapView
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            mapType="hybrid"
+            initialRegion={{
+              latitude: parseFloat(property.latitude),
+              longitude: parseFloat(property.longitude),
+              latitudeDelta: 0.002,
+              longitudeDelta: 0.002,
+            }}
+          >
+            <Marker
+              coordinate={{
+                latitude: parseFloat(property.latitude),
+                longitude: parseFloat(property.longitude),
+              }}
+              title={property.name}
+              description={property.location}
+            />
+          </MapView>
+          <TouchableOpacity
+            style={styles.doneButton}
+            onPress={() => setShowMap(false)}
+          >
+            <Text style={styles.doneButtonText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
       <Modal visible={showResultModal} animationType="fade" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -620,6 +665,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     marginLeft: 8,
+  },
+  locationContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  mapButton: {
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  mapButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  map: {
+    flex: 1,
+  },
+  doneButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    backgroundColor: "#FF6B6B",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  doneButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
 });
 

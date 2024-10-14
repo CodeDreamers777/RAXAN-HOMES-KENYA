@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
@@ -39,7 +38,6 @@ const BookingConfirmation = ({ route, navigation }) => {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "X-CSRFToken": csrfToken,
-
             Referer: API_BASE_URL,
           },
         },
@@ -89,17 +87,12 @@ const BookingConfirmation = ({ route, navigation }) => {
         <Text style={styles.headerText}>Booking Confirmed!</Text>
       </View>
       <View style={styles.card}>
-        <Image
-          source={{ uri: `${API_BASE_URL}${booking.property.images[0].image}` }}
-          style={styles.propertyImage}
-        />
-        <Text style={styles.propertyName}>{booking.property.name}</Text>
-        <Text style={styles.propertyLocation}>{booking.property.location}</Text>
+        <Text style={styles.propertyName}>{booking.property_name}</Text>
         <View style={styles.detailsContainer}>
           <DetailItem
-            icon="people"
-            label="Guests"
-            value={booking.guests.toString()}
+            icon="mail"
+            label="Client Email"
+            value={booking.client_email}
           />
           <DetailItem
             icon="cash"
