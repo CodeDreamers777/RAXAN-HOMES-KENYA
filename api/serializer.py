@@ -101,8 +101,8 @@ class SignupSerializer(serializers.Serializer):
             profile.identification_number = validated_data.get("identification_number")
 
             # Set the free subscription plan
-            free_plan = SubscriptionPlan.objects.get(name="FREE")
-            profile.subscription = free_plan
+            standard_plan = SubscriptionPlan.objects.get(name="STANDARD")
+            profile.subscription = standard_plan
             profile.subscription_start_date = timezone.now()
 
         profile.save()

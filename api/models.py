@@ -24,8 +24,8 @@ class UserType(models.Model):
 
 class SubscriptionPlan(models.Model):
     PLAN_TYPES = [
-        ("FREE", "Free"),
         ("BASIC", "Basic"),
+        ("STANDARD", "Standard"),
         ("PREMIUM", "Premium"),
     ]
     name = models.CharField(max_length=20, choices=PLAN_TYPES)
@@ -115,8 +115,8 @@ def update_profile_seller_status(sender, instance, **kwargs):
     if instance.user_type == "SELLER":
         profile = Profile.objects.get(user=instance.user)
         profile.is_seller = True
-        free_plan = SubscriptionPlan.objects.get(name="FREE")
-        profile.subscription = free_plan
+        standard_plan = SubscriptionPlan.objects.get(name="STANDARD")
+        profile.subscription = standard_plan
         profile.subscription_start_date = timezone.now()
 
 
