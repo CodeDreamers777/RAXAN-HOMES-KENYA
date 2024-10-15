@@ -109,6 +109,8 @@ class ProfileAPIView(APIView):
         return Response(serializer.data)
 
     def put(self, request):
+        print("Received data:", request.data)
+        print("Content-Type:", request.content_type)
         profile = request.user.profile
         serializer = ProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
