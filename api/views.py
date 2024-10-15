@@ -265,7 +265,13 @@ class PropertyViewSet(viewsets.ViewSet):
         # For properties for sale, we keep all of them as there's no 'is_available' field
         properties_for_sale = PropertyForSale.objects.all()
 
-        return rental_properties, properties_for_sale
+        # Get featured properties (rental properties with hosts having premium subscription)
+        featured_properties = RentalProperty.objects.filter(
+            is_available=True,
+            host__subscription__name="PREMIUM",  # Assuming the premium plan is named 'premium'
+        )
+
+        return rental_properties, properties_for_sale, featured_properties
 
     def get_object(self, pk):
         try:
@@ -289,16 +295,20 @@ class PropertyViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
     def list(self, request):
-        rental_properties, properties_for_sale = self.get_queryset()
+        rental_properties, properties_for_sale, featured_properties = (
+            self.get_queryset()
+        )
 
         # Serialize the querysets
         rental_serializer = RentalPropertySerializer(rental_properties, many=True)
         sale_serializer = PropertyForSaleSerializer(properties_for_sale, many=True)
+        featured_serializer = RentalPropertySerializer(featured_properties, many=True)
 
         # Combine the serialized data
         data = {
             "rental_properties": rental_serializer.data,
             "properties_for_sale": sale_serializer.data,
+            "featured_properties": featured_serializer.data,
         }
 
         return Response(data)
