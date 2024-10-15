@@ -148,7 +148,7 @@ class BaseProperty(models.Model):
         max_digits=30, decimal_places=20, null=True, blank=True
     )
     property_type = models.CharField(
-        max_length=5, choices=PROPERTY_TYPES, default="OTHER"
+        max_length=13, choices=PROPERTY_TYPES, default="OTHER"
     )
     bedrooms = models.PositiveIntegerField()
     bathrooms = models.PositiveIntegerField()
