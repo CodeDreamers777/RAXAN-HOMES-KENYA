@@ -74,6 +74,9 @@ urlpatterns = [
         views.VerifySubscriptionView.as_view(),
         name="verify-subscription",
     ),
+    path(
+        "manage/", views.UserAccountManagementView.as_view(), name="account_management"
+    )
     # Include the router URLs in our urlpatterns
-    *router.urls,
+    * router.urls,
 ]

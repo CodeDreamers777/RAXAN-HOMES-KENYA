@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.db.models import Q, Max
 from rest_framework import generics, permissions
 from django.utils import timezone
-
+from django.contrib.auth import update_session_auth_hash
 
 from .serializer import SignupSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -121,34 +121,105 @@ class ProfileAPIView(APIView):
 class LoginView(APIView):
     def post(self, request):
         if request.user.is_authenticated:
-            return Response({"success": True, "Message": "User already logged in"})
+            return Response({"success": True, "message": "User already logged in"})
         try:
             email = request.data.get("email").lower()
             password = request.data.get("password")
-            # Get the user by email
+
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
-                return Response({"success": False, "Message": "User does not exist"})
-            # Authenticate using email and password
+                return Response({"success": False, "message": "User does not exist"})
+
             if user.check_password(password):
+                if not user.is_active:
+                    # Reactivate the account
+                    user.is_active = True
+                    user.save()
+                    reactivation_message = "Your account has been reactivated. "
+                else:
+                    reactivation_message = ""
+
                 login(request, user)
                 refresh = RefreshToken.for_user(user)
                 return Response(
                     {
                         "success": True,
-                        "Message": "User logged in successfully",
+                        "message": f"{reactivation_message}User logged in successfully",
                         "access": str(refresh.access_token),
                         "refresh": str(refresh),
                     }
                 )
             else:
-                return Response({"success": False, "Message": "Invalid credentials"})
+                return Response({"success": False, "message": "Invalid credentials"})
         except Exception as e:
             return Response(
                 {"success": False, "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class UserAccountManagementView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        action = request.data.get("action")
+
+        if action == "change_password":
+            return self.change_password(request)
+        elif action == "deactivate_account":
+            return self.deactivate_account(request)
+        elif action == "delete_account":
+            return self.delete_account(request)
+        else:
+            return Response(
+                {"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def change_password(self, request):
+        user = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not user.check_password(old_password):
+            return Response(
+                {"error": "Invalid old password"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.set_password(new_password)
+        user.save()
+        update_session_auth_hash(request, user)  # To keep the user logged in
+        return Response(
+            {"message": "Password changed successfully"}, status=status.HTTP_200_OK
+        )
+
+    def deactivate_account(self, request):
+        user = request.user
+        user.is_active = False
+        user.save()
+
+        # Check if the user is a seller and update property statuses
+        try:
+            profile = Profile.objects.get(user=user)
+            if profile.is_seller:
+                RentalProperty.objects.filter(host=profile).update(is_available=False)
+                PropertyForSale.objects.filter(host=profile).update(is_sold=True)
+        except Profile.DoesNotExist:
+            pass  # If profile doesn't exist, we don't need to update properties
+
+        return Response(
+            {
+                "message": "Account deactivated successfully. All properties have been marked as unavailable/sold."
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def delete_account(self, request):
+        user = request.user
+        user.delete()
+        return Response(
+            {"message": "Account deleted successfully"}, status=status.HTTP_200_OK
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
