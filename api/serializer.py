@@ -111,6 +111,7 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
 
 class ProfileSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
+    username = serializers.CharField(source="user.username")
 
     class Meta:
         model = Profile
@@ -135,6 +136,11 @@ class ProfileSerializer(serializers.ModelSerializer):
         return obj.user.usertype.user_type
 
     def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
+        if "username" in user_data:
+            instance.user.username = user_data["username"]
+            instance.user.save()
+
         instance.phone_number = validated_data.get(
             "phone_number", instance.phone_number
         )
