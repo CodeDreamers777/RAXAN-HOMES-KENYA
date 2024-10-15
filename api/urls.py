@@ -76,7 +76,7 @@ urlpatterns = [
     ),
     path(
         "manage/", views.UserAccountManagementView.as_view(), name="account_management"
-    )
+    ),
     # Include the router URLs in our urlpatterns
-    * router.urls,
+    *router.urls,
 ]
