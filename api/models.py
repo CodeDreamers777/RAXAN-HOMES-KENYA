@@ -132,6 +132,9 @@ class BaseProperty(models.Model):
         ("APT", "Apartment"),
         ("HOUSE", "House"),
         ("VILLA", "Villa"),
+        ("OFFICE", "Office Space"),
+        ("RESTAURANT", "Restaurant"),
+        ("STORAGE", "Storage Space"),
         ("OTHER", "Other"),
     ]
 
