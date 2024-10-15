@@ -331,6 +331,29 @@ class PropertyViewSet(viewsets.ViewSet):
                     {"error": "Only sellers can create properties"},
                     status=status.HTTP_403_FORBIDDEN,
                 )
+
+            # Check if the user has an active subscription
+            if not profile.subscription:
+                return Response(
+                    {"error": "You need an active subscription to create properties"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Get the user's current property count
+            current_property_count = (
+                RentalProperty.objects.filter(host=profile).count()
+                + PropertyForSale.objects.filter(host=profile).count()
+            )
+
+            # Check if the user has reached their property limit
+            if current_property_count >= profile.subscription.property_limit:
+                return Response(
+                    {
+                        "error": "You have reached your property listing limit. Please upgrade your subscription."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             property = serializer.save(host=profile)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
