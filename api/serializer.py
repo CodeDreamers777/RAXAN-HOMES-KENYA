@@ -369,7 +369,7 @@ class MessageCreateSerializer(serializers.ModelSerializer):
 
 class ReviewerSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username")
-    profile_picture = serializers.ImageField(source="profile_picture", read_only=True)
+    profile_picture = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Profile
