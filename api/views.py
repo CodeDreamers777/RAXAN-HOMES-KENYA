@@ -998,3 +998,23 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().destroy(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"])
+    def by_username(self, request):
+        username = request.query_params.get("username")
+        if not username:
+            return Response(
+                {"error": "Username parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        User = get_user_model()
+        try:
+            user = User.objects.get(username=username)
+            reviews = Review.objects.filter(reviewer=user.profile)
+            serializer = self.get_serializer(reviews, many=True)
+            return Response(serializer.data)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
