@@ -920,3 +920,81 @@ class VerifySubscriptionView(APIView):
                 {"error": "Unable to verify payment"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+
+    def create(self, request, *args, **kwargs):
+        property_id = request.data.get("property_id")
+        property_type = request.data.get("property_type")
+
+        if property_type == "rental":
+            property_model = RentalProperty
+        elif property_type == "sale":
+            property_model = PropertyForSale
+        else:
+            return Response(
+                {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            property_instance = property_model.objects.get(id=property_id)
+        except property_model.DoesNotExist:
+            return Response(
+                {"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = self.get_serializer(
+            data=request.data,
+            context={"request": request, "property": property_instance},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            reviewer=request.user.profile,
+            content_type=ContentType.objects.get_for_model(property_instance),
+            object_id=property_instance.id,
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def get_queryset(self):
+        property_id = self.request.query_params.get("property_id")
+        property_type = self.request.query_params.get("property_type")
+
+        if property_id and property_type:
+            if property_type == "rental":
+                property_model = RentalProperty
+            elif property_type == "sale":
+                property_model = PropertyForSale
+            else:
+                return Review.objects.none()
+
+            try:
+                property_instance = property_model.objects.get(id=property_id)
+                content_type = ContentType.objects.get_for_model(property_instance)
+                return Review.objects.filter(
+                    content_type=content_type, object_id=property_id
+                )
+            except property_model.DoesNotExist:
+                return Review.objects.none()
+
+        return super().get_queryset()
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.reviewer != request.user.profile:
+            return Response(
+                {"error": "You can only update your own reviews"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.reviewer != request.user.profile:
+            return Response(
+                {"error": "You can only delete your own reviews"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)

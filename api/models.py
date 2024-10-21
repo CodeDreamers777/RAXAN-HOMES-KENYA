@@ -166,9 +166,12 @@ class BaseProperty(models.Model):
         return self.name
 
     def delete(self, *args, **kwargs):
+        # Delete associated reviews
+        content_type = ContentType.objects.get_for_model(self)
+        Review.objects.filter(content_type=content_type, object_id=self.id).delete()
         # Delete associated images
         PropertyImage.objects.filter(
-            content_type=ContentType.objects.get_for_model(self), object_id=self.id
+            content_type=content_type, object_id=self.id
         ).delete()
         # Call the "real" delete() method
         super().delete(*args, **kwargs)
@@ -242,8 +245,15 @@ class Review(models.Model):
     comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ("reviewer", "content_type", "object_id")
+
     def __str__(self):
         return f"Review for {self.property} by {self.reviewer.user.username}"
+
+    def clean(self):
+        if self.rating < 1 or self.rating > 5:
+            raise ValidationError("Rating must be between 1 and 5.")
 
 
 class RentalPricingPeriod(models.Model):

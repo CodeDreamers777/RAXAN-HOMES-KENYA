@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 # Create a router and register our viewset with it.
 router = DefaultRouter()
 router.register(r"properties", views.PropertyViewSet, basename="property")
+router.register(r"reviews", views.ReviewViewSet)
 
 urlpatterns = [
     path("health-check/", views.HealthCheckView.as_view()),

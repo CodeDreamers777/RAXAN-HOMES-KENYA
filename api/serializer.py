@@ -312,28 +312,6 @@ class PropertyForSaleSerializer(BasePropertySerializer):
         fields = BasePropertySerializer.Meta.fields + ["price", "is_sold", "year_built"]
 
 
-class ReviewSerializer(serializers.ModelSerializer):
-    property_name = serializers.SerializerMethodField()
-    reviewer_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Review
-        fields = [
-            "id",
-            "property_name",
-            "reviewer_name",
-            "rating",
-            "comment",
-            "created_at",
-        ]
-
-    def get_property_name(self, obj):
-        return str(obj.property)
-
-    def get_reviewer_name(self, obj):
-        return obj.reviewer.user.username
-
-
 class WishlistItemSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source="property.name")
     property_type = serializers.CharField(source="content_type.model")
@@ -386,3 +364,35 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         return Message.objects.create(
             sender=sender, receiver=receiver, **validated_data
         )
+
+
+class ReviewerSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username")
+    profile_picture = serializers.ImageField(source="profile_picture", read_only=True)
+
+    class Meta:
+        model = Profile
+        fields = ["username", "profile_picture"]
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    reviewer = ReviewerSerializer(read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ["id", "reviewer", "rating", "comment", "created_at"]
+        read_only_fields = ["reviewer", "created_at"]
+
+    def validate(self, data):
+        request = self.context.get("request")
+        if request and request.method == "POST":
+            content_type = ContentType.objects.get_for_model(self.context["property"])
+            if Review.objects.filter(
+                reviewer=request.user.profile,
+                content_type=content_type,
+                object_id=self.context["property"].id,
+            ).exists():
+                raise serializers.ValidationError(
+                    "You have already reviewed this property."
+                )
+        return data
