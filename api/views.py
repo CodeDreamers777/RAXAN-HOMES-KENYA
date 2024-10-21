@@ -1002,19 +1002,39 @@ class ReviewViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def by_username(self, request):
         username = request.query_params.get("username")
-        if not username:
+        property_id = request.query_params.get("property_id")
+        property_type = request.query_params.get("property_type")
+
+        if not username or not property_id or not property_type:
             return Response(
-                {"error": "Username parameter is required"},
+                {
+                    "error": "Username, property ID, and property type parameters are required"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        User = get_user_model()
+        if property_type == "rental":
+            property_model = RentalProperty
+        elif property_type == "sale":
+            property_model = PropertyForSale
+        else:
+            return Response(
+                {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
+            property_instance = property_model.objects.get(id=property_id)
+            content_type = ContentType.objects.get_for_model(property_instance)
+
+            User = get_user_model()
             user = User.objects.get(username=username)
-            reviews = Review.objects.filter(reviewer=user.profile)
+            reviews = Review.objects.filter(
+                content_type=content_type, object_id=property_id, reviewer=user.profile
+            )
             serializer = self.get_serializer(reviews, many=True)
             return Response(serializer.data)
-        except User.DoesNotExist:
+        except (property_model.DoesNotExist, User.DoesNotExist):
             return Response(
-                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                {"error": "Property or user not found"},
+                status=status.HTTP_404_NOT_FOUND,
             )
