@@ -16,6 +16,7 @@ from django.contrib.auth.models import User
 import json
 from django.db import transaction
 from django.utils import timezone
+from django.contrib.contenttypes.models import ContentType
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
