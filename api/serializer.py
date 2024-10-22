@@ -409,3 +409,27 @@ class ReviewSerializer(serializers.ModelSerializer):
                     "You have already reviewed this property."
                 )
         return data
+
+
+class EmailSerializer(serializers.Serializer):
+    to_email = serializers.EmailField()
+    to_name = serializers.CharField(max_length=100)
+    subject = serializers.CharField(max_length=200)
+    html_content = serializers.CharField()
+
+
+class OTPEmailSerializer(serializers.Serializer):
+    to_email = serializers.EmailField()
+    to_name = serializers.CharField(max_length=100)
+    otp_code = serializers.CharField(max_length=6)
+    expiry_minutes = serializers.IntegerField(default=5)
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6)
+    new_password = serializers.CharField(min_length=8, write_only=True)

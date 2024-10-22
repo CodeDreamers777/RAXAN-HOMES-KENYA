@@ -48,6 +48,9 @@ class Profile(models.Model):
     phone_number = models.CharField(max_length=20)
     email = models.EmailField(default="example@example.com")
     username = models.CharField(max_length=100, null=True)
+    otp_created_at = models.DateTimeField(null=True, blank=True)
+    otp_secret = models.CharField(max_length=64, null=True, blank=True)
+    otp_attempts = models.IntegerField(null=True, blank=True)
     profile_picture = models.ImageField(
         upload_to="profile_pictures", blank=True, null=True
     )

@@ -1,10 +1,15 @@
 from django.shortcuts import render
+import secrets
+from django_otp.oath import TOTP
+from django_otp.util import random_hex
+import time
+from django.template.loader import render_to_string
 from django.db.models import Q, Max
 from rest_framework import generics, permissions
 from django.utils import timezone
 from django.contrib.auth import update_session_auth_hash
 
-from .serializer import SignupSerializer
+from .serializer import ForgotPasswordSerializer, SignupSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from .utils.decorator import jwt_required
 from rest_framework.response import Response
@@ -44,11 +49,18 @@ from .serializer import (
     MessageSerializer,
     MessageCreateSerializer,
     SubscriptionPlanSerializer,
+    OTPEmailSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
 )
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
 import logging
 import requests
+import random
+import string
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -61,28 +73,235 @@ def get_csrf_token(request):
     return JsonResponse({"csrfToken": get_token(request)})
 
 
-class SendEmailView(APIView):
-    def get(self, request):
-        # Hardcoded email data for testing
-        subject = "Test Email from Django"
-        text = "This is a test email sent from Django REST Framework using Mailgun."
-        to_email = (
-            "crispusgikonyo@gmail.com"  # Replace with the actual recipient's email
+class SecureTOTP(TOTP):
+    def __init__(self):
+        # Use 32 bytes (256 bits) of randomness for the key
+        key = random_hex(secret_length=32)
+        step = 30  # 30-second time step
+        t0 = 0  # Unix epoch start
+        digits = 6  # 6-digit OTP
+
+        super().__init__(key=key, step=step, t0=t0, digits=digits)
+
+    def generate_challenge(self):
+        # Get current timestamp
+        totp_time = int(time.time())
+        # Generate TOTP value
+        token = self.generate_token(totp_time)
+        return token
+
+
+class ForgotPasswordView(APIView):
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data["email"]
+
+        try:
+            user = User.objects.get(email=email)
+            profile = user.profile
+
+            # Generate secure OTP using TOTP
+            totp = SecureTOTP()
+            otp = totp.generate_challenge()
+
+            # Store the key and creation time securely
+            profile.otp_secret = totp.key
+            profile.otp_created_at = timezone.now()
+            # Add a counter for rate limiting
+            profile.otp_attempts = 0
+            profile.save()
+
+            # Prepare email context
+            context = {
+                "name": user.get_full_name() or user.username,
+                "otp_code": otp,
+                "expiry_minutes": 15,
+            }
+
+            # Send OTP email
+            try:
+                # Configure Brevo API client
+                configuration = sib_api_v3_sdk.Configuration()
+                configuration.api_key["api-key"] = settings.BREVO_API_KEY
+
+                api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+                    sib_api_v3_sdk.ApiClient(configuration)
+                )
+
+                # Render HTML template
+                html_content = render_to_string("emails/otp_template.html", context)
+
+                send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+                    to=[
+                        {"email": email, "name": user.get_full_name() or user.username}
+                    ],
+                    html_content=html_content,
+                    subject="Password Reset Request - Raxan Homes",
+                    sender={"name": "Raxan Homes", "email": "raxanhomes@gmail.com"},
+                )
+
+                api_response = api_instance.send_transac_email(send_smtp_email)
+
+                return Response(
+                    {"message": "OTP has been sent to your email", "email": email},
+                    status=status.HTTP_200_OK,
+                )
+
+            except ApiException as e:
+                return Response(
+                    {"error": f"Failed to send email: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        except User.DoesNotExist:
+            # Use secrets for timing attack protection
+            secrets.compare_digest("dummy", "dummy")
+            return Response(
+                {"message": "If this email exists in our system, an OTP has been sent"},
+                status=status.HTTP_200_OK,
+            )
+
+
+class ResetPasswordView(APIView):
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data["email"]
+        submitted_otp = serializer.validated_data["otp"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            user = User.objects.get(email=email)
+            profile = user.profile
+
+            # Rate limiting
+            if profile.otp_attempts and profile.otp_attempts >= 5:
+                return Response(
+                    {"error": "Too many attempts. Please request a new OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Increment attempt counter
+            profile.otp_attempts = (profile.otp_attempts or 0) + 1
+            profile.save()
+
+            # Check if OTP exists and is valid
+            if not profile.otp_secret or not profile.otp_created_at:
+                return Response(
+                    {"error": "No OTP request found"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Check expiry
+            if timezone.now() > profile.otp_created_at + timedelta(minutes=15):
+                self._clear_otp(profile)
+                return Response(
+                    {"error": "OTP has expired. Please request a new one"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Verify OTP using TOTP
+            totp = SecureTOTP()
+            totp.key = profile.otp_secret
+
+            # Use constant-time comparison
+            if not secrets.compare_digest(
+                str(submitted_otp), str(totp.generate_challenge())
+            ):
+                return Response(
+                    {"error": "Invalid OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Set new password
+            user.set_password(new_password)
+            user.save()
+
+            # Clear OTP data
+            self._clear_otp(profile)
+
+            return Response(
+                {"message": "Password has been reset successfully"},
+                status=status.HTTP_200_OK,
+            )
+
+        except User.DoesNotExist:
+            # Use secrets for timing attack protection
+            secrets.compare_digest("dummy", "dummy")
+            return Response(
+                {"error": "Invalid email"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def _clear_otp(self, profile):
+        profile.otp_secret = None
+        profile.otp_created_at = None
+        profile.otp_attempts = None
+        profile.save()
+
+
+class SendOTPEmailView(APIView):
+    def post(self, request):
+        serializer = OTPEmailSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Prepare template context
+        context = {
+            "name": serializer.validated_data["to_name"],
+            "otp_code": serializer.validated_data["otp_code"],
+            "expiry_minutes": serializer.validated_data["expiry_minutes"],
+        }
+
+        # Render HTML template
+        html_content = render_to_string("emails/otp_template.html", context)
+
+        # Configure Brevo API client
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key["api-key"] = settings.BREVO_API_KEY
+
+        # Create an instance of the API class
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+            sib_api_v3_sdk.ApiClient(configuration)
         )
 
-        # Call the Mailgun utility function
-        response = send_email_via_mailgun(subject, text, to_email)
-        print("This is res", response)
+        # Create send email object
+        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+            to=[
+                {
+                    "email": serializer.validated_data["to_email"],
+                    "name": serializer.validated_data["to_name"],
+                }
+            ],
+            html_content=html_content,
+            subject="Your Verification Code - Raxan Homes",
+            sender={"name": "Raxan Homes", "email": "raxanhomes@gmail.com"},
+        )
 
-        # Check the response from Mailgun
-        if response.status_code == 200:
+        try:
+            api_response = api_instance.send_transac_email(send_smtp_email)
             return Response(
-                {"message": "Email sent successfully!"}, status=status.HTTP_200_OK
+                {
+                    "message": "OTP email sent successfully",
+                    "message_id": api_response.message_id,
+                },
+                status=status.HTTP_200_OK,
             )
-        else:
+
+        except ApiException as e:
             return Response(
-                {"error": f"Failed to send email: {response.text}"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": f"Exception when calling Brevo API: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Unexpected error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 

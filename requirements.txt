@@ -3,12 +3,16 @@ certifi==2024.8.30
 charset-normalizer==3.3.2
 Django==5.1
 django-cors-headers==4.4.0
+django-otp==1.5.4
 djangorestframework==3.15.2
 djangorestframework-simplejwt==5.3.1
 idna==3.8
 pillow==10.4.0
 PyJWT==2.9.0
+python-dateutil==2.9.0.post0
 requests==2.32.3
+sib-api-v3-sdk==7.6.0
+six==1.16.0
 sqlparse==0.5.1
 typing_extensions==4.12.2
 urllib3==2.2.2

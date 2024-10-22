@@ -14,7 +14,11 @@ urlpatterns = [
     path("logout/", views.LogoutView.as_view(), name="logout"),
     path("get-csrf-token/", views.get_csrf_token),
     path("profile/", views.ProfileAPIView.as_view()),
-    path("send-mail/", views.SendEmailView.as_view()),
+    path("send-otp-mail/", views.SendOTPEmailView.as_view()),
+    path(
+        "forgot-password/", views.ForgotPasswordView.as_view(), name="forgot-password"
+    ),
+    path("reset-password/", views.ResetPasswordView.as_view(), name="reset-password"),
     path("wishlist/", views.WishlistView.as_view()),
     path(
         "initiate-payment/",
