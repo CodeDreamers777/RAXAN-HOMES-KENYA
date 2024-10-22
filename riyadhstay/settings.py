@@ -190,8 +190,3 @@ CORS_ALLOW_METHODS = ["*"]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-
-
-# Add these settings to your Django settings file
-PAYSTACK_SECRET_KEY = "sk_test_5a93c3f26451bf160bb0f3857c2a0cfaf742a4ea"
-BREVO_API_KEY = "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"

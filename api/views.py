@@ -59,14 +59,27 @@ from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
 import logging
 import requests
-import random
-import string
+import os
+from dotenv import load_dotenv
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 
 User = get_user_model()
+
+
+# Load environment variables
+load_dotenv()
+
+# Get API key from environment variable
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+if not BREVO_API_KEY:
+    raise ValueError("BREVO_API_KEY environment variable is not set")
+
+PAYSTACK_API_KEY = os.getenv("PAYSTACK_API_KEY")
+if not PAYSTACK_API_KEY:
+    raise ValueError("PAYSTACK_API_KEY environment variable is not set")
 
 
 def get_csrf_token(request):
@@ -91,6 +104,35 @@ class SecureTOTP(TOTP):
         return token
 
 
+class EmailService:
+    def __init__(self):
+        # Configure Brevo API client
+        self.configuration = sib_api_v3_sdk.Configuration()
+        self.configuration.api_key["api-key"] = BREVO_API_KEY
+        self.api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+            sib_api_v3_sdk.ApiClient(self.configuration)
+        )
+
+    def send_otp_email(self, recipient_email, recipient_name, context):
+        try:
+            # Render HTML template
+            html_content = render_to_string("emails/otp_template.html", context)
+
+            send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+                to=[{"email": recipient_email, "name": recipient_name}],
+                html_content=html_content,
+                subject="Password Reset Request - Raxan Homes",
+                sender={
+                    "name": "Raxan Homes",
+                    "email": os.getenv("SENDER_EMAIL", "raxanhomes@gmail.com"),
+                },
+            )
+
+            return self.api_instance.send_transac_email(send_smtp_email)
+        except sib_api_v3_sdk.ApiException as e:
+            raise ValueError(f"Failed to send email: {str(e)}")
+
+
 class ForgotPasswordView(APIView):
     def post(self, request):
         serializer = ForgotPasswordSerializer(data=request.data)
@@ -110,7 +152,6 @@ class ForgotPasswordView(APIView):
             # Store the key and creation time securely
             profile.otp_secret = totp.key
             profile.otp_created_at = timezone.now()
-            # Add a counter for rate limiting
             profile.otp_attempts = 0
             profile.save()
 
@@ -121,38 +162,22 @@ class ForgotPasswordView(APIView):
                 "expiry_minutes": 15,
             }
 
-            # Send OTP email
             try:
-                # Configure Brevo API client
-                configuration = sib_api_v3_sdk.Configuration()
-                configuration.api_key["api-key"] = settings.BREVO_API_KEY
-
-                api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
-                    sib_api_v3_sdk.ApiClient(configuration)
+                email_service = EmailService()
+                email_service.send_otp_email(
+                    recipient_email=email,
+                    recipient_name=user.get_full_name() or user.username,
+                    context=context,
                 )
-
-                # Render HTML template
-                html_content = render_to_string("emails/otp_template.html", context)
-
-                send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-                    to=[
-                        {"email": email, "name": user.get_full_name() or user.username}
-                    ],
-                    html_content=html_content,
-                    subject="Password Reset Request - Raxan Homes",
-                    sender={"name": "Raxan Homes", "email": "raxanhomes@gmail.com"},
-                )
-
-                api_response = api_instance.send_transac_email(send_smtp_email)
 
                 return Response(
                     {"message": "OTP has been sent to your email", "email": email},
                     status=status.HTTP_200_OK,
                 )
 
-            except ApiException as e:
+            except ValueError as e:
                 return Response(
-                    {"error": f"Failed to send email: {str(e)}"},
+                    {"error": str(e)},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
@@ -781,7 +806,7 @@ class InitiatePaystackPaymentView(APIView):
         # Prepare the Paystack API request
         url = "https://api.paystack.co/transaction/initialize"
         headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Authorization": f"Bearer {PAYSTACK_API_KEY}",
             "Content-Type": "application/json",
         }
         data = {
@@ -821,7 +846,7 @@ class ConfirmBookingView(APIView):
         # Verify the payment with Paystack
         url = f"https://api.paystack.co/transaction/verify/{reference}"
         headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Authorization": f"Bearer {PAYSTACK_API_KEY}",
         }
         response = requests.get(url, headers=headers)
         print(response.json())
@@ -1058,7 +1083,7 @@ class InitiateSubscriptionView(APIView):
         # Initialize payment with Paystack
         url = "https://api.paystack.co/transaction/initialize"
         headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Authorization": f"Bearer {PAYSTACK_API_KEY}",
             "Content-Type": "application/json",
         }
         data = {
@@ -1108,7 +1133,7 @@ class VerifySubscriptionView(APIView):
         # Verify payment with Paystack
         url = f"https://api.paystack.co/transaction/verify/{reference}"
         headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Authorization": f"Bearer {PAYSTACK_API_KEY}",
         }
 
         response = requests.get(url, headers=headers)
