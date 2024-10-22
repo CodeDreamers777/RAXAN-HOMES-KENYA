@@ -62,8 +62,8 @@ import requests
 import os
 from dotenv import load_dotenv
 from django.conf import settings
-from typing import Optional
-from base64 import b32encode
+import base64
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -88,66 +88,30 @@ def get_csrf_token(request):
     return JsonResponse({"csrfToken": get_token(request)})
 
 
-class SecureTOTP(TOTP):
-    def __init__(self):
-        # Generate 32 bytes of random data
-        random_bytes = secrets.token_bytes(32)
+def generate_otp():
+    """
+    Generate a simple 6-digit OTP
+    """
+    # Generate a random key
+    key = base64.b32encode(random.randbytes(20)).decode("utf-8")
 
-        # Convert to base32 encoding which is required by TOTP
-        # Remove padding '=' characters as they're not needed
-        key = b32encode(random_bytes).decode("ascii").rstrip("=")
+    # Create TOTP instance
+    totp = TOTP(key, step=30, digits=6)
 
-        # TOTP parameters
-        step = 30  # 30-second time step
-        t0 = 0  # Unix epoch start
-        digits = 6  # 6-digit OTP codes
+    # Get current time
+    t = int(time.time())
 
-        super().__init__(key=key, step=step, t0=t0, digits=digits)
+    return {"token": str(totp.token(t)), "key": key}
 
-    def generate_challenge(self) -> str:
-        """
-        Generate a TOTP token for the current time.
 
-        Returns:
-            str: A 6-digit TOTP token
-        """
-        try:
-            totp_time = int(time.time())
-            return self.token(totp_time)
-        except Exception as e:
-            logger.error(f"Error generating TOTP token: {str(e)}")
-            raise ValueError("Failed to generate security token")
+def verify_otp(key, token):
+    """
+    Verify the OTP token
+    """
+    totp = TOTP(key, step=30, digits=6)
+    t = int(time.time())
 
-    def verify_token(self, token: str, tolerance: Optional[int] = 1) -> bool:
-        """
-        Verify a TOTP token.
-
-        Args:
-            token (str): The token to verify
-            tolerance (int, optional): Number of time steps to check before and after
-                                     the current time. Defaults to 1.
-
-        Returns:
-            bool: True if token is valid, False otherwise
-        """
-        if not token or not token.isdigit():
-            return False
-
-        try:
-            return self.verify(token, time.time(), tolerance)
-        except Exception as e:
-            logger.error(f"Error verifying TOTP token: {str(e)}")
-            return False
-
-    @property
-    def secret_key(self) -> str:
-        """
-        Get the secret key in base32 format.
-
-        Returns:
-            str: The base32 encoded secret key
-        """
-        return self.key
+    return totp.verify(token, t, valid_window=1)
 
 
 class EmailService:
@@ -191,12 +155,11 @@ class ForgotPasswordView(APIView):
             user = User.objects.get(email=email)
             profile = user.profile
 
-            # Generate secure OTP using TOTP
-            totp = SecureTOTP()
-            otp = totp.generate_challenge()
+            # Generate OTP
+            otp_data = generate_otp()
 
-            # Store the key and creation time securely
-            profile.otp_secret = totp.key
+            # Store the key
+            profile.otp_secret = otp_data["key"]
             profile.otp_created_at = timezone.now()
             profile.otp_attempts = 0
             profile.save()
@@ -204,7 +167,7 @@ class ForgotPasswordView(APIView):
             # Prepare email context
             context = {
                 "name": user.get_full_name() or user.username,
-                "otp_code": otp,
+                "otp_code": otp_data["token"],
                 "expiry_minutes": 15,
             }
 
@@ -228,8 +191,6 @@ class ForgotPasswordView(APIView):
                 )
 
         except User.DoesNotExist:
-            # Use secrets for timing attack protection
-            secrets.compare_digest("dummy", "dummy")
             return Response(
                 {"message": "If this email exists in our system, an OTP has been sent"},
                 status=status.HTTP_200_OK,
@@ -276,12 +237,9 @@ class ResetPasswordView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Verify OTP using TOTP
-            totp = SecureTOTP()
-            totp.key = profile.otp_secret
-
             # With:
-            if not totp.verify_token(str(submitted_otp)):
+            # In the post method, replace the OTP verification with:
+            if not verify_otp(profile.otp_secret, submitted_otp):
                 return Response(
                     {"error": "Invalid OTP"},
                     status=status.HTTP_400_BAD_REQUEST,
