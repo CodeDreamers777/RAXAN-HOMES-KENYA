@@ -63,6 +63,7 @@ import os
 from dotenv import load_dotenv
 from django.conf import settings
 from typing import Optional
+from base64 import b32encode
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +90,12 @@ def get_csrf_token(request):
 
 class SecureTOTP(TOTP):
     def __init__(self):
-        # Generate a secure 32-byte (256-bit) random key
-        key = secrets.token_hex(32)  # Returns a 64-character hex string (32 bytes)
+        # Generate 32 bytes of random data
+        random_bytes = secrets.token_bytes(32)
+
+        # Convert to base32 encoding which is required by TOTP
+        # Remove padding '=' characters as they're not needed
+        key = b32encode(random_bytes).decode("ascii").rstrip("=")
 
         # TOTP parameters
         step = 30  # 30-second time step
@@ -107,12 +112,9 @@ class SecureTOTP(TOTP):
             str: A 6-digit TOTP token
         """
         try:
-            # Get current timestamp
             totp_time = int(time.time())
-            # Generate TOTP value using the correct method name 'token()'
             return self.token(totp_time)
         except Exception as e:
-            # Log the error if you have logging configured
             logger.error(f"Error generating TOTP token: {str(e)}")
             raise ValueError("Failed to generate security token")
 
@@ -132,11 +134,20 @@ class SecureTOTP(TOTP):
             return False
 
         try:
-            # Use the built-in verify method with time tolerance
             return self.verify(token, time.time(), tolerance)
         except Exception as e:
             logger.error(f"Error verifying TOTP token: {str(e)}")
             return False
+
+    @property
+    def secret_key(self) -> str:
+        """
+        Get the secret key in base32 format.
+
+        Returns:
+            str: The base32 encoded secret key
+        """
+        return self.key
 
 
 class EmailService:
