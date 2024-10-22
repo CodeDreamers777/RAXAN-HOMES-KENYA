@@ -17,6 +17,7 @@ import json
 from django.db import transaction
 from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Avg
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
@@ -191,6 +192,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
     longitude = serializers.DecimalField(
         max_digits=30, decimal_places=20, required=False, allow_null=True
     )
+    rating = serializers.SerializerMethodField()
 
     class Meta:
         abstract = True
@@ -209,10 +211,20 @@ class BasePropertySerializer(serializers.ModelSerializer):
             "host",
             "images",
             "uploaded_images",
+            "rating",
         ]
 
     def get_host(self, obj):
         return {"id": obj.host.id, "username": obj.host.username}
+
+    def get_rating(self, obj):
+        from django.contrib.contenttypes.models import ContentType
+
+        content_type = ContentType.objects.get_for_model(obj)
+        reviews = Review.objects.filter(content_type=content_type, object_id=obj.id)
+        if reviews.exists():
+            return round(reviews.aggregate(Avg("rating"))["rating__avg"], 1)
+        return None
 
     def create(self, validated_data):
         amenities_data = validated_data.pop("amenities", [])
