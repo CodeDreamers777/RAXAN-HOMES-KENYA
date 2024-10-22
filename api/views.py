@@ -88,11 +88,14 @@ def get_csrf_token(request):
 
 class SecureTOTP(TOTP):
     def __init__(self):
-        # Use 32 bytes (256 bits) of randomness for the key
-        key = random_hex(secret_length=32)
+        # Generate a secure 32-byte (256-bit) random key
+        # Using secrets.token_hex instead of random_hex for better security
+        key = secrets.token_hex(32)  # Returns a 64-character hex string (32 bytes)
+
+        # TOTP parameters
         step = 30  # 30-second time step
         t0 = 0  # Unix epoch start
-        digits = 6  # 6-digit OTP
+        digits = 6  # 6-digit OTP codes
 
         super().__init__(key=key, step=step, t0=t0, digits=digits)
 
