@@ -132,10 +132,10 @@ class BaseProperty(models.Model):
         ("APT", "Apartment"),
         ("HOUSE", "House"),
         ("VILLA", "Villa"),
+        ("LAND", "Land"),
         ("OFFICE", "Office Space"),
-        ("RESTAURANT", "Restaurant"),
-        ("STORAGE", "Storage Space"),
-        ("OTHER", "Other"),
+        ("EVENT", "Event Center & Venues"),
+        ("SHORT_LET", "Short Let Property"),
     ]
 
     name = models.CharField(max_length=100)
