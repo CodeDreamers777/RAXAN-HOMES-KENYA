@@ -89,7 +89,6 @@ def get_csrf_token(request):
 class SecureTOTP(TOTP):
     def __init__(self):
         # Generate a secure 32-byte (256-bit) random key
-        # Using secrets.token_hex instead of random_hex for better security
         key = secrets.token_hex(32)  # Returns a 64-character hex string (32 bytes)
 
         # TOTP parameters
@@ -99,12 +98,44 @@ class SecureTOTP(TOTP):
 
         super().__init__(key=key, step=step, t0=t0, digits=digits)
 
-    def generate_challenge(self):
-        # Get current timestamp
-        totp_time = int(time.time())
-        # Generate TOTP value
-        token = self.generate_token(totp_time)
-        return token
+    def generate_challenge(self) -> str:
+        """
+        Generate a TOTP token for the current time.
+
+        Returns:
+            str: A 6-digit TOTP token
+        """
+        try:
+            # Get current timestamp
+            totp_time = int(time.time())
+            # Generate TOTP value using the correct method name 'token()'
+            return self.token(totp_time)
+        except Exception as e:
+            # Log the error if you have logging configured
+            logger.error(f"Error generating TOTP token: {str(e)}")
+            raise ValueError("Failed to generate security token")
+
+    def verify_token(self, token: str, tolerance: Optional[int] = 1) -> bool:
+        """
+        Verify a TOTP token.
+
+        Args:
+            token (str): The token to verify
+            tolerance (int, optional): Number of time steps to check before and after
+                                     the current time. Defaults to 1.
+
+        Returns:
+            bool: True if token is valid, False otherwise
+        """
+        if not token or not token.isdigit():
+            return False
+
+        try:
+            # Use the built-in verify method with time tolerance
+            return self.verify(token, time.time(), tolerance)
+        except Exception as e:
+            logger.error(f"Error verifying TOTP token: {str(e)}")
+            return False
 
 
 class EmailService:
@@ -237,10 +268,8 @@ class ResetPasswordView(APIView):
             totp = SecureTOTP()
             totp.key = profile.otp_secret
 
-            # Use constant-time comparison
-            if not secrets.compare_digest(
-                str(submitted_otp), str(totp.generate_challenge())
-            ):
+            # With:
+            if not totp.verify_token(str(submitted_otp)):
                 return Response(
                     {"error": "Invalid OTP"},
                     status=status.HTTP_400_BAD_REQUEST,
