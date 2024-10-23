@@ -90,57 +90,54 @@ def get_csrf_token(request):
 
 def generate_otp():
     """
-    Generate a simple 6-digit OTP
+    Generate a simple 6-digit OTP using django-otp
+
+    Returns:
+        dict: Contains the OTP token and the secret key
+            {
+                'token': str,  # The 6-digit OTP
+                'key': str     # The secret key used to generate the OTP
+            }
     """
     # Generate a random key
     key = base64.b32encode(random.randbytes(20)).decode("utf-8")
 
     # Create TOTP instance
-    totp = TOTP(key, step=30, digits=6)
+    totp = TOTP(key=key, step=30, digits=6)
 
     # Get current time
     t = int(time.time())
 
-    return {"token": str(totp.token(t)), "key": key}
+    # Generate token
+    token = totp.generate(t)
+
+    return {"token": str(token), "key": key}
 
 
 def verify_otp(key, token):
     """
-    Verify the OTP token
+    Verify the OTP token using django-otp
+
+    Args:
+        key (str): The secret key used to generate the OTP
+        token (str): The OTP token to verify
+
+    Returns:
+        bool: True if the token is valid, False otherwise
     """
-    totp = TOTP(key, step=30, digits=6)
-    t = int(time.time())
+    try:
+        # Create TOTP instance
+        totp = TOTP(key=key, step=30, digits=6)
 
-    return totp.verify(token, t, valid_window=1)
+        # Get current time
+        t = int(time.time())
 
+        # Verify token with a window of 1 interval before and after
+        return totp.verify(token, t, valid_window=1)
 
-class EmailService:
-    def __init__(self):
-        # Configure Brevo API client
-        self.configuration = sib_api_v3_sdk.Configuration()
-        self.configuration.api_key["api-key"] = BREVO_API_KEY
-        self.api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
-            sib_api_v3_sdk.ApiClient(self.configuration)
-        )
-
-    def send_otp_email(self, recipient_email, recipient_name, context):
-        try:
-            # Render HTML template
-            html_content = render_to_string("emails/otp_template.html", context)
-
-            send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-                to=[{"email": recipient_email, "name": recipient_name}],
-                html_content=html_content,
-                subject="Password Reset Request - Raxan Homes",
-                sender={
-                    "name": "Raxan Homes",
-                    "email": os.getenv("SENDER_EMAIL", "raxanhomes@gmail.com"),
-                },
-            )
-
-            return self.api_instance.send_transac_email(send_smtp_email)
-        except sib_api_v3_sdk.ApiException as e:
-            raise ValueError(f"Failed to send email: {str(e)}")
+    except Exception:
+        # Return False for any verification errors
+        return False
 
 
 class ForgotPasswordView(APIView):
@@ -191,6 +188,7 @@ class ForgotPasswordView(APIView):
                 )
 
         except User.DoesNotExist:
+            # Security: Still return success to prevent email enumeration
             return Response(
                 {"message": "If this email exists in our system, an OTP has been sent"},
                 status=status.HTTP_200_OK,
@@ -218,10 +216,6 @@ class ResetPasswordView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Increment attempt counter
-            profile.otp_attempts = (profile.otp_attempts or 0) + 1
-            profile.save()
-
             # Check if OTP exists and is valid
             if not profile.otp_secret or not profile.otp_created_at:
                 return Response(
@@ -237,9 +231,12 @@ class ResetPasswordView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # With:
-            # In the post method, replace the OTP verification with:
+            # Verify OTP
             if not verify_otp(profile.otp_secret, submitted_otp):
+                # Increment attempt counter after failed verification
+                profile.otp_attempts = (profile.otp_attempts or 0) + 1
+                profile.save()
+
                 return Response(
                     {"error": "Invalid OTP"},
                     status=status.HTTP_400_BAD_REQUEST,
