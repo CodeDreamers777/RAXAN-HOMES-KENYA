@@ -32,7 +32,8 @@ function ViewMyListings() {
 
   const fetchListings = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       if (!accessToken) {
         throw new Error("No access token found");
       }
@@ -41,7 +42,7 @@ function ViewMyListings() {
         `${API_BASE_URL}/api/v1/properties/user_properties/`,
         {
           headers: { Authorization: `Bearer ${accessToken}` },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -70,7 +71,8 @@ function ViewMyListings() {
 
   const deleteProperty = async (propertyId) => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
 
       if (!accessToken) {
@@ -81,10 +83,12 @@ function ViewMyListings() {
         `${API_BASE_URL}/api/v1/properties/${propertyId}/`,
         {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${accessToken}`,            "X-CSRFToken": csrfToken,
-            Referer: API_BASE_URL
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "X-CSRFToken": csrfToken,
+            Referer: API_BASE_URL,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -148,7 +152,7 @@ function ViewMyListings() {
   );
 
   const filteredProperties = properties.filter(
-    (property) => activeTab === "all" || property.type === activeTab
+    (property) => activeTab === "all" || property.type === activeTab,
   );
 
   if (loading) {
@@ -212,10 +216,10 @@ function ViewMyListings() {
           contentContainerStyle={styles.listContainer}
         />
       ) : (
-          <Text style={styles.noListingsText}>
-            You have no listed properties in this category.
-          </Text>
-        )}
+        <Text style={styles.noListingsText}>
+          You have no listed properties in this category.
+        </Text>
+      )}
       <Modal
         animationType="slide"
         transparent={true}
@@ -225,7 +229,8 @@ function ViewMyListings() {
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
             <Text style={styles.modalText}>
-              Are you sure you want to delete this property? This action cannot be undone.
+              Are you sure you want to delete this property? This action cannot
+              be undone.
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity

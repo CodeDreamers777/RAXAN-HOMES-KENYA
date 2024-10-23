@@ -70,12 +70,18 @@ function ProfileScreen() {
   const handleSettingsPress = () => {
     navigation.navigate("Settings");
   };
+  const handleViewRatings = () => {
+    // Navigate to a new screen to display all ratings
+    navigation.navigate("ViewRatings", { ratings: reviews });
+  };
 
   const fetchProfileData = async () => {
     try {
       const token = await fetchCSRFToken();
       setCSRFToken(token);
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
+      console.log(accessToken);
       if (!accessToken) {
         throw new Error("No access token found");
       }
@@ -92,7 +98,12 @@ function ProfileScreen() {
       }
       const profileData = await response.json();
       setProfile(profileData);
+
+      // Save user type to AsyncStorage
       await AsyncStorage.setItem("userType", profileData.user_type);
+
+      // Save entire user profile data to AsyncStorage
+      await AsyncStorage.setItem("userData", JSON.stringify(profileData));
 
       // Fetch subscription plans
       const plansResponse = await fetch(
@@ -104,8 +115,11 @@ function ProfileScreen() {
       const plansData = await plansResponse.json();
       setSubscriptionPlans(plansData);
 
-      // Check if user has no subscription
-      if (profileData.subscription === null) {
+      // Check if user is a seller and has no subscription
+      if (
+        profileData.user_type === "SELLER" &&
+        profileData.subscription === null
+      ) {
         setShowSubscriptionModal(true);
       }
 
@@ -116,6 +130,7 @@ function ProfileScreen() {
         },
       );
       const reviewsData = await reviewsResponse.json();
+      console.log(reviewsData);
       setReviews(reviewsData);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -124,14 +139,14 @@ function ProfileScreen() {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchProfileData();
   }, []);
 
   const handleSubscribe = async (planId) => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       const response = await fetch(
         `${API_BASE_URL}/api/v1/initiate-subscription/`,
@@ -170,7 +185,8 @@ function ProfileScreen() {
   const handleWebViewClose = async () => {
     setShowWebView(false);
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       const response = await fetch(
         `${API_BASE_URL}/api/v1/verify-subscription/`,
@@ -248,19 +264,18 @@ function ProfileScreen() {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
       const response = await fetch(`${API_BASE_URL}/api/v1/logout/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-CSRFToken": csrfToken,
-          Authorization: `Bearer ${accessToken}`,
           Referer: API_BASE_URL,
         },
         credentials: "include",
       });
 
       const data = await response.json();
+      console.log(data);
 
       if (data.success) {
         await AsyncStorage.removeItem("accessToken");
@@ -433,29 +448,40 @@ function ProfileScreen() {
   const renderFooter = () => (
     <>
       <View style={styles.profileSection}>
+        {/* Only show ratings button for sellers */}
+        {profile?.user_type === "SELLER" && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.ratingsButton]}
+            onPress={handleViewRatings}
+          >
+            <Ionicons name="star-outline" size={24} color="#fff" />
+            <Text style={styles.actionButtonText}>View All Ratings</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
-          style={[styles.addPlaceButton, styles.viewBookingsButton]}
+          style={[styles.actionButton, styles.viewBookingsButton]}
           onPress={handleViewMyBookings}
         >
           <Ionicons name="calendar-outline" size={24} color="#fff" />
-          <Text style={styles.addPlaceText}>View My Bookings</Text>
+          <Text style={styles.actionButtonText}>View My Bookings</Text>
         </TouchableOpacity>
 
         {profile?.user_type === "SELLER" && (
           <>
             <TouchableOpacity
-              style={styles.addPlaceButton}
+              style={[styles.actionButton, styles.addPlaceButton]}
               onPress={handleAddPlace}
             >
               <Ionicons name="add-circle-outline" size={24} color="#fff" />
-              <Text style={styles.addPlaceText}>Add your place</Text>
+              <Text style={styles.actionButtonText}>Add your place</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.addPlaceButton, styles.viewListingsButton]}
+              style={[styles.actionButton, styles.viewListingsButton]}
               onPress={handleViewMyListings}
             >
               <Ionicons name="list-outline" size={24} color="#fff" />
-              <Text style={styles.addPlaceText}>View My Listings</Text>
+              <Text style={styles.actionButtonText}>View My Listings</Text>
             </TouchableOpacity>
           </>
         )}
@@ -503,11 +529,10 @@ function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <FlatList
-        data={reviews}
-        renderItem={renderReviewItem}
-        keyExtractor={(item) => item.id.toString()}
         ListHeaderComponent={renderHeader}
         ListFooterComponent={renderFooter}
+        data={[]} // Empty data since we're not rendering reviews inline anymore
+        renderItem={null}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
       />
@@ -820,6 +845,41 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+  actionButton: {
+    backgroundColor: "#0d1b21",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginLeft: 10,
+  },
+  ratingsButton: {
+    backgroundColor: "#FFA000", // Golden color to match the star theme
+  },
+  addPlaceButton: {
+    backgroundColor: "#0d1b21",
+  },
+  viewListingsButton: {
+    backgroundColor: "#1c3640",
+  },
+  viewBookingsButton: {
+    backgroundColor: "#2c5282",
   },
 });
 

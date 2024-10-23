@@ -40,7 +40,8 @@ const BookingsScreen = () => {
 
   const fetchBookings = async (userType) => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       if (!accessToken) {
         throw new Error("No access token found");
       }

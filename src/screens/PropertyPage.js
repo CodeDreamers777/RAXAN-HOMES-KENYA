@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
+  TextInput,
   Image,
   StyleSheet,
   ScrollView,
@@ -14,6 +15,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
+import * as Location from "expo-location";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
@@ -99,6 +101,12 @@ const PropertyScreen = ({ route, navigation }) => {
   const [bookingMessage, setBookingMessage] = useState("");
   const [bookingId, setBookingId] = useState(null);
   const [showMap, setShowMap] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [userReview, setUserReview] = useState(null);
+  const [username, setUsername] = useState("");
+  const [reviewText, setReviewText] = useState("");
+  const [reviewRating, setReviewRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
 
   const { propertyId } = route.params;
 
@@ -106,9 +114,18 @@ const PropertyScreen = ({ route, navigation }) => {
     fetchPropertyDetails();
   }, []);
 
-  const handleSeeOnMap = () => {
-    if (property.latitude && property.longitude) {
-      setShowMap(true);
+  useEffect(() => {
+    if (property) {
+      fetchCurrentUserReview();
+    }
+  }, [property]);
+
+  const handleSeeOnMap = async () => {
+    if (property && property.latitude && property.longitude) {
+      const hasPermission = await checkLocationPermission();
+      if (hasPermission) {
+        setShowMap(true);
+      }
     } else {
       Alert.alert(
         "Error",
@@ -116,6 +133,19 @@ const PropertyScreen = ({ route, navigation }) => {
       );
     }
   };
+
+  const checkLocationPermission = async () => {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "Location permission is required to show the map.",
+      );
+      return false;
+    }
+    return true;
+  };
+
   const handleChatWithHost = () => {
     if (property && property.host) {
       navigation.navigate("ConversationDetail", {
@@ -130,7 +160,8 @@ const PropertyScreen = ({ route, navigation }) => {
 
   const fetchPropertyDetails = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       if (!accessToken) {
         throw new Error("No access token found");
       }
@@ -151,7 +182,6 @@ const PropertyScreen = ({ route, navigation }) => {
 
       const data = await response.json();
       setProperty(data);
-      console.log(data);
     } catch (error) {
       setError(error.message);
     } finally {
@@ -161,7 +191,8 @@ const PropertyScreen = ({ route, navigation }) => {
 
   const handleBookNow = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       if (!accessToken || !csrfToken) {
         throw new Error("No access token or CSRF token found");
@@ -202,7 +233,8 @@ const PropertyScreen = ({ route, navigation }) => {
 
   const confirmBooking = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       if (!accessToken || !csrfToken) {
         throw new Error("No access token or CSRF token found");
@@ -290,6 +322,217 @@ const PropertyScreen = ({ route, navigation }) => {
     }
   };
 
+  const fetchCurrentUserReview = async () => {
+    try {
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
+      if (!accessToken) {
+        throw new Error("No access token found");
+      }
+
+      // Fetch the current user's username
+      const userDataString = await AsyncStorage.getItem("userData");
+      const userData = JSON.parse(userDataString);
+      const currentUsername = userData.username;
+      console.log(currentUsername);
+      setUsername(currentUsername);
+
+      let propertyType;
+      if (property && "price_per_month" in property) {
+        propertyType = "rental";
+      } else {
+        propertyType = "sale";
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/reviews/by_username/?username=${currentUsername}&property_id=${propertyId}&property_type=${propertyType}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Referer: API_BASE_URL,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch user review");
+      }
+
+      const data = await response.json();
+      console.log(data);
+      if (data && data.length > 0) {
+        setUserReview(data[0]);
+        setReviewText(data[0].comment);
+        setReviewRating(data[0].rating);
+      }
+    } catch (error) {
+      console.error("Error fetching user review:", error);
+    }
+  };
+
+  const handleReviewButtonPress = () => {
+    if (userReview) {
+      // If user has already reviewed, show their review
+      Alert.alert(
+        "Your Review",
+        `Rating: ${userReview.rating}\nComment: ${userReview.comment}`,
+        [
+          { text: "OK", onPress: () => {} },
+          {
+            text: "Edit",
+            onPress: () => {
+              setShowReviewModal(true);
+            },
+          },
+        ],
+      );
+    } else {
+      // If user hasn't reviewed, open the review modal
+      setShowReviewModal(true);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    try {
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
+      const csrfToken = await AsyncStorage.getItem("csrfToken");
+      if (!accessToken || !csrfToken) {
+        throw new Error("No access token or CSRF token found");
+      }
+
+      const method = userReview ? "PATCH" : "POST";
+      const url = userReview
+        ? `${API_BASE_URL}/api/v1/reviews/${userReview.id}/`
+        : `${API_BASE_URL}/api/v1/reviews/`;
+
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "X-CSRFToken": csrfToken,
+          Referer: API_BASE_URL,
+        },
+        body: JSON.stringify({
+          property_id: propertyId,
+          property_type:
+            property && "price_per_month" in property ? "rental" : "sale",
+          rating: reviewRating,
+          comment: reviewText,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to submit review");
+      }
+
+      const data = await response.json();
+      setUserReview(data);
+      setShowReviewModal(false);
+      Alert.alert("Success", "Your review has been submitted!");
+      fetchPropertyDetails(); // Refresh property details to update the rating
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      Alert.alert("Error", "Failed to submit review. Please try again.");
+    }
+  };
+  const getRatingLabel = (rating) => {
+    if (rating === 5) return "Excellent!";
+    if (rating === 4) return "Very Good!";
+    if (rating === 3) return "Good";
+    if (rating === 2) return "Fair";
+    if (rating === 1) return "Poor";
+    return "";
+  };
+
+  // Updated Review Modal Component
+  const ReviewModal = () => (
+    <Modal visible={showReviewModal} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modernModalContent}>
+          <Text style={styles.modernModalTitle}>
+            {userReview ? "Edit Your Review" : "Share Your Experience"}
+          </Text>
+
+          {/* Star Rating Section */}
+          <View style={styles.modernRatingContainer}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity
+                key={star}
+                onPress={() => setReviewRating(star)}
+                style={styles.starButton}
+              >
+                <Ionicons
+                  name={star <= reviewRating ? "star" : "star-outline"}
+                  size={32}
+                  color={star <= reviewRating ? "#FFD700" : "#D1D5DB"}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Rating Label */}
+          <Text style={styles.ratingLabel}>{getRatingLabel(reviewRating)}</Text>
+
+          {/* Review Text Input */}
+          <View style={styles.modernInputContainer}>
+            <TextInput
+              style={styles.modernReviewInput}
+              multiline
+              placeholder="Tell us about your experience..."
+              value={reviewText}
+              onChangeText={setReviewText}
+              maxLength={500}
+            />
+            <Text style={styles.characterCount}>{reviewText.length}/500</Text>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.modernButtonContainer}>
+            <TouchableOpacity
+              style={styles.modernCancelButton}
+              onPress={() => setShowReviewModal(false)}
+            >
+              <Text style={styles.modernCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.modernSubmitButton,
+                (!reviewRating || !reviewText.trim()) &&
+                  styles.modernSubmitButtonDisabled,
+              ]}
+              onPress={handleSubmitReview}
+              disabled={!reviewRating || !reviewText.trim()}
+            >
+              <Text style={styles.modernSubmitButtonText}>Submit Review</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // Updated Review Button Component
+  const ReviewButton = () => (
+    <TouchableOpacity
+      style={styles.modernReviewButton}
+      onPress={() => setShowReviewModal(true)}
+    >
+      <View style={styles.modernReviewButtonContent}>
+        <Ionicons
+          name={userReview ? "star" : "create-outline"}
+          size={24}
+          color="#fff"
+        />
+        <Text style={styles.modernReviewButtonText}>
+          {userReview ? "View Your Review" : "Write a Review"}
+        </Text>
+      </View>
+      <View style={styles.buttonShine} />
+    </TouchableOpacity>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -315,11 +558,10 @@ const PropertyScreen = ({ route, navigation }) => {
   }
 
   const isRental = "price_per_month" in property;
+
   // Function to format price in Kenyan Shillings
   const formatPrice = (price) => {
-    // Convert to number if it's a string, then round to nearest whole number
     const roundedPrice = Math.round(Number(price));
-    // Format with thousands separator
     return `KSh ${roundedPrice.toLocaleString("en-KE")}`;
   };
 
@@ -336,9 +578,15 @@ const PropertyScreen = ({ route, navigation }) => {
       <View style={styles.propertyInfo}>
         <Text style={styles.propertyTitle}>{property.name}</Text>
         <View style={styles.locationContainer}>
-          <Text style={styles.propertyLocation}>{property.location}</Text>
+          <Text
+            style={styles.propertyLocation}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {property.location}
+          </Text>
           <TouchableOpacity style={styles.mapButton} onPress={handleSeeOnMap}>
-            <Text style={styles.mapButtonText}>See on Map</Text>
+            <Text style={styles.mapButtonText}>Map</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.propertyDetails}>
@@ -349,29 +597,52 @@ const PropertyScreen = ({ route, navigation }) => {
           </Text>
           <RatingStars rating={property.rating || 0} />
         </View>
-        <Text style={styles.propertyDescription}>{property.description}</Text>
-        <View style={styles.amenitiesContainer}>
-          <Text style={styles.amenitiesTitle}>Amenities:</Text>
-          {property.amenities.map((amenity) => (
-            <Text key={amenity.id} style={styles.amenity}>
-              {amenity.name}
-            </Text>
-          ))}
+        <View style={styles.descriptionContainer}>
+          <Text style={styles.sectionTitle}>Description</Text>
+          <Text style={styles.propertyDescription}>{property.description}</Text>
         </View>
-        <View style={styles.detailsGrid}>
-          <View style={styles.detailItem}>
-            <Ionicons name="bed-outline" size={24} color="#666" />
-            <Text style={styles.detailText}>{property.bedrooms} Bedrooms</Text>
+        <View style={styles.amenitiesContainer}>
+          <Text style={styles.sectionTitle}>Amenities</Text>
+          <View style={styles.amenitiesGrid}>
+            {property.amenities.map((amenity) => (
+              <View key={amenity.id} style={styles.amenityItem}>
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={20}
+                  color="#4CAF50"
+                />
+                <Text style={styles.amenityText}>{amenity.name}</Text>
+              </View>
+            ))}
           </View>
-          <View style={styles.detailItem}>
-            <Ionicons name="water-outline" size={24} color="#666" />
-            <Text style={styles.detailText}>
-              {property.bathrooms} Bathrooms
-            </Text>
-          </View>
-          <View style={styles.detailItem}>
-            <Ionicons name="resize-outline" size={24} color="#666" />
-            <Text style={styles.detailText}>{property.area} sq ft</Text>
+        </View>
+        <View style={styles.detailsContainer}>
+          <Text style={styles.sectionTitle}>Property Details</Text>
+          <View style={styles.detailsGrid}>
+            <View style={styles.detailItem}>
+              <Ionicons name="bed-outline" size={24} color="#666" />
+              <Text style={styles.detailText}>
+                {property.bedrooms} Bedrooms
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Ionicons name="water-outline" size={24} color="#666" />
+              <Text style={styles.detailText}>
+                {property.bathrooms} Bathrooms
+              </Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Ionicons name="resize-outline" size={24} color="#666" />
+              <Text style={styles.detailText}>{property.area} sq ft</Text>
+            </View>
+            {isRental && (
+              <View style={styles.detailItem}>
+                <Ionicons name="home-outline" size={24} color="#666" />
+                <Text style={styles.detailText}>
+                  {property.number_of_units} Units
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         <TouchableOpacity
@@ -385,6 +656,11 @@ const PropertyScreen = ({ route, navigation }) => {
           <Text style={styles.actionButtonText}>Book Now</Text>
         </TouchableOpacity>
       </View>
+      {/* Add the new Review Button */}
+      <ReviewButton />
+
+      {/* Add the new Review Modal */}
+      <ReviewModal />
 
       <Modal visible={showPaymentWebView} animationType="slide">
         <View style={{ flex: 1 }}>
@@ -516,7 +792,8 @@ const styles = StyleSheet.create({
   propertyLocation: {
     fontSize: 16,
     color: "#666",
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 10,
   },
   propertyDetails: {
     flexDirection: "row",
@@ -532,28 +809,45 @@ const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: "row",
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#333",
+  },
+  descriptionContainer: {
+    marginBottom: 20,
+  },
   propertyDescription: {
     fontSize: 16,
     lineHeight: 24,
-    marginBottom: 16,
+    color: "#666",
   },
   amenitiesContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  amenitiesTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 8,
+  amenitiesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
-  amenity: {
-    fontSize: 16,
-    marginBottom: 4,
+  amenityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "50%",
+    marginBottom: 10,
+  },
+  amenityText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#333",
+  },
+  detailsContainer: {
+    marginBottom: 20,
   },
   detailsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 16,
   },
   detailItem: {
     flexDirection: "row",
@@ -564,6 +858,7 @@ const styles = StyleSheet.create({
   detailText: {
     marginLeft: 8,
     fontSize: 14,
+    color: "#333",
   },
   actionButton: {
     backgroundColor: "#FF6B6B",
@@ -674,7 +969,7 @@ const styles = StyleSheet.create({
   },
   mapButton: {
     backgroundColor: "#4CAF50",
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
     paddingVertical: 5,
     borderRadius: 5,
   },
@@ -700,6 +995,189 @@ const styles = StyleSheet.create({
   doneButtonText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+  reviewButton: {
+    backgroundColor: "#4CAF50",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  reviewButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 8,
+    width: "80%",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  reviewInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 4,
+    padding: 10,
+    marginBottom: 20,
+    textAlignVertical: "top",
+  },
+  submitButton: {
+    backgroundColor: "#FF6B6B",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  cancelButton: {
+    backgroundColor: "#ccc",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modernModalContent: {
+    backgroundColor: "#fff",
+    width: "90%",
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 24,
+    elevation: 5,
+  },
+  modernModalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+    color: "#1F2937",
+  },
+  modernRatingContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  starButton: {
+    padding: 8,
+    transform: [{ scale: 1 }],
+  },
+  ratingLabel: {
+    textAlign: "center",
+    fontSize: 16,
+    color: "#4B5563",
+    marginBottom: 20,
+  },
+  modernInputContainer: {
+    marginBottom: 24,
+  },
+  modernReviewInput: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 16,
+    height: 120,
+    textAlignVertical: "top",
+    fontSize: 16,
+  },
+  characterCount: {
+    textAlign: "right",
+    color: "#9CA3AF",
+    marginTop: 8,
+    fontSize: 12,
+  },
+  modernButtonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  modernSubmitButton: {
+    flex: 1,
+    backgroundColor: "#10B981",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modernSubmitButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+  },
+  modernSubmitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  modernCancelButton: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modernCancelButtonText: {
+    color: "#4B5563",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  modernReviewButton: {
+    backgroundColor: "#10B981",
+    margin: 16,
+    borderRadius: 12,
+    overflow: "hidden",
+    elevation: 2,
+  },
+  modernReviewButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modernReviewButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  buttonShine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    transform: [{ skewX: "-20deg" }, { translateX: -200 }],
   },
 });
 

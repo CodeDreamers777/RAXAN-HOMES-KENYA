@@ -20,7 +20,8 @@ const InboxScreen = ({ navigation }) => {
 
   const fetchConversations = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       const response = await fetch(`${API_BASE_URL}/api/v1/conversations/`, {
         method: "GET",

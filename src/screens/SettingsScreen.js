@@ -33,6 +33,9 @@ const SettingsScreen = ({ navigation }) => {
   const [paymentReference, setPaymentReference] = useState("");
   const [showWebViewPayment, setShowWebViewPayment] = useState(false);
   const webViewRef = useRef(null);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [showDeactivateAccountModal, setShowDeactivateAccountModal] =
+    useState(false);
 
   useEffect(() => {
     fetchProfileData();
@@ -40,7 +43,8 @@ const SettingsScreen = ({ navigation }) => {
 
   const fetchProfileData = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       if (!accessToken) {
         throw new Error("No access token found");
       }
@@ -78,16 +82,20 @@ const SettingsScreen = ({ navigation }) => {
     }
 
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
-      const response = await fetch(`${API_BASE_URL}/api/v1/change-password/`, {
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/manage/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
           "X-CSRFToken": csrfToken,
+          Referer: API_BASE_URL,
         },
         body: JSON.stringify({
+          action: "change_password",
           old_password: oldPassword,
           new_password: newPassword,
         }),
@@ -109,6 +117,84 @@ const SettingsScreen = ({ navigation }) => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
+      const response = await fetch(`${API_BASE_URL}/api/v1/manage/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: "delete_account",
+        }),
+      });
+
+      if (response.ok) {
+        await AsyncStorage.removeItem("accessToken");
+        Alert.alert(
+          "Account Deleted",
+          "Your account has been successfully deleted.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                navigation.navigate("Login");
+              },
+            },
+          ],
+        );
+      } else {
+        const data = await response.json();
+        Alert.alert("Error", data.message || "Failed to delete account");
+      }
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      Alert.alert("Error", "An error occurred while deleting the account");
+    }
+  };
+
+  const handleDeactivateAccount = async () => {
+    try {
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
+      const response = await fetch(`${API_BASE_URL}/api/v1/manage/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: "deactivate_account",
+        }),
+      });
+
+      if (response.ok) {
+        await AsyncStorage.removeItem("accessToken");
+        Alert.alert(
+          "Account Deactivated",
+          "Your account has been deactivated. You can reactivate it by logging in again.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                navigation.navigate("Login");
+              },
+            },
+          ],
+        );
+      } else {
+        const data = await response.json();
+        Alert.alert("Error", data.message || "Failed to deactivate account");
+      }
+    } catch (error) {
+      console.error("Error deactivating account:", error);
+      Alert.alert("Error", "An error occurred while deactivating the account");
+    }
+  };
+
   const handleOpenWebView = (url) => {
     setWebViewUrl(url);
     setShowWebView(true);
@@ -120,7 +206,8 @@ const SettingsScreen = ({ navigation }) => {
 
   const handleSubscribe = async (planId) => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       const response = await fetch(
         `${API_BASE_URL}/api/v1/initiate-subscription/`,
@@ -159,7 +246,8 @@ const SettingsScreen = ({ navigation }) => {
   const handleWebViewClose = async () => {
     setShowWebViewPayment(false);
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       const response = await fetch(
         `${API_BASE_URL}/api/v1/verify-subscription/`,
@@ -235,7 +323,9 @@ const SettingsScreen = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.settingItem}
-          onPress={() => handleOpenWebView("https://example.com/terms-of-use")}
+          onPress={() =>
+            handleOpenWebView("https://raxanhomes.netlify.app/#terms")
+          }
         >
           <Ionicons name="document-text-outline" size={24} color="#333" />
           <Text style={styles.settingText}>Terms of Use</Text>
@@ -244,7 +334,7 @@ const SettingsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.settingItem}
           onPress={() =>
-            handleOpenWebView("https://example.com/privacy-policy")
+            handleOpenWebView("https://raxanhomes.netlify.app/#privacy")
           }
         >
           <Ionicons name="shield-checkmark-outline" size={24} color="#333" />
@@ -258,7 +348,82 @@ const SettingsScreen = ({ navigation }) => {
           <Ionicons name="arrow-up-circle-outline" size={24} color="#333" />
           <Text style={styles.settingText}>Upgrade My Plan</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={() => setShowDeleteAccountModal(true)}
+        >
+          <Ionicons name="trash-outline" size={24} color="#333" />
+          <Text style={styles.settingText}>Delete Account</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={() => setShowDeactivateAccountModal(true)}
+        >
+          <Ionicons name="power-outline" size={24} color="#333" />
+          <Text style={styles.settingText}>Deactivate Account</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* Delete Account Modal */}
+      <Modal
+        visible={showDeleteAccountModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDeleteAccountModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={styles.warningText}>
+              Warning: This action is irreversible. All your data will be
+              permanently deleted.
+            </Text>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDeleteAccount}
+            >
+              <Text style={styles.buttonText}>Delete My Account</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowDeleteAccountModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Deactivate Account Modal */}
+      <Modal
+        visible={showDeactivateAccountModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDeactivateAccountModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Deactivate Account</Text>
+            <Text style={styles.warningText}>
+              Your account will be deactivated. You can reactivate it by logging
+              in again.
+            </Text>
+            <TouchableOpacity
+              style={styles.deactivateButton}
+              onPress={handleDeactivateAccount}
+            >
+              <Text style={styles.buttonText}>Deactivate My Account</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowDeactivateAccountModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Password Change Modal */}
       <Modal
@@ -637,6 +802,23 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+  warningText: {
+    color: "red",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  deleteButton: {
+    backgroundColor: "red",
+    padding: 15,
+    borderRadius: 5,
+    alignItems: "center",
+  },
+  deactivateButton: {
+    backgroundColor: "orange",
+    padding: 15,
+    borderRadius: 5,
+    alignItems: "center",
   },
 });
 

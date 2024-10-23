@@ -125,7 +125,15 @@ const FilterModal = ({
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Property Type</Text>
               <View style={styles.filterOptions}>
-                {["HOUSE", "VILLA", "APARTMENT"].map((type) => (
+                {[
+                  "HOUSE",
+                  "VILLA",
+                  "APT",
+                  "LAND",
+                  "OFFICE",
+                  "EVENT",
+                  "SHORT_LET",
+                ].map((type) => (
                   <TouchableOpacity
                     key={type}
                     style={[

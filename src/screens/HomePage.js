@@ -48,6 +48,7 @@ function RatingStars({ rating }) {
 
 function HomePage({ navigation }) {
   const [properties, setProperties] = useState({
+    featured_properties: [],
     properties_for_sale: [],
     rental_properties: [],
   });
@@ -55,13 +56,17 @@ function HomePage({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [filters, setFilters] = useState({
     type: "all",
-    priceRange: [0, 1000000],
+    priceRange: [0, 100000000],
     yearBuilt: [1900, new Date().getFullYear()],
     propertyType: null,
     bedrooms: [0, 10],
     bathrooms: [0, 10],
   });
   const [wishlist, setWishlist] = useState(new Set());
+
+  const formatPrice = (price) => {
+    return `KSh ${price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+  };
 
   useEffect(() => {
     fetchCSRFToken();
@@ -84,7 +89,7 @@ function HomePage({ navigation }) {
 
   const loadWishlistFromStorage = async () => {
     try {
-      const storedWishlist = await AsyncStorage.getItem('wishlist');
+      const storedWishlist = await AsyncStorage.getItem("wishlist");
       if (storedWishlist) {
         setWishlist(new Set(JSON.parse(storedWishlist)));
       }
@@ -95,7 +100,10 @@ function HomePage({ navigation }) {
 
   const saveWishlistToStorage = async (newWishlist) => {
     try {
-      await AsyncStorage.setItem('wishlist', JSON.stringify(Array.from(newWishlist)));
+      await AsyncStorage.setItem(
+        "wishlist",
+        JSON.stringify(Array.from(newWishlist)),
+      );
     } catch (error) {
       console.error("Error saving wishlist to storage:", error);
     }
@@ -103,7 +111,8 @@ function HomePage({ navigation }) {
 
   const fetchProperties = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       if (!accessToken) {
         throw new Error("No access token found");
       }
@@ -142,6 +151,11 @@ function HomePage({ navigation }) {
 
       // Update properties with wishlist status
       const updatedProperties = {
+        featured_properties: (data.featured_properties || []).map((prop) => ({
+          ...prop,
+          is_in_wishlist: newWishlist.has(prop.id),
+          isFeatured: true,
+        })),
         properties_for_sale: data.properties_for_sale.map((prop) => ({
           ...prop,
           is_in_wishlist: newWishlist.has(prop.id),
@@ -166,14 +180,18 @@ function HomePage({ navigation }) {
   const getFilteredProperties = () => {
     let filteredProps = [];
 
+    // Always include featured properties
+    filteredProps = [...properties.featured_properties];
+
     if (filters.type === "rental") {
-      filteredProps = properties.rental_properties || [];
+      filteredProps = [...filteredProps, ...properties.rental_properties];
     } else if (filters.type === "sale") {
-      filteredProps = properties.properties_for_sale || [];
+      filteredProps = [...filteredProps, ...properties.properties_for_sale];
     } else {
       filteredProps = [
-        ...(properties.rental_properties || []),
-        ...(properties.properties_for_sale || []),
+        ...filteredProps,
+        ...properties.rental_properties,
+        ...properties.properties_for_sale,
       ];
     }
 
@@ -199,7 +217,8 @@ function HomePage({ navigation }) {
 
   const handleWishlistToggle = async (item) => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       if (!accessToken || !csrfToken) {
         throw new Error("No access token or CSRF token found");
@@ -242,12 +261,12 @@ function HomePage({ navigation }) {
         properties_for_sale: prevProperties.properties_for_sale.map((prop) =>
           prop.id === item.id
             ? { ...prop, is_in_wishlist: !prop.is_in_wishlist }
-            : prop
+            : prop,
         ),
         rental_properties: prevProperties.rental_properties.map((prop) =>
           prop.id === item.id
             ? { ...prop, is_in_wishlist: !prop.is_in_wishlist }
-            : prop
+            : prop,
         ),
       }));
     } catch (error) {
@@ -258,11 +277,19 @@ function HomePage({ navigation }) {
 
   const renderProperty = ({ item }) => (
     <TouchableOpacity
-      style={styles.propertyCard}
+      style={[
+        styles.propertyCard,
+        item.isFeatured && styles.featuredPropertyCard,
+      ]}
       onPress={() =>
         navigation.navigate("PropertyPage", { propertyId: item.id })
       }
     >
+      {item.isFeatured && (
+        <View style={styles.featuredBadge}>
+          <Text style={styles.featuredText}>Featured</Text>
+        </View>
+      )}
       <Image
         source={
           item.images && item.images.length > 0
@@ -284,8 +311,8 @@ function HomePage({ navigation }) {
       <View style={styles.priceTag}>
         <Text style={styles.priceText}>
           {item.price_per_month
-            ? `$${item.price_per_month}/Month`
-            : `$${item.price}`}
+            ? `${formatPrice(item.price_per_month)}/Month`
+            : formatPrice(item.price)}
         </Text>
       </View>
       <View style={styles.propertyInfo}>
@@ -479,7 +506,7 @@ const styles = StyleSheet.create({
   priceText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 14, // Slightly reduced font size to accommodate longer text
   },
   propertyInfo: {
     padding: 16,
@@ -525,6 +552,25 @@ const styles = StyleSheet.create({
   },
   activeFilterOptionText: {
     color: "#fff",
+  },
+  featuredPropertyCard: {
+    borderColor: "#FFD700",
+    borderWidth: 2,
+  },
+  featuredBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: "#FFD700",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    zIndex: 1,
+  },
+  featuredText: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 12,
   },
 });
 

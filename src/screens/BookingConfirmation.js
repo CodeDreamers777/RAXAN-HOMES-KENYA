@@ -25,7 +25,8 @@ const BookingConfirmation = ({ route, navigation }) => {
 
   const fetchBookingDetails = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
 
       if (!accessToken) {

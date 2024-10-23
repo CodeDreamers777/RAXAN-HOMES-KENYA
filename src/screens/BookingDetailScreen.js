@@ -26,7 +26,8 @@ const BookingDetailScreen = ({ route, navigation }) => {
 
   const fetchBookingDetails = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const userType = await AsyncStorage.getItem("userType");
 
       if (!accessToken) {

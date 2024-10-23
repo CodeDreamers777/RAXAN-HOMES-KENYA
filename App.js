@@ -15,7 +15,11 @@ import profileIcon from "./assets/user.png";
 import HomePage from "./src/screens/HomePage";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import PropertyPage from "./src/screens/PropertyPage";
-import { LoginScreen, SignUpScreen } from "./src/screens/AuthScreens";
+import {
+  LoginScreen,
+  SignUpScreen,
+  OtpVerificationScreen,
+} from "./src/screens/AuthScreens";
 import AddPropertyPage from "./src/screens/AddProperty";
 import ViewMyListings from "./src/screens/ViewMyListings";
 import UpdateProperty from "./src/screens/UpdateProperty";
@@ -28,6 +32,11 @@ import InboxScreen from "./src/screens/InboxScreen"; // Import the new InboxScre
 import ConversationDetailScreen from "./src/screens/ConversationDetailScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import WebViewScreen from "./src/screens/Webview";
+import ViewRatingsScreen from "./src/screens/ViewRatingScreen";
+import {
+  ForgotPasswordScreen,
+  OTPVerificationScreen,
+} from "./src/screens/ForgotPasswordScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -70,6 +79,22 @@ function TabNavigator() {
   );
 }
 
+const TOKEN_EXPIRATION_DAYS = 7;
+
+const getToken = async () => {
+  const itemStr = await AsyncStorage.getItem("accessToken");
+  if (!itemStr) {
+    return null;
+  }
+  const item = JSON.parse(itemStr);
+  const now = new Date();
+  if (now.getTime() > item.expiry) {
+    await AsyncStorage.removeItem("accessToken");
+    return null;
+  }
+  return item.value;
+};
+
 function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [accessToken, setAccessToken] = useState(null);
@@ -80,7 +105,7 @@ function App() {
 
   const checkAccessToken = async () => {
     try {
-      const token = await AsyncStorage.getItem("accessToken");
+      const token = await getToken();
       setAccessToken(token);
       setIsLoading(false);
     } catch (error) {
@@ -150,6 +175,22 @@ function App() {
           name="WebView"
           component={WebViewScreen}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ViewRatings"
+          component={ViewRatingsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen
+          name="OTPVerification"
+          component={OTPVerificationScreen}
+        />
+        <Stack.Screen
+          name="OtpVerification"
+          component={OtpVerificationScreen}
         />
       </Stack.Navigator>
     </NavigationContainer>

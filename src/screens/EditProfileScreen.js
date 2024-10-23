@@ -55,22 +55,37 @@ function EditProfileScreen() {
 
     setIsLoading(true);
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       if (!accessToken) {
         throw new Error("No access token found");
       }
 
-      let profilePictureData = null;
+      const formData = new FormData();
+      formData.append("username", username);
+
       if (profilePicture) {
-        const response = await fetch(profilePicture);
-        const blob = await response.blob();
-        profilePictureData = new FormData();
-        profilePictureData.append("profile_picture", {
-          uri: blob.uri,
-          type: "image/jpeg",
-          name: "profile_picture.jpg",
-        });
+        // Check if the profile picture is a local file (newly selected image)
+        if (
+          profilePicture.startsWith("file://") ||
+          profilePicture.startsWith("content://")
+        ) {
+          const filename = profilePicture.split("/").pop();
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : "image";
+
+          formData.append("profile_picture", {
+            uri: profilePicture,
+            name: filename,
+            type,
+          });
+        } else if (!profilePicture.startsWith(API_BASE_URL)) {
+          // This handles any other case where the profile picture has changed but isn't a local file
+          formData.append("profile_picture", profilePicture);
+        }
       }
+
+      console.log("Sending data:", formData);
 
       const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
         method: "PUT",
@@ -79,27 +94,28 @@ function EditProfileScreen() {
           "X-CSRFToken": csrfToken,
           Referer: API_BASE_URL,
         },
-        body: profilePictureData
-          ? profilePictureData
-          : JSON.stringify({ username }),
+        body: formData,
         credentials: "include",
       });
-      console.log(response);
+
+      const responseData = await response.json();
+      console.log("Response status:", response.status);
+      console.log("Response data:", responseData);
 
       if (!response.ok) {
-        throw new Error("Failed to update profile");
+        throw new Error(responseData.detail || "Failed to update profile");
       }
 
       Alert.alert("Success", "Profile updated successfully");
+      // Reload the profile data
       navigation.goBack();
     } catch (error) {
       console.error("Error updating profile:", error);
-      Alert.alert("Error", "Failed to update profile. Please try again.");
+      Alert.alert("Error", `Failed to update profile: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleChoosePhoto = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();

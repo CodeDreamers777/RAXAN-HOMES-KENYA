@@ -13,14 +13,24 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ios"
+      "bundleIdentifier": "ios",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location when open.",
+        "NSLocationAlwaysUsageDescription": "This app needs access to location when in the background."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.crispusdev.riyadhstay"
+      "package": "com.crispusdev.riyadhstay",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_ANDROID_MAPS_API_KEY_HERE"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

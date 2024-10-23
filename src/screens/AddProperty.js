@@ -165,6 +165,7 @@ const AddPropertyPage = () => {
       Alert.alert("Error", "Please fill in all required fields.");
       return;
     }
+
     setIsLoading(true);
     const formData = new FormData();
     formData.append("property_category", propertyCategory);
@@ -172,8 +173,13 @@ const AddPropertyPage = () => {
     formData.append("name", name);
     formData.append("description", description);
     formData.append("location", location);
-    formData.append("latitude", latitude.toString());
-    formData.append("longitude", longitude.toString());
+
+    // Only append latitude and longitude if they are set (i.e., map was used)
+    if (latitude !== null && longitude !== null) {
+      formData.append("latitude", latitude.toString());
+      formData.append("longitude", longitude.toString());
+    }
+
     formData.append("bedrooms", bedrooms);
     formData.append("bathrooms", bathrooms);
     formData.append("area", area);
@@ -189,14 +195,14 @@ const AddPropertyPage = () => {
     }
 
     images.forEach((image, index) => {
-      const filename = image.split("/").pop(); // Extract the filename from the URI
+      const filename = image.split("/").pop();
       formData.append("uploaded_images", {
         uri: image,
         type: "image/jpeg",
-        name: filename, // Use the actual filename
+        name: filename,
       });
     });
-    console.log(formData);
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {
         method: "POST",
@@ -218,16 +224,60 @@ const AddPropertyPage = () => {
       } else {
         const errorData = await response.json();
         console.error("Error adding property:", errorData);
-        Alert.alert(
-          "Error",
-          "Failed to add property. Please check all fields and try again.",
-        );
+
+        if (errorData.error && errorData.error.includes("subscription")) {
+          Alert.alert(
+            "Subscription Error",
+            "You need an active subscription to create properties. Please upgrade your subscription.",
+            [
+              {
+                text: "OK",
+                onPress: () => navigation.navigate("Settings"),
+              },
+              { text: "Cancel" },
+            ],
+          );
+        } else if (
+          errorData.error &&
+          errorData.error.includes("property listing limit")
+        ) {
+          Alert.alert(
+            "Limit Reached",
+            "You have reached your property listing limit. Please upgrade your subscription to add more properties.",
+            [
+              {
+                text: "Upgrade",
+                onPress: () => navigation.navigate("Settings"),
+              },
+              { text: "Cancel" },
+            ],
+          );
+        } else {
+          Alert.alert(
+            "Error",
+            "An unknown error occurred while adding the property. Please contact support if this persists.",
+            [
+              { text: "OK" },
+              {
+                text: "Contact Support",
+                onPress: () => navigation.navigate("Support"),
+              },
+            ],
+          );
+        }
       }
     } catch (error) {
       console.error("Error submitting property:", error);
       Alert.alert(
         "Error",
-        "An error occurred while adding the property. Please try again.",
+        "An unexpected error occurred. Please try again or contact support if this persists.",
+        [
+          { text: "OK" },
+          {
+            text: "Contact Support",
+            onPress: () => navigation.navigate("Support"),
+          },
+        ],
       );
     } finally {
       setIsLoading(false);
@@ -278,6 +328,10 @@ const AddPropertyPage = () => {
             <Picker.Item label="Apartment" value="APT" />
             <Picker.Item label="House" value="HOUSE" />
             <Picker.Item label="Villa" value="VILLA" />
+            <Picker.Item label="Land" value="LAND" />
+            <Picker.Item label="Office Space" value="OFFICE" />
+            <Picker.Item label="Event Center & Venues" value="EVENT" />
+            <Picker.Item label="Short Let Property" value="SHORT_LET" />
           </Picker>
         </View>
 

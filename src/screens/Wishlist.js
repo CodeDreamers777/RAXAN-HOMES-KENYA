@@ -22,7 +22,8 @@ const WishlistScreen = ({ navigation }) => {
 
   const fetchWishlist = useCallback(async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       if (!accessToken) {
         throw new Error("No access token found");
       }
@@ -84,7 +85,8 @@ const WishlistScreen = ({ navigation }) => {
 
   const handleRemoveFromWishlist = async (item) => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
       if (!accessToken || !csrfToken) {
         throw new Error("No access token or CSRF token found");
@@ -171,7 +173,6 @@ const WishlistScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>My Wishlist</Text>
       {wishlistItems.length === 0 ? (
         <Text style={styles.emptyMessage}>Your wishlist is empty.</Text>
       ) : (
