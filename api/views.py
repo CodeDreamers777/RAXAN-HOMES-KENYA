@@ -99,16 +99,17 @@ def generate_otp():
                 'key': str     # The secret key used to generate the OTP
             }
     """
-    # Generate a random key
-    key = base64.b32encode(random.randbytes(20)).decode("utf-8")
+    # Generate a random key (as bytes, not string)
+    key = base64.b32encode(random.randbytes(20))  # Keep it as bytes
 
-    # Create TOTP instance with current time
+    # Create TOTP instance with the byte-encoded key
     totp = TOTP(key=key, step=30, digits=6)
 
     # Get token using token() method (no arguments needed)
     token = totp.token()
 
-    return {"token": str(token), "key": key}
+    # Return the token and the key (converted to a string for storage)
+    return {"token": str(token), "key": key.decode("utf-8")}
 
 
 def verify_otp(key, token):
