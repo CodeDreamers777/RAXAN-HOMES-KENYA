@@ -117,26 +117,24 @@ def generate_otp():
 def verify_otp(key, token):
     """
     Verify the OTP token using django-otp
-
     Args:
         key (str): The secret key used to generate the OTP
         token (str): The OTP token to verify
-
     Returns:
         bool: True if the token is valid, False otherwise
     """
     try:
-        # Create TOTP instance
+        # Create TOTP instance with same parameters as generation
         totp = TOTP(key=key, step=30, digits=6)
 
-        # Get current time
-        t = int(time.time())
+        # Simply compare the tokens directly
+        generated_token = totp.token()
 
-        # Verify token
-        return bool(totp.verify(token, for_time=t, valid_window=1))
+        # Convert both to strings for comparison
+        return str(generated_token) == str(token)
 
-    except Exception:
-        # Return False for any verification errors
+    except Exception as e:
+        logger.error(f"OTP verification error: {str(e)}")
         return False
 
 
