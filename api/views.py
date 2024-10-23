@@ -92,26 +92,13 @@ def get_csrf_token(request):
 
 def generate_otp():
     """
-    Generate a simple 6-digit OTP using django-otp
-
+    Generate a simple 6-digit OTP
     Returns:
-        dict: Contains the OTP token and the secret key
-            {
-                'token': str,  # The 6-digit OTP
-                'key': str     # The secret key used to generate the OTP
-            }
+        str: The 6-digit OTP
     """
-    # Generate a random key (as bytes, not string)
-    key = base64.b32encode(random.randbytes(20))  # Keep it as bytes
-
-    # Create TOTP instance with the byte-encoded key
-    totp = TOTP(key=key, step=30, digits=6)
-
-    # Get token using token() method (no arguments needed)
-    token = totp.token()
-
-    # Return the token and the key (converted to a string for storage)
-    return {"token": str(token), "key": key.decode("utf-8")}
+    # Generate a random 6-digit number
+    otp = "".join([str(random.randint(0, 9)) for _ in range(6)])
+    return otp
 
 
 def verify_otp(key, token):
@@ -194,10 +181,10 @@ class ForgotPasswordView(APIView):
             profile = user.profile
 
             # Generate OTP
-            otp_data = generate_otp()
+            otp = generate_otp()
 
-            # Store the key
-            profile.otp_secret = otp_data["key"]
+            # Store the actual OTP code
+            profile.otp_secret = otp  # Rename this field if you want to be more precise
             profile.otp_created_at = timezone.now()
             profile.otp_attempts = 0
             profile.save()
@@ -205,7 +192,7 @@ class ForgotPasswordView(APIView):
             # Prepare email context
             context = {
                 "name": user.get_full_name() or user.username,
-                "otp_code": otp_data["token"],
+                "otp_code": otp,
                 "expiry_minutes": 15,
             }
 
@@ -229,7 +216,6 @@ class ForgotPasswordView(APIView):
                 )
 
         except User.DoesNotExist:
-            # Security: Still return success to prevent email enumeration
             return Response(
                 {"message": "If this email exists in our system, an OTP has been sent"},
                 status=status.HTTP_200_OK,
@@ -272,9 +258,8 @@ class ResetPasswordView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Verify OTP
-            if not verify_otp(profile.otp_secret, submitted_otp):
-                # Increment attempt counter after failed verification
+            # Simple direct comparison
+            if profile.otp_secret != submitted_otp:
                 profile.otp_attempts = (profile.otp_attempts or 0) + 1
                 profile.save()
 
@@ -296,7 +281,6 @@ class ResetPasswordView(APIView):
             )
 
         except User.DoesNotExist:
-            # Use secrets for timing attack protection
             secrets.compare_digest("dummy", "dummy")
             return Response(
                 {"error": "Invalid email"},
