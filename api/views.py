@@ -105,11 +105,8 @@ def generate_otp():
     # Create TOTP instance with current time
     totp = TOTP(key=key, step=30, digits=6)
 
-    # Get current time
-    t = int(time.time())
-
-    # Get token using token() method
-    token = totp.token(t)
+    # Get token using token() method (no arguments needed)
+    token = totp.token()
 
     return {"token": str(token), "key": key}
 
