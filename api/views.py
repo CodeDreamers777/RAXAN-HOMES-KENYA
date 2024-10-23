@@ -138,6 +138,35 @@ def verify_otp(key, token):
         return False
 
 
+class EmailService:
+    def __init__(self):
+        # Configure Brevo API client
+        self.configuration = sib_api_v3_sdk.Configuration()
+        self.configuration.api_key["api-key"] = BREVO_API_KEY
+        self.api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+            sib_api_v3_sdk.ApiClient(self.configuration)
+        )
+
+    def send_otp_email(self, recipient_email, recipient_name, context):
+        try:
+            # Render HTML template
+            html_content = render_to_string("emails/otp_template.html", context)
+
+            send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+                to=[{"email": recipient_email, "name": recipient_name}],
+                html_content=html_content,
+                subject="Password Reset Request - Raxan Homes",
+                sender={
+                    "name": "Raxan Homes",
+                    "email": os.getenv("SENDER_EMAIL", "raxanhomes@gmail.com"),
+                },
+            )
+
+            return self.api_instance.send_transac_email(send_smtp_email)
+        except sib_api_v3_sdk.ApiException as e:
+            raise ValueError(f"Failed to send email: {str(e)}")
+
+
 class ForgotPasswordView(APIView):
     def post(self, request):
         serializer = ForgotPasswordSerializer(data=request.data)
