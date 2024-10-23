@@ -140,30 +140,43 @@ def verify_otp(key, token):
 
 class EmailService:
     def __init__(self):
-        # Configure Brevo API client
-        self.configuration = sib_api_v3_sdk.Configuration()
-        self.configuration.api_key["api-key"] = BREVO_API_KEY
-        self.api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
-            sib_api_v3_sdk.ApiClient(self.configuration)
-        )
+        self.api_key = os.getenv(
+            "BREVO_API_KEY"
+        )  # Ensure the API key is set in environment variables
+        self.api_url = "https://api.sendinblue.com/v3/smtp/email"  # Brevo API URL
 
     def send_otp_email(self, recipient_email, recipient_name, context):
         try:
             # Render HTML template
             html_content = render_to_string("emails/otp_template.html", context)
 
-            send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-                to=[{"email": recipient_email, "name": recipient_name}],
-                html_content=html_content,
-                subject="Password Reset Request - Raxan Homes",
-                sender={
+            # Prepare the request payload
+            payload = {
+                "sender": {
                     "name": "Raxan Homes",
                     "email": os.getenv("SENDER_EMAIL", "raxanhomes@gmail.com"),
                 },
-            )
+                "to": [{"email": recipient_email, "name": recipient_name}],
+                "subject": "Password Reset Request - Raxan Homes",
+                "htmlContent": html_content,
+            }
 
-            return self.api_instance.send_transac_email(send_smtp_email)
-        except ApiException as e:  # Use the imported ApiException
+            # Set up the headers
+            headers = {
+                "accept": "application/json",
+                "api-key": self.api_key,
+                "Content-Type": "application/json",
+            }
+
+            # Send the email
+            response = requests.post(self.api_url, headers=headers, json=payload)
+
+            # Check for success
+            response.raise_for_status()  # Raises an error for bad responses (4xx, 5xx)
+
+            return response.json()  # Return the response JSON if needed
+
+        except requests.exceptions.RequestException as e:
             raise ValueError(f"Failed to send email: {str(e)}")
 
 
@@ -312,39 +325,48 @@ class SendOTPEmailView(APIView):
         # Render HTML template
         html_content = render_to_string("emails/otp_template.html", context)
 
-        # Configure Brevo API client
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key["api-key"] = BREVO_API_KEY
+        # Prepare the API URL and headers
+        api_url = "https://api.sendinblue.com/v3/smtp/email"  # Brevo API URL
+        headers = {
+            "accept": "application/json",
+            "api-key": os.getenv(
+                "BREVO_API_KEY"
+            ),  # Ensure the API key is set in environment variables
+            "Content-Type": "application/json",
+        }
 
-        # Create an instance of the API class
-        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
-            sib_api_v3_sdk.ApiClient(configuration)
-        )
-
-        # Create send email object
-        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-            to=[
+        # Prepare the email payload
+        payload = {
+            "sender": {
+                "name": "Raxan Homes",
+                "email": os.getenv("SENDER_EMAIL", "raxanhomes@gmail.com"),
+            },
+            "to": [
                 {
                     "email": serializer.validated_data["to_email"],
                     "name": serializer.validated_data["to_name"],
                 }
             ],
-            html_content=html_content,
-            subject="Your Verification Code - Raxan Homes",
-            sender={"name": "Raxan Homes", "email": "raxanhomes@gmail.com"},
-        )
+            "subject": "Your Verification Code - Raxan Homes",
+            "htmlContent": html_content,
+        }
 
         try:
-            api_response = api_instance.send_transac_email(send_smtp_email)
+            # Send the email
+            response = requests.post(api_url, headers=headers, json=payload)
+            response.raise_for_status()  # Raises an error for bad responses (4xx, 5xx)
+
             return Response(
                 {
                     "message": "OTP email sent successfully",
-                    "message_id": api_response.message_id,
+                    "message_id": response.json().get(
+                        "messageId"
+                    ),  # Get the message ID from response
                 },
                 status=status.HTTP_200_OK,
             )
 
-        except ApiException as e:
+        except requests.exceptions.RequestException as e:
             return Response(
                 {"error": f"Exception when calling Brevo API: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
