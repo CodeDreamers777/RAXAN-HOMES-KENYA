@@ -65,37 +65,32 @@ function EditProfileScreen() {
       formData.append("username", username);
 
       if (profilePicture) {
-        // Check if the profile picture is a local file (newly selected image)
+        // If it's a new image selected from the device
         if (
           profilePicture.startsWith("file://") ||
           profilePicture.startsWith("content://")
         ) {
           const filename = profilePicture.split("/").pop();
-          const match = /\.(\w+)$/.exec(filename);
-          const type = match ? `image/${match[1]}` : "image";
-
           formData.append("profile_picture", {
             uri: profilePicture,
-            name: filename,
-            type,
+            type: "image/jpeg", // or determine dynamically if needed
+            name: filename || "profile.jpg",
           });
-        } else if (!profilePicture.startsWith(API_BASE_URL)) {
-          // This handles any other case where the profile picture has changed but isn't a local file
-          formData.append("profile_picture", profilePicture);
         }
       }
 
-      console.log("Sending data:", formData);
+      console.log("FormData contents:", Object.fromEntries(formData._parts)); // Debug log
 
       const response = await fetch(`${API_BASE_URL}/api/v1/profile/`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "X-CSRFToken": csrfToken,
+          "Content-Type": "multipart/form-data", // Add this header
+          Accept: "application/json",
           Referer: API_BASE_URL,
         },
         body: formData,
-        credentials: "include",
       });
 
       const responseData = await response.json();
@@ -107,7 +102,6 @@ function EditProfileScreen() {
       }
 
       Alert.alert("Success", "Profile updated successfully");
-      // Reload the profile data
       navigation.goBack();
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -135,8 +129,9 @@ function EditProfileScreen() {
       quality: 1,
     });
 
-    if (!pickerResult.cancelled) {
-      setProfilePicture(pickerResult.uri);
+    if (!pickerResult.canceled) {
+      // Note: newer versions of expo-image-picker use 'canceled' instead of 'cancelled'
+      setProfilePicture(pickerResult.assets[0].uri); // Updated to handle newer expo-image-picker response format
     }
   };
 
@@ -146,7 +141,10 @@ function EditProfileScreen() {
         <Image
           source={
             profilePicture
-              ? { uri: `${API_BASE_URL}${profilePicture}` }
+              ? profilePicture.startsWith("file://") ||
+                profilePicture.startsWith("content://")
+                ? { uri: profilePicture }
+                : { uri: `${API_BASE_URL}${profilePicture}` }
               : require("../../assets/user-profile.jpg")
           }
           style={styles.profileImage}

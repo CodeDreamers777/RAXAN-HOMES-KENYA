@@ -180,9 +180,19 @@ function HomePage({ navigation }) {
   const getFilteredProperties = () => {
     let filteredProps = [];
 
-    // Always include featured properties
-    filteredProps = [...properties.featured_properties];
+    // Include featured properties only if they match the selected type
+    if (filters.type === "all") {
+      filteredProps = [...properties.featured_properties];
+    } else {
+      // Only include featured properties that match the selected type
+      filteredProps = properties.featured_properties.filter((prop) =>
+        filters.type === "rental"
+          ? prop.price_per_month !== undefined
+          : prop.price_per_month === undefined,
+      );
+    }
 
+    // Add non-featured properties based on filter
     if (filters.type === "rental") {
       filteredProps = [...filteredProps, ...properties.rental_properties];
     } else if (filters.type === "sale") {
