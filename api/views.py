@@ -163,7 +163,7 @@ class EmailService:
             )
 
             return self.api_instance.send_transac_email(send_smtp_email)
-        except sib_api_v3_sdk.ApiException as e:
+        except ApiException as e:  # Use the imported ApiException
             raise ValueError(f"Failed to send email: {str(e)}")
 
 
