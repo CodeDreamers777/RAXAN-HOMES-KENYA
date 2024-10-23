@@ -118,19 +118,20 @@ def verify_otp(key, token):
     """
     Verify the OTP token using django-otp
     Args:
-        key (str): The secret key used to generate the OTP
+        key (str): The secret key used to generate the OTP (from database)
         token (str): The OTP token to verify
     Returns:
         bool: True if the token is valid, False otherwise
     """
     try:
-        # Create TOTP instance with same parameters as generation
-        totp = TOTP(key=key, step=30, digits=6)
+        # Convert the stored string key back to bytes
+        key_bytes = key.encode("utf-8")
 
-        # Simply compare the tokens directly
+        # Create TOTP instance with the byte-encoded key
+        totp = TOTP(key=key_bytes, step=30, digits=6)
+
+        # Generate token and compare
         generated_token = totp.token()
-
-        # Convert both to strings for comparison
         return str(generated_token) == str(token)
 
     except Exception as e:
