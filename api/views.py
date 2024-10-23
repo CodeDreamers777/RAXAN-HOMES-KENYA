@@ -102,14 +102,14 @@ def generate_otp():
     # Generate a random key
     key = base64.b32encode(random.randbytes(20)).decode("utf-8")
 
-    # Create TOTP instance
+    # Create TOTP instance with current time
     totp = TOTP(key=key, step=30, digits=6)
 
     # Get current time
     t = int(time.time())
 
-    # Generate token
-    token = totp.generate(t)
+    # Get token using token() method
+    token = totp.token(t)
 
     return {"token": str(token), "key": key}
 
@@ -132,8 +132,8 @@ def verify_otp(key, token):
         # Get current time
         t = int(time.time())
 
-        # Verify token with a window of 1 interval before and after
-        return totp.verify(token, t, valid_window=1)
+        # Verify token
+        return bool(totp.verify(token, for_time=t, valid_window=1))
 
     except Exception:
         # Return False for any verification errors
