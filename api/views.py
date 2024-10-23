@@ -399,6 +399,7 @@ class ProfileAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class LoginView(APIView):
     def post(self, request):
         if request.user.is_authenticated:
