@@ -51,6 +51,7 @@ from .serializer import (
     SubscriptionPlanSerializer,
     OTPEmailSerializer,
     ForgotPasswordSerializer,
+    OTPVerificationSerializer,
     ResetPasswordSerializer,
 )
 import sib_api_v3_sdk
@@ -398,11 +399,11 @@ class ProfileAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class LoginView(APIView):
     def post(self, request):
         if request.user.is_authenticated:
             return Response({"success": True, "message": "User already logged in"})
+
         try:
             email = request.data.get("email").lower()
             password = request.data.get("password")
@@ -414,30 +415,132 @@ class LoginView(APIView):
 
             if user.check_password(password):
                 if not user.is_active:
-                    # Reactivate the account
                     user.is_active = True
                     user.save()
                     reactivation_message = "Your account has been reactivated. "
                 else:
                     reactivation_message = ""
 
-                login(request, user)
-                refresh = RefreshToken.for_user(user)
-                return Response(
-                    {
-                        "success": True,
-                        "message": f"{reactivation_message}User logged in successfully",
-                        "access": str(refresh.access_token),
-                        "refresh": str(refresh),
-                    }
-                )
+                # Generate and send OTP
+                otp = generate_otp()
+                profile = user.profile
+
+                # Store OTP in profile
+                profile.otp_secret = otp
+                profile.otp_created_at = timezone.now()
+                profile.otp_attempts = 0
+                profile.save()
+
+                # Prepare email context
+                context = {
+                    "name": user.get_full_name() or user.username,
+                    "otp_code": otp,
+                    "expiry_minutes": 15,
+                }
+
+                try:
+                    email_service = EmailService()
+                    email_service.send_otp_email(
+                        recipient_email=email,
+                        recipient_name=user.get_full_name() or user.username,
+                        context=context,
+                    )
+
+                    return Response(
+                        {
+                            "success": True,
+                            "message": f"{reactivation_message}Please check your email for the OTP verification code",
+                            "requires_verification": True,
+                            "email": email,
+                        }
+                    )
+
+                except ValueError as e:
+                    return Response(
+                        {"error": str(e)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
             else:
                 return Response({"success": False, "message": "Invalid credentials"})
+
         except Exception as e:
             return Response(
                 {"success": False, "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class VerifyLoginOTPView(APIView):
+    def post(self, request):
+        serializer = OTPVerificationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data["email"]
+        submitted_otp = serializer.validated_data["otp"]
+
+        try:
+            user = User.objects.get(email=email)
+            profile = user.profile
+
+            # Rate limiting
+            if profile.otp_attempts and profile.otp_attempts >= 5:
+                return Response(
+                    {"error": "Too many attempts. Please request a new OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Check if OTP exists and is valid
+            if not profile.otp_secret or not profile.otp_created_at:
+                return Response(
+                    {"error": "No OTP request found"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Check expiry (15 minutes)
+            if timezone.now() > profile.otp_created_at + timedelta(minutes=15):
+                self._clear_otp(profile)
+                return Response(
+                    {"error": "OTP has expired. Please try logging in again"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Verify OTP
+            if profile.otp_secret != submitted_otp:
+                profile.otp_attempts = (profile.otp_attempts or 0) + 1
+                profile.save()
+                return Response(
+                    {"error": "Invalid OTP"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # OTP is valid - log user in and generate tokens
+            login(request, user)
+            refresh = RefreshToken.for_user(user)
+
+            # Clear OTP data
+            self._clear_otp(profile)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Login successful",
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                }
+            )
+
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Invalid email"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def _clear_otp(self, profile):
+        profile.otp_secret = None
+        profile.otp_created_at = None
+        profile.otp_attempts = None
+        profile.save()
 
 
 class UserAccountManagementView(APIView):
