@@ -62,6 +62,8 @@ import requests
 import os
 from dotenv import load_dotenv
 from django.conf import settings
+from datetime import timedelta
+
 import base64
 import random
 
