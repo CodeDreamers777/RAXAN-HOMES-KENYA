@@ -322,10 +322,9 @@ class RentalPropertySerializer(BasePropertySerializer):
         ]
 
     def get_is_featured(self, obj):
-        # Check if the host has a subscription and if it's PREMIUM
-        host_profile = obj.host.profile
-        if host_profile.subscription:
-            return host_profile.subscription.name == "PREMIUM"
+        # obj.host is already a Profile instance
+        if obj.host.subscription:
+            return obj.host.subscription.name == "PREMIUM"
         return False
 
 

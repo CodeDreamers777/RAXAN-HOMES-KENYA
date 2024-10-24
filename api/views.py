@@ -687,13 +687,11 @@ class PropertyViewSet(viewsets.ViewSet):
         # Serialize the querysets
         rental_serializer = RentalPropertySerializer(rental_properties, many=True)
         sale_serializer = PropertyForSaleSerializer(properties_for_sale, many=True)
-        featured_serializer = RentalPropertySerializer(featured_properties, many=True)
 
         # Combine the serialized data
         data = {
             "rental_properties": rental_serializer.data,
             "properties_for_sale": sale_serializer.data,
-            "featured_properties": featured_serializer.data,
         }
 
         return Response(data)
