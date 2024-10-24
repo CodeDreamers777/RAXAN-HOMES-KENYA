@@ -37,6 +37,7 @@ import {
   ForgotPasswordScreen,
   OTPVerificationScreen,
 } from "./src/screens/ForgotPasswordScreen";
+import ReviewScreen from "./src/screens/ReviewScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -191,6 +192,13 @@ function App() {
         <Stack.Screen
           name="OtpVerification"
           component={OtpVerificationScreen}
+        />
+        <Stack.Screen
+          name="Review"
+          component={ReviewScreen}
+          options={{
+            headerShown: false,
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

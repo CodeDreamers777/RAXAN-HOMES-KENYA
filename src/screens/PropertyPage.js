@@ -513,11 +513,18 @@ const PropertyScreen = ({ route, navigation }) => {
     </Modal>
   );
 
-  // Updated Review Button Component
+  // Replace the ReviewButton component with this:
   const ReviewButton = () => (
     <TouchableOpacity
       style={styles.modernReviewButton}
-      onPress={() => setShowReviewModal(true)}
+      onPress={() =>
+        navigation.navigate("Review", {
+          propertyId: property.id,
+          propertyName: property.name,
+          existingReview: userReview,
+          isRental: "price_per_month" in property,
+        })
+      }
     >
       <View style={styles.modernReviewButtonContent}>
         <Ionicons
