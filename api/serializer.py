@@ -310,13 +310,23 @@ class BasePropertySerializer(serializers.ModelSerializer):
 
 
 class RentalPropertySerializer(BasePropertySerializer):
+    is_featured = serializers.SerializerMethodField()
+
     class Meta(BasePropertySerializer.Meta):
         model = RentalProperty
         fields = BasePropertySerializer.Meta.fields + [
             "price_per_month",
             "number_of_units",
             "is_available",
+            "is_featured",
         ]
+
+    def get_is_featured(self, obj):
+        # Check if the host has a subscription and if it's PREMIUM
+        host_profile = obj.host.profile
+        if host_profile.subscription:
+            return host_profile.subscription.name == "PREMIUM"
+        return False
 
 
 class PropertyForSaleSerializer(BasePropertySerializer):
