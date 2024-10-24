@@ -48,7 +48,6 @@ function RatingStars({ rating }) {
 
 function HomePage({ navigation }) {
   const [properties, setProperties] = useState({
-    featured_properties: [],
     properties_for_sale: [],
     rental_properties: [],
   });
@@ -152,11 +151,6 @@ function HomePage({ navigation }) {
 
       // Update properties with wishlist status
       const updatedProperties = {
-        featured_properties: (data.featured_properties || []).map((prop) => ({
-          ...prop,
-          is_in_wishlist: newWishlist.has(prop.id),
-          isFeatured: true, // Make sure this flag is set
-        })),
         properties_for_sale: data.properties_for_sale.map((prop) => ({
           ...prop,
           is_in_wishlist: newWishlist.has(prop.id),
@@ -179,23 +173,21 @@ function HomePage({ navigation }) {
   }, []);
 
   const getFilteredProperties = () => {
-    // First, determine which properties to include based on type
+    // Get the base properties based on type
     let baseProperties = [];
     if (filters.type === "sale") {
       baseProperties = [...properties.properties_for_sale];
     } else if (filters.type === "rental") {
       baseProperties = [...properties.rental_properties];
     } else {
-      // For "all", combine regular and featured properties
       baseProperties = [
         ...properties.properties_for_sale,
         ...properties.rental_properties,
-        ...properties.featured_properties, // Include featured properties when type is "all"
       ];
     }
 
-    // Then apply all other filters
-    return baseProperties.filter((prop) => {
+    // Filter properties based on criteria
+    const filteredProperties = baseProperties.filter((prop) => {
       const price = prop.price_per_month || prop.price;
       const matchesPrice =
         price >= filters.priceRange[0] && price <= filters.priceRange[1];
@@ -216,7 +208,6 @@ function HomePage({ navigation }) {
         prop.bathrooms >= filters.bathrooms[0] &&
         prop.bathrooms <= filters.bathrooms[1];
 
-      // A property must match ALL filter criteria to be included
       return (
         matchesPrice &&
         matchesType &&
@@ -224,6 +215,14 @@ function HomePage({ navigation }) {
         matchesBedrooms &&
         matchesBathrooms
       );
+    });
+
+    // Sort properties to show featured ones first
+    return filteredProperties.sort((a, b) => {
+      if (a.is_featured === b.is_featured) {
+        return 0;
+      }
+      return a.is_featured ? -1 : 1;
     });
   };
 
@@ -287,92 +286,6 @@ function HomePage({ navigation }) {
     }
   };
 
-  // First, move the renderProperty function definition to use the filtered data properly
-  const renderProperty = useCallback(
-    ({ item }) => {
-      return (
-        <TouchableOpacity
-          style={[
-            styles.propertyCard,
-            item.isFeatured &&
-              filters.type === "all" &&
-              styles.featuredPropertyCard,
-          ]}
-          onPress={() =>
-            navigation.navigate("PropertyPage", { propertyId: item.id })
-          }
-        >
-          {item.isFeatured && filters.type === "all" && (
-            <View style={styles.featuredBadge}>
-              <Text style={styles.featuredText}>Featured</Text>
-            </View>
-          )}
-          <Image
-            source={
-              item.images && item.images.length > 0
-                ? { uri: `${API_BASE_URL}${item.images[0].image}` }
-                : require("../../assets/room1.jpg")
-            }
-            style={styles.propertyImage}
-          />
-          <TouchableOpacity
-            style={styles.wishlistButton}
-            onPress={() => handleWishlistToggle(item)}
-          >
-            <Ionicons
-              name={wishlist.has(item.id) ? "heart" : "heart-outline"}
-              size={24}
-              color="#fff"
-            />
-          </TouchableOpacity>
-          <View style={styles.priceTag}>
-            <Text style={styles.priceText}>
-              {item.price_per_month
-                ? `${formatPrice(item.price_per_month)}/Month`
-                : formatPrice(item.price)}
-            </Text>
-          </View>
-          <View style={styles.propertyInfo}>
-            <Text
-              style={styles.propertyTitle}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {item.name}
-            </Text>
-            <Text
-              style={styles.propertyLocation}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {item.location}
-            </Text>
-            <View style={styles.propertyDetails}>
-              <RatingStars rating={item.rating || 0} />
-            </View>
-          </View>
-        </TouchableOpacity>
-      );
-    },
-    [filters.type, wishlist, navigation],
-  );
-
-  // Then update the FlatList to use this renderProperty function
-  <FlatList
-    data={getFilteredProperties()}
-    renderItem={renderProperty}
-    keyExtractor={(item) => item.id.toString()}
-    showsVerticalScrollIndicator={false}
-    refreshControl={
-      <RefreshControl
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        colors={["#4a90e2"]}
-        tintColor="#4a90e2"
-      />
-    }
-    contentContainerStyle={styles.listContainer}
-  />;
   const toggleModal = () => {
     setModalVisible(!modalVisible);
   };
@@ -385,6 +298,74 @@ function HomePage({ navigation }) {
     setFilters({ ...filters, type: option });
     toggleModal();
   };
+
+  const renderPropertyCard = ({ item }) => (
+    <TouchableOpacity
+      style={[
+        styles.propertyCard,
+        item.is_featured && styles.featuredPropertyCard,
+      ]}
+      onPress={() =>
+        navigation.navigate("PropertyPage", { propertyId: item.id })
+      }
+    >
+      {item.is_featured && (
+        <View style={styles.featuredBadge}>
+          <Ionicons
+            name="star"
+            size={16}
+            color="#000"
+            style={styles.featuredIcon}
+          />
+          <Text style={styles.featuredText}>Featured</Text>
+        </View>
+      )}
+      <Image
+        source={
+          item.images && item.images.length > 0
+            ? { uri: `${API_BASE_URL}${item.images[0].image}` }
+            : require("../../assets/room1.jpg")
+        }
+        style={styles.propertyImage}
+      />
+      <TouchableOpacity
+        style={styles.wishlistButton}
+        onPress={() => handleWishlistToggle(item)}
+      >
+        <Ionicons
+          name={wishlist.has(item.id) ? "heart" : "heart-outline"}
+          size={24}
+          color="#fff"
+        />
+      </TouchableOpacity>
+      <View style={styles.priceTag}>
+        <Text style={styles.priceText}>
+          {item.price_per_month
+            ? `${formatPrice(item.price_per_month)}/Month`
+            : formatPrice(item.price)}
+        </Text>
+      </View>
+      <View style={styles.propertyInfo}>
+        <Text
+          style={styles.propertyTitle}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.name}
+        </Text>
+        <Text
+          style={styles.propertyLocation}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.location}
+        </Text>
+        <View style={styles.propertyDetails}>
+          <RatingStars rating={item.rating || 0} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -452,72 +433,9 @@ function HomePage({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* This is the key change - using a single FlatList with filtered data */}
       <FlatList
         data={getFilteredProperties()}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.propertyCard,
-              item.isFeatured &&
-                filters.type === "all" &&
-                styles.featuredPropertyCard,
-            ]}
-            onPress={() =>
-              navigation.navigate("PropertyPage", { propertyId: item.id })
-            }
-          >
-            {item.isFeatured && filters.type === "all" && (
-              <View style={styles.featuredBadge}>
-                <Text style={styles.featuredText}>Featured</Text>
-              </View>
-            )}
-            <Image
-              source={
-                item.images && item.images.length > 0
-                  ? { uri: `${API_BASE_URL}${item.images[0].image}` }
-                  : require("../../assets/room1.jpg")
-              }
-              style={styles.propertyImage}
-            />
-            <TouchableOpacity
-              style={styles.wishlistButton}
-              onPress={() => handleWishlistToggle(item)}
-            >
-              <Ionicons
-                name={wishlist.has(item.id) ? "heart" : "heart-outline"}
-                size={24}
-                color="#fff"
-              />
-            </TouchableOpacity>
-            <View style={styles.priceTag}>
-              <Text style={styles.priceText}>
-                {item.price_per_month
-                  ? `${formatPrice(item.price_per_month)}/Month`
-                  : formatPrice(item.price)}
-              </Text>
-            </View>
-            <View style={styles.propertyInfo}>
-              <Text
-                style={styles.propertyTitle}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {item.name}
-              </Text>
-              <Text
-                style={styles.propertyLocation}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {item.location}
-              </Text>
-              <View style={styles.propertyDetails}>
-                <RatingStars rating={item.rating || 0} />
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
+        renderItem={renderPropertyCard}
         keyExtractor={(item) => item.id.toString()}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -656,16 +574,30 @@ const styles = StyleSheet.create({
   featuredPropertyCard: {
     borderColor: "#FFD700",
     borderWidth: 2,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: "hidden",
   },
   featuredBadge: {
     position: "absolute",
     top: 10,
     left: 10,
     backgroundColor: "#FFD700",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
     zIndex: 1,
+  },
+  featuredIcon: {
+    marginRight: 4,
   },
   featuredText: {
     color: "#000",
