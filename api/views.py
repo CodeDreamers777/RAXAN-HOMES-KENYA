@@ -1433,10 +1433,7 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         try:
-            # Log the incoming data for debugging
             print(f"Request data: {self.request.data}")
-
-            # Additional validation
             if not self.request.data.get("property"):
                 return Response(
                     {"error": "Property ID is required"},
@@ -1449,14 +1446,11 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Save the booking with the current user's profile
             serializer.save(client=self.request.user.profile)
-
             return Response(
                 {"message": "Viewing scheduled successfully"},
                 status=status.HTTP_201_CREATED,
             )
-
         except serializers.ValidationError as ve:
             print(f"Validation error: {ve}")
             return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
@@ -1464,23 +1458,21 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
             print(f"Error during booking creation: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=["patch"])
-    def update_status(self, request, pk=None):
-        viewing = self.get_object()
-        new_status = request.data.get("status")
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
 
-        if viewing.property.host != request.user.profile:
+        # Only allow updates if the viewing is still pending
+        if instance.status != "PENDING":
             return Response(
-                {"error": "Only the property owner can update the viewing status"},
+                {"error": "Cannot modify a viewing that is no longer pending"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Only allow the client who created the viewing to update it
+        if instance.client != request.user.profile:
+            return Response(
+                {"error": "You don't have permission to modify this viewing"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if new_status not in dict(BookForSaleViewing.BOOKING_STATUS):
-            return Response(
-                {"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        viewing.status = new_status
-        viewing.save()
-
-        return Response(BookForSaleViewingSerializer(viewing).data)
+        return super().update(request, *args, **kwargs)
