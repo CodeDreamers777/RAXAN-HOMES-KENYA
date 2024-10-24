@@ -1427,21 +1427,33 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user_profile = self.request.user.profile
-        # If user is a seller, show viewings for their properties
         if user_profile.is_seller:
             return BookForSaleViewing.objects.filter(property__host=user_profile)
-        # If user is a client, show their viewing bookings
         return BookForSaleViewing.objects.filter(client=user_profile)
 
     def perform_create(self, serializer):
-        serializer.save(client=self.request.user.profile)
+        try:
+            # Try to save the booking and assign the current user as the client
+            serializer.save(client=self.request.user.profile)
+            # If successful, return a success message
+            return Response(
+                {"message": "Booking created successfully"},
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            # Log the error for debugging
+            print(f"Error during booking creation: {str(e)}")
+            # Return a generic error message to the user
+            return Response(
+                {"error": "Failed to create booking", "details": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     @action(detail=True, methods=["patch"])
     def update_status(self, request, pk=None):
         viewing = self.get_object()
         new_status = request.data.get("status")
 
-        # Only allow property owners to update the status
         if viewing.property.host != request.user.profile:
             return Response(
                 {"error": "Only the property owner can update the viewing status"},
