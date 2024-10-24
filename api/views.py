@@ -1436,28 +1436,33 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
             # Log the incoming data for debugging
             print(f"Request data: {self.request.data}")
 
-            # Try to save the booking and assign the current user as the client
+            # Additional validation
+            if not self.request.data.get("property"):
+                return Response(
+                    {"error": "Property ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not self.request.data.get("viewing_date"):
+                return Response(
+                    {"error": "Viewing date is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Save the booking with the current user's profile
             serializer.save(client=self.request.user.profile)
 
-            # If successful, return a success message
             return Response(
-                {"message": "Booking created successfully"},
+                {"message": "Viewing scheduled successfully"},
                 status=status.HTTP_201_CREATED,
             )
+
         except serializers.ValidationError as ve:
-            # Log validation errors
             print(f"Validation error: {ve}")
-            return Response(
-                {"error": "Validation failed", "details": ve.detail},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            # Log other possible errors
             print(f"Error during booking creation: {str(e)}")
-            return Response(
-                {"error": "Failed to create booking", "details": str(e)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["patch"])
     def update_status(self, request, pk=None):

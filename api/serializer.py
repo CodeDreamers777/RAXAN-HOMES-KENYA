@@ -469,4 +469,32 @@ class BookForSaleViewingSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["status"]
+        read_only_fields = ["status", "client", "created_at", "updated_at"]
+
+    def validate_property(self, value):
+        try:
+            property_obj = PropertyForSale.objects.get(pk=value.id)
+            if property_obj.is_sold:
+                raise serializers.ValidationError("This property is already sold")
+            return value
+        except PropertyForSale.DoesNotExist:
+            raise serializers.ValidationError("Invalid property selected")
+
+    def validate_viewing_date(self, value):
+        if value < timezone.now():
+            raise serializers.ValidationError("Viewing date must be in the future")
+        return value
+
+    def validate(self, data):
+        # Check for existing bookings at the same time
+        if "property" in data and "viewing_date" in data:
+            existing_booking = BookForSaleViewing.objects.filter(
+                property=data["property"], viewing_date=data["viewing_date"]
+            ).exists()
+            if existing_booking:
+                raise serializers.ValidationError(
+                    {
+                        "viewing_date": "There is already a viewing scheduled at this time"
+                    }
+                )
+        return data
