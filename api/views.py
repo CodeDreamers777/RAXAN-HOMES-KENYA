@@ -1468,8 +1468,11 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Only allow the client who created the viewing to update it
-        if instance.client != request.user.profile:
+        # Allow the client who created the viewing and the host of the property to update it
+        if (
+            instance.client != request.user.profile
+            and instance.property.host != request.user.profile
+        ):
             return Response(
                 {"error": "You don't have permission to modify this viewing"},
                 status=status.HTTP_403_FORBIDDEN,
