@@ -38,6 +38,7 @@ from .models import (
     Message,
     SubscriptionPlan,
     Payment,
+    BookForSaleViewing,
 )
 from .serializer import (
     RentalPropertySerializer,
@@ -50,6 +51,7 @@ from .serializer import (
     MessageCreateSerializer,
     SubscriptionPlanSerializer,
     OTPEmailSerializer,
+    BookForSaleViewingSerializer,
     ForgotPasswordSerializer,
     OTPVerificationSerializer,
     ResetPasswordSerializer,
@@ -1417,3 +1419,41 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 {"error": "Property or user not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class BookForSaleViewingViewSet(viewsets.ModelViewSet):
+    serializer_class = BookForSaleViewingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user_profile = self.request.user.profile
+        # If user is a seller, show viewings for their properties
+        if user_profile.is_seller:
+            return BookForSaleViewing.objects.filter(property__host=user_profile)
+        # If user is a client, show their viewing bookings
+        return BookForSaleViewing.objects.filter(client=user_profile)
+
+    def perform_create(self, serializer):
+        serializer.save(client=self.request.user.profile)
+
+    @action(detail=True, methods=["patch"])
+    def update_status(self, request, pk=None):
+        viewing = self.get_object()
+        new_status = request.data.get("status")
+
+        # Only allow property owners to update the status
+        if viewing.property.host != request.user.profile:
+            return Response(
+                {"error": "Only the property owner can update the viewing status"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if new_status not in dict(BookForSaleViewing.BOOKING_STATUS):
+            return Response(
+                {"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        viewing.status = new_status
+        viewing.save()
+
+        return Response(BookForSaleViewingSerializer(viewing).data)

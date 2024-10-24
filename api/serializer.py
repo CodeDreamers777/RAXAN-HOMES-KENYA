@@ -11,6 +11,7 @@ from .models import (
     WishlistItem,
     Message,
     SubscriptionPlan,
+    BookForSaleViewing,
 )
 from django.contrib.auth.models import User
 import json
@@ -448,3 +449,24 @@ class ResetPasswordSerializer(serializers.Serializer):
 class OTPVerificationSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.CharField(max_length=6, min_length=6)
+
+
+class BookForSaleViewingSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="property.name", read_only=True)
+    client_name = serializers.CharField(source="client.user.username", read_only=True)
+
+    class Meta:
+        model = BookForSaleViewing
+        fields = [
+            "id",
+            "property",
+            "property_name",
+            "client",
+            "client_name",
+            "viewing_date",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["status"]

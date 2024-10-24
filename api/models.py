@@ -321,3 +321,36 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment of {self.amount} by {self.profile.user.username}"
+
+
+class BookForSaleViewing(models.Model):
+    BOOKING_STATUS = [
+        ("PENDING", "Pending"),
+        ("CONFIRMED", "Confirmed"),
+        ("COMPLETED", "Completed"),
+        ("CANCELLED", "Cancelled"),
+    ]
+
+    property = models.ForeignKey(
+        PropertyForSale, on_delete=models.CASCADE, related_name="viewings"
+    )
+    client = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name="property_viewings"
+    )
+    viewing_date = models.DateTimeField()
+    status = models.CharField(max_length=10, choices=BOOKING_STATUS, default="PENDING")
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-viewing_date"]
+        # Prevent multiple bookings for the same property at the same time
+        constraints = [
+            models.UniqueConstraint(
+                fields=["property", "viewing_date"], name="unique_property_viewing_time"
+            )
+        ]
+
+    def __str__(self):
+        return f"Viewing of {self.property.name} by {self.client.user.username} on {self.viewing_date}"
