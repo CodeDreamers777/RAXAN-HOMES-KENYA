@@ -1433,17 +1433,27 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         try:
+            # Log the incoming data for debugging
+            print(f"Request data: {self.request.data}")
+
             # Try to save the booking and assign the current user as the client
             serializer.save(client=self.request.user.profile)
+
             # If successful, return a success message
             return Response(
                 {"message": "Booking created successfully"},
                 status=status.HTTP_201_CREATED,
             )
+        except serializers.ValidationError as ve:
+            # Log validation errors
+            print(f"Validation error: {ve}")
+            return Response(
+                {"error": "Validation failed", "details": ve.detail},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as e:
-            # Log the error for debugging
+            # Log other possible errors
             print(f"Error during booking creation: {str(e)}")
-            # Return a generic error message to the user
             return Response(
                 {"error": "Failed to create booking", "details": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
