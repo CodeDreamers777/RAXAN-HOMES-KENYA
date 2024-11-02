@@ -32,7 +32,8 @@ from .models import (
     WishlistItem,
     PropertyForSale,
     Profile,
-    Amenity,
+    PerNightProperty,
+    PerNightBooking,
     Review,
     Booking,
     Message,
@@ -53,6 +54,7 @@ from .serializer import (
     OTPEmailSerializer,
     BookForSaleViewingSerializer,
     ForgotPasswordSerializer,
+    PerNightPropertySerializer,
     OTPVerificationSerializer,
     ResetPasswordSerializer,
 )
@@ -646,79 +648,92 @@ class PropertyViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Filter rental properties to include only available ones
+        # Previous queries remain the same, now add per-night properties
         rental_properties = RentalProperty.objects.filter(is_available=True)
-
-        # For properties for sale, we keep all of them as there's no 'is_available' field
         properties_for_sale = PropertyForSale.objects.all()
+        per_night_properties = PerNightProperty.objects.filter(is_available=True)
 
-        # Get featured properties (rental properties with hosts having premium subscription)
-        featured_properties = RentalProperty.objects.filter(
-            is_available=True,
-            host__subscription__name="PREMIUM",  # Assuming the premium plan is named 'premium'
+        # Get featured properties (now including per-night properties)
+        featured_properties = list(
+            list(RentalProperty.objects.filter(host__subscription__name="PREMIUM"))
+            + list(PerNightProperty.objects.filter(host__subscription__name="PREMIUM"))
         )
 
-        return rental_properties, properties_for_sale, featured_properties
+        return (
+            rental_properties,
+            properties_for_sale,
+            per_night_properties,
+            featured_properties,
+        )
 
     def get_object(self, pk):
-        try:
-            return RentalProperty.objects.get(pk=pk)
-        except RentalProperty.DoesNotExist:
+        # Try to find the property in all models
+        try_models = [RentalProperty, PropertyForSale, PerNightProperty]
+
+        for model in try_models:
             try:
-                return PropertyForSale.objects.get(pk=pk)
-            except PropertyForSale.DoesNotExist:
-                return None
+                return model.objects.get(pk=pk)
+            except model.DoesNotExist:
+                continue
 
-    def retrieve(self, request, pk=None):
-        property = self.get_object(pk)
-        if property is None:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-        if isinstance(property, RentalProperty):
-            serializer = RentalPropertySerializer(property)
-        else:
-            serializer = PropertyForSaleSerializer(property)
-
-        return Response(serializer.data)
+        return None
 
     def list(self, request):
-        rental_properties, properties_for_sale, featured_properties = (
-            self.get_queryset()
-        )
+        (
+            rental_properties,
+            properties_for_sale,
+            per_night_properties,
+            _,  # Ignore featured properties for this method
+        ) = self.get_queryset()
 
-        # Serialize the querysets
+        # Serialize all property types
         rental_serializer = RentalPropertySerializer(rental_properties, many=True)
         sale_serializer = PropertyForSaleSerializer(properties_for_sale, many=True)
+        per_night_serializer = PerNightPropertySerializer(
+            per_night_properties, many=True
+        )
 
         # Combine the serialized data
         data = {
             "rental_properties": rental_serializer.data,
             "properties_for_sale": sale_serializer.data,
+            "per_night_properties": per_night_serializer.data,
         }
 
         return Response(data)
 
     def create(self, request):
         property_type = request.data.get("property_category")
+        serializer = None
+
         if property_type == "rental":
             serializer = RentalPropertySerializer(data=request.data)
         elif property_type == "sale":
             serializer = PropertyForSaleSerializer(data=request.data)
+        elif property_type == "per_night":
+            serializer = PerNightPropertySerializer(data=request.data)
         else:
             return Response(
                 {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        if not serializer:
+            return Response(
+                {"error": "Invalid serializer"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         if serializer.is_valid():
             profile = request.user.profile
+
+            # Verify seller status
             if profile.user.usertype.user_type != "SELLER":
                 return Response(
                     {"error": "Only sellers can create properties"},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
+            # Special checks for sale properties
             if property_type == "sale":
-                # Check if the user has an active subscription (only for properties for sale)
                 if not profile.subscription:
                     return Response(
                         {
@@ -727,71 +742,52 @@ class PropertyViewSet(viewsets.ViewSet):
                         status=status.HTTP_403_FORBIDDEN,
                     )
 
-                # Get the user's current property for sale count
+                # Property for sale limit check
                 current_property_count = PropertyForSale.objects.filter(
                     host=profile
                 ).count()
-
-                # Check if the user has reached their property for sale limit
                 if (
                     current_property_count
-                    >= profile.subscription.property_for_sale_limit
+                    >= profile.subscription.properties_for_sale_limit
                 ):
                     return Response(
                         {
-                            "error": "You have reached your property for sale listing limit. Please upgrade your subscription."
+                            "error": "You have reached your property for sale listing limit"
                         },
                         status=status.HTTP_403_FORBIDDEN,
                     )
 
+            # Save the property
             property = serializer.save(host=profile)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def update(self, request, pk=None):
-        property = self.get_object(pk)
-        print(request.data)
-        if property is None:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        if (
-            property.host.user != request.user
-            or request.user.usertype.user_type != "SELLER"
-        ):
-            return Response(
-                {"error": "You do not have permission to update this property"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        if isinstance(property, RentalProperty):
-            serializer = RentalPropertySerializer(
-                property, data=request.data, partial=True
-            )
-        else:
-            serializer = PropertyForSaleSerializer(
-                property, data=request.data, partial=True
-            )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
     @action(detail=False, methods=["get"])
     def user_properties(self, request):
         user_profile = request.user.profile
+
+        # Get all property types for the user
         rental_properties = RentalProperty.objects.filter(host=user_profile)
         properties_for_sale = PropertyForSale.objects.filter(host=user_profile)
+        per_night_properties = PerNightProperty.objects.filter(host=user_profile)
 
+        # Serialize all property types
         rental_property_serializer = RentalPropertySerializer(
             rental_properties, many=True
         )
         property_for_sale_serializer = PropertyForSaleSerializer(
             properties_for_sale, many=True
         )
+        per_night_property_serializer = PerNightPropertySerializer(
+            per_night_properties, many=True
+        )
 
         return Response(
             {
                 "rental_properties": rental_property_serializer.data,
                 "properties_for_sale": property_for_sale_serializer.data,
+                "per_night_properties": per_night_property_serializer.data,
             }
         )
 
@@ -931,14 +927,27 @@ class InitiatePaystackPaymentView(APIView):
             return Response(
                 {"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND
             )
+
         if not rental_property.is_available or rental_property.number_of_units == 0:
             return Response(
                 {"error": "Property is not available for booking"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Calculate total price (you might want to implement a more complex pricing logic)
-        total_price = rental_property.price_per_month
+        # Calculate total price including deposit
+        deposit = rental_property.deposit or 0  # Handle null deposit
+        total_price = rental_property.price_per_month + deposit
+
+        # Add price breakdown to metadata for reference
+        metadata = {
+            "property_id": property_id,
+            "user_id": request.user.id,
+            "price_breakdown": {
+                "monthly_rent": str(rental_property.price_per_month),
+                "deposit": str(deposit),
+                "total": str(total_price),
+            },
+        }
 
         # Prepare the Paystack API request
         url = "https://api.paystack.co/transaction/initialize"
@@ -946,17 +955,16 @@ class InitiatePaystackPaymentView(APIView):
             "Authorization": f"Bearer {PAYSTACK_API_KEY}",
             "Content-Type": "application/json",
         }
+
         data = {
             "email": request.user.email,
             "amount": int(total_price * 100),  # Paystack expects amount in kobo
-            "metadata": {
-                "property_id": property_id,
-                "user_id": request.user.id,
-            },
+            "metadata": metadata,
         }
 
         # Make the API request to Paystack
         response = requests.post(url, json=data, headers=headers)
+
         if response.status_code == 200:
             response_data = response.json()
             return Response(
@@ -964,6 +972,9 @@ class InitiatePaystackPaymentView(APIView):
                     "authorization_url": response_data["data"]["authorization_url"],
                     "access_code": response_data["data"]["access_code"],
                     "reference": response_data["data"]["reference"],
+                    "price_breakdown": metadata[
+                        "price_breakdown"
+                    ],  # Include breakdown in response
                 },
                 status=status.HTTP_200_OK,
             )
@@ -1479,3 +1490,194 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
             )
 
         return super().update(request, *args, **kwargs)
+
+
+class InitiatePerNightPaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Get and validate input data
+        property_id = request.data.get("property_id")
+        check_in_date = request.data.get("check_in_date")
+        check_out_date = request.data.get("check_out_date")
+        guests = request.data.get("guests", 1)
+
+        if not all([property_id, check_in_date, check_out_date]):
+            return Response(
+                {"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Convert string dates to date objects
+            check_in_date = datetime.strptime(check_in_date, "%Y-%m-%d").date()
+            check_out_date = datetime.strptime(check_out_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get and validate property
+        try:
+            property = PerNightProperty.objects.get(id=property_id)
+        except PerNightProperty.DoesNotExist:
+            return Response(
+                {"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not property.is_available:
+            return Response(
+                {"error": "Property is not available for booking"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Calculate total nights and validate against property restrictions
+        total_nights = (check_out_date - check_in_date).days
+
+        try:
+            # This will validate min/max nights
+            booking = PerNightBooking(
+                property=property,
+                client=request.user.profile,
+                check_in_date=check_in_date,
+                check_out_date=check_out_date,
+                total_nights=total_nights,
+                total_price=property.price_per_night * total_nights,
+                guests=guests,
+                status="PENDING",
+            )
+            booking.full_clean()  # Validate the model
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check for overlapping bookings
+        existing_bookings = PerNightBooking.objects.filter(
+            property=property,
+            status="CONFIRMED",
+            check_in_date__lt=check_out_date,
+            check_out_date__gt=check_in_date,
+        )
+
+        if existing_bookings.exists():
+            return Response(
+                {"error": "Property is not available for these dates"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Calculate total price
+        total_price = property.price_per_night * total_nights
+
+        # Prepare Paystack payment
+        url = "https://api.paystack.co/transaction/initialize"
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        metadata = {
+            "booking_type": "per_night",
+            "property_id": property_id,
+            "check_in_date": check_in_date.isoformat(),
+            "check_out_date": check_out_date.isoformat(),
+            "total_nights": total_nights,
+            "guests": guests,
+            "user_id": request.user.id,
+            "price_breakdown": {
+                "price_per_night": str(property.price_per_night),
+                "total_nights": total_nights,
+                "total": str(total_price),
+            },
+        }
+
+        data = {
+            "email": request.user.email,
+            "amount": int(total_price * 100),  # Convert to kobo
+            "metadata": metadata,
+        }
+
+        # Initialize payment with Paystack
+        response = requests.post(url, json=data, headers=headers)
+
+        if response.status_code == 200:
+            response_data = response.json()
+            return Response(
+                {
+                    "authorization_url": response_data["data"]["authorization_url"],
+                    "access_code": response_data["data"]["access_code"],
+                    "reference": response_data["data"]["reference"],
+                    "price_breakdown": metadata["price_breakdown"],
+                }
+            )
+        else:
+            return Response(
+                {"error": "Failed to initialize payment"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ConfirmPerNightPaymentView(APIView):
+    def get(self, request):
+        reference = request.GET.get("reference")
+        if not reference:
+            return Response(
+                {"error": "No reference provided"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify payment with Paystack
+        url = f"https://api.paystack.co/transaction/verify/{reference}"
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_API_KEY}",
+        }
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            response_data = response.json()
+
+            if response_data["data"]["status"] == "success":
+                metadata = response_data["data"]["metadata"]
+
+                try:
+                    # Create the booking
+                    booking = PerNightBooking.objects.create(
+                        property_id=metadata["property_id"],
+                        client_id=metadata["user_id"],
+                        check_in_date=metadata["check_in_date"],
+                        check_out_date=metadata["check_out_date"],
+                        total_nights=metadata["total_nights"],
+                        total_price=response_data["data"]["amount"]
+                        / 100,  # Convert from kobo
+                        guests=metadata["guests"],
+                        status="CONFIRMED",
+                    )
+
+                    return Response(
+                        {
+                            "message": "Payment verified and booking confirmed",
+                            "booking_id": booking.id,
+                            "amount_paid": response_data["data"]["amount"] / 100,
+                            "status": "success",
+                        }
+                    )
+
+                except Exception as e:
+                    return Response(
+                        {
+                            "error": f"Failed to create booking: {str(e)}",
+                            "payment_status": "success",
+                        },
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+            else:
+                return Response(
+                    {
+                        "error": "Payment verification failed",
+                        "status": response_data["data"]["status"],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            return Response(
+                {"error": "Failed to verify payment"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

@@ -182,6 +182,9 @@ class BaseProperty(models.Model):
 
 class RentalProperty(BaseProperty):
     price_per_month = models.DecimalField(max_digits=10, decimal_places=2)
+    deposit = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
     number_of_units = models.PositiveIntegerField()
     is_available = models.BooleanField(default=True)
 
@@ -354,3 +357,69 @@ class BookForSaleViewing(models.Model):
 
     def __str__(self):
         return f"Viewing of {self.property.name} by {self.client.user.username} on {self.viewing_date}"
+
+
+class PerNightProperty(BaseProperty):
+    PROPERTY_STYLES = [
+        ("ENTIRE_PLACE", "Entire Place"),
+        ("PRIVATE_ROOM", "Private Room"),
+        ("SHARED_ROOM", "Shared Room"),
+    ]
+
+    price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
+    property_style = models.CharField(max_length=20, choices=PROPERTY_STYLES)
+    check_in_time = models.TimeField(null=True, blank=True)
+    check_out_time = models.TimeField(null=True, blank=True)
+    min_nights = models.PositiveIntegerField(default=1)
+    max_nights = models.PositiveIntegerField(null=True, blank=True)
+    is_available = models.BooleanField(default=True)
+
+    def images(self):
+        return PropertyImage.objects.filter(
+            content_type=ContentType.objects.get_for_model(self), object_id=self.id
+        )
+
+    def save(self, *args, **kwargs):
+        if not self.pk:  # New property being created
+            if not self.host.is_seller:
+                raise ValueError("Only sellers can add per-night properties.")
+        super().save(*args, **kwargs)
+
+
+class PerNightBooking(models.Model):
+    BOOKING_STATUS = [
+        ("PENDING", "Pending"),
+        ("CONFIRMED", "Confirmed"),
+        ("CANCELLED", "Cancelled"),
+        ("COMPLETED", "Completed"),
+    ]
+
+    property = models.ForeignKey(PerNightProperty, on_delete=models.CASCADE)
+    client = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    check_in_date = models.DateField()
+    check_out_date = models.DateField()
+    total_nights = models.PositiveIntegerField()
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=BOOKING_STATUS, default="PENDING")
+    guests = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Booking for {self.property.name} by {self.client.user.username}"
+
+    def save(self, *args, **kwargs):
+        if not self.total_nights:
+            self.total_nights = (self.check_out_date - self.check_in_date).days
+
+        if self.total_nights < 1:
+            raise ValueError("Booking must be for at least one night")
+
+        # Validate against property's min and max night restrictions
+        property = self.property
+        if property.min_nights and self.total_nights < property.min_nights:
+            raise ValueError(f"Minimum stay is {property.min_nights} nights")
+
+        if property.max_nights and self.total_nights > property.max_nights:
+            raise ValueError(f"Maximum stay is {property.max_nights} nights")
+
+        super().save(*args, **kwargs)

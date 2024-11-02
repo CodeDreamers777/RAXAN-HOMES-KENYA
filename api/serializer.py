@@ -3,6 +3,7 @@ from .models import (
     Profile,
     RentalProperty,
     PropertyForSale,
+    PerNightProperty,
     PropertyImage,
     Amenity,
     UserType,
@@ -312,14 +313,17 @@ class BasePropertySerializer(serializers.ModelSerializer):
 
 class RentalPropertySerializer(BasePropertySerializer):
     is_featured = serializers.SerializerMethodField()
+    total_price = serializers.SerializerMethodField()
 
     class Meta(BasePropertySerializer.Meta):
         model = RentalProperty
         fields = BasePropertySerializer.Meta.fields + [
             "price_per_month",
+            "deposit",
             "number_of_units",
             "is_available",
             "is_featured",
+            "total_price",
         ]
 
     def get_is_featured(self, obj):
@@ -327,6 +331,11 @@ class RentalPropertySerializer(BasePropertySerializer):
         if obj.host.subscription:
             return obj.host.subscription.name == "PREMIUM"
         return False
+
+    def get_total_price(self, obj):
+        # Handle case where deposit might be None
+        deposit = obj.deposit or 0
+        return deposit + obj.price_per_month
 
 
 class PropertyForSaleSerializer(BasePropertySerializer):
@@ -498,3 +507,55 @@ class BookForSaleViewingSerializer(serializers.ModelSerializer):
                     }
                 )
         return data
+
+
+class PerNightPropertySerializer(serializers.ModelSerializer):
+    images = serializers.SerializerMethodField()
+    host_username = serializers.CharField(source="host.user.username", read_only=True)
+
+    class Meta:
+        model = PerNightProperty
+        fields = [
+            "id",
+            "name",
+            "description",
+            "location",
+            "latitude",
+            "longitude",
+            "property_type",
+            "bedrooms",
+            "bathrooms",
+            "area",
+            "host_username",
+            "price_per_night",
+            "property_style",
+            "check_in_time",
+            "check_out_time",
+            "min_nights",
+            "max_nights",
+            "is_available",
+            "created_at",
+            "images",
+        ]
+        read_only_fields = ["created_at", "host"]
+
+    def get_images(self, obj):
+        # Get all images for this property
+        images = obj.images()
+        return [
+            {"id": image.id, "image_url": image.image.url if image.image else None}
+            for image in images
+        ]
+
+    def create(self, validated_data):
+        # Remove amenities if present in data
+        amenities = validated_data.pop("amenities", [])
+
+        # Create the property
+        property = PerNightProperty.objects.create(**validated_data)
+
+        # Add amenities if any
+        if amenities:
+            property.amenities.set(amenities)
+
+        return property

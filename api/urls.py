@@ -84,6 +84,16 @@ urlpatterns = [
         name="verify-subscription",
     ),
     path(
+        "per-night/initiate-payment/",
+        views.InitiatePerNightPaymentView.as_view(),
+        name="initiate-per-night-payment",
+    ),
+    path(
+        "per-night/confirm-payment/",
+        views.ConfirmPerNightPaymentView.as_view(),
+        name="confirm-per-night-payment",
+    ),
+    path(
         "manage/", views.UserAccountManagementView.as_view(), name="account_management"
     ),
     # Include the router URLs in our urlpatterns

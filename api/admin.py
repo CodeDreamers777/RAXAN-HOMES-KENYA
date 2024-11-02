@@ -15,6 +15,8 @@ from .models import (
     Message,
     SubscriptionPlan,
     Payment,
+    PerNightBooking,
+    PerNightProperty,
 )
 
 
@@ -44,6 +46,7 @@ class RentalPropertyAdmin(admin.ModelAdmin):
         "location",
         "property_type",
         "price_per_month",
+        "deposit",
         "is_available",
         "host",
     )
@@ -218,3 +221,74 @@ class BookForSaleViewingAdmin(admin.ModelAdmin):
 
     # Optional: Add list_per_page to control pagination
     list_per_page = 20
+
+
+@admin.register(PerNightProperty)
+class PerNightPropertyAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "host",
+        "price_per_night",
+        "property_style",
+        "is_available",
+        "min_nights",
+        "max_nights",
+    )
+    list_filter = ("property_style", "is_available", "host__is_seller")
+    search_fields = ("name", "host__user__username", "host__user__email")
+    inlines = [PropertyImageInline]
+
+    # Customize how the property displays in admin
+    fieldsets = (
+        ("Basic Information", {"fields": ("name", "host", "description")}),
+        (
+            "Pricing and Availability",
+            {"fields": ("price_per_night", "property_style", "is_available")},
+        ),
+        (
+            "Booking Rules",
+            {"fields": ("check_in_time", "check_out_time", "min_nights", "max_nights")},
+        ),
+    )
+
+    def get_queryset(self, request):
+        # Optimize the queryset to reduce database queries
+        return super().get_queryset(request).select_related("host__user")
+
+
+@admin.register(PerNightBooking)
+class PerNightBookingAdmin(admin.ModelAdmin):
+    list_display = (
+        "property",
+        "client",
+        "check_in_date",
+        "check_out_date",
+        "total_nights",
+        "total_price",
+        "status",
+    )
+    list_filter = ("status", "check_in_date", "check_out_date")
+    search_fields = ("property__name", "client__user__username", "client__user__email")
+
+    # Customize how the booking displays in admin
+    fieldsets = (
+        (
+            "Booking Details",
+            {"fields": ("property", "client", "check_in_date", "check_out_date")},
+        ),
+        ("Pricing and Guests", {"fields": ("total_nights", "total_price", "guests")}),
+        ("Status", {"fields": ("status",)}),
+    )
+
+    def get_queryset(self, request):
+        # Optimize the queryset to reduce database queries
+        return super().get_queryset(request).select_related("property", "client__user")
+
+    def save_model(self, request, obj, form, change):
+        # Additional validation before saving
+        try:
+            obj.save()
+        except ValueError as e:
+            # This will display validation errors in the admin
+            self.message_user(request, str(e), level="error")
+            return False
