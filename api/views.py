@@ -678,6 +678,22 @@ class PropertyViewSet(viewsets.ViewSet):
 
         return None
 
+    def retrieve(self, request, pk=None):
+        property = self.get_object(pk)
+        if property is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if isinstance(property, RentalProperty):
+            serializer = RentalPropertySerializer(property)
+        elif isinstance(property, PropertyForSale):
+            serializer = PropertyForSaleSerializer(property)
+        elif isinstance(property, PerNightProperty):
+            serializer = PerNightPropertySerializer(property)
+        else:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(serializer.data)
+
     def list(self, request):
         (
             rental_properties,
