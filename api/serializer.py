@@ -512,6 +512,17 @@ class BookForSaleViewingSerializer(serializers.ModelSerializer):
 class PerNightPropertySerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
     host_username = serializers.CharField(source="host.user.username", read_only=True)
+    uploaded_images = serializers.ListField(
+        child=serializers.ImageField(
+            max_length=1000000, allow_empty_file=False, use_url=False
+        ),
+        write_only=True,
+        required=False,
+    )
+    amenities = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
+    rating = serializers.SerializerMethodField()
 
     class Meta:
         model = PerNightProperty
@@ -536,26 +547,100 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
             "is_available",
             "created_at",
             "images",
+            "uploaded_images",
+            "amenities",
+            "rating",
         ]
         read_only_fields = ["created_at", "host"]
 
     def get_images(self, obj):
-        # Get all images for this property
         images = obj.images()
         return [
             {"id": image.id, "image_url": image.image.url if image.image else None}
             for image in images
         ]
 
-    def create(self, validated_data):
-        # Remove amenities if present in data
-        amenities = validated_data.pop("amenities", [])
+    def get_rating(self, obj):
+        from django.contrib.contenttypes.models import ContentType
+        from django.db.models import Avg
 
-        # Create the property
+        content_type = ContentType.objects.get_for_model(obj)
+        reviews = Review.objects.filter(content_type=content_type, object_id=obj.id)
+        if reviews.exists():
+            return round(reviews.aggregate(Avg("rating"))["rating__avg"], 1)
+        return None
+
+    def create(self, validated_data):
+        # Extract images and amenities data
+        uploaded_images = validated_data.pop("uploaded_images", [])
+        amenities_data = validated_data.pop("amenities", [])
+
+        # Create property instance
         property = PerNightProperty.objects.create(**validated_data)
 
-        # Add amenities if any
-        if amenities:
-            property.amenities.set(amenities)
+        # Handle amenities
+        for amenity_name in amenities_data:
+            amenity, _ = Amenity.objects.get_or_create(
+                name=amenity_name.strip().lower()
+            )
+            property.amenities.add(amenity)
+
+        # Handle images
+        content_type = ContentType.objects.get_for_model(PerNightProperty)
+        for image in uploaded_images:
+            PropertyImage.objects.create(
+                image=image, content_type=content_type, object_id=property.id
+            )
 
         return property
+
+    def update(self, instance, validated_data):
+        # Extract images and amenities data
+        uploaded_images = validated_data.pop("uploaded_images", [])
+        amenities_data = validated_data.pop("amenities", None)
+
+        # Update property instance
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update amenities if provided
+        if amenities_data is not None:
+            instance.amenities.clear()
+            for amenity_name in amenities_data:
+                amenity, _ = Amenity.objects.get_or_create(
+                    name=amenity_name.strip().lower()
+                )
+                instance.amenities.add(amenity)
+
+        # Add new images
+        if uploaded_images:
+            content_type = ContentType.objects.get_for_model(PerNightProperty)
+            for image in uploaded_images:
+                PropertyImage.objects.create(
+                    image=image, content_type=content_type, object_id=instance.id
+                )
+
+        return instance
+
+    def validate_min_nights(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Minimum nights must be at least 1")
+        return value
+
+    def validate(self, data):
+        if "max_nights" in data and data["max_nights"]:
+            if data["max_nights"] < data.get("min_nights", 1):
+                raise serializers.ValidationError(
+                    {
+                        "max_nights": "Maximum nights must be greater than or equal to minimum nights"
+                    }
+                )
+        return data
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["amenities"] = AmenitySerializer(
+            instance.amenities.all(), many=True
+        ).data
+        return representation
