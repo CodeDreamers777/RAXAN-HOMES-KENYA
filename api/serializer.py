@@ -557,7 +557,7 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
     def get_images(self, obj):
         images = obj.images()
         return [
-            {"id": image.id, "image_url": image.image.url if image.image else None}
+            {"id": image.id, "image": image.image.url if image.image else None}
             for image in images
         ]
 
