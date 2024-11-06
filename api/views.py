@@ -1588,7 +1588,7 @@ class InitiatePerNightPaymentView(APIView):
         # Prepare Paystack payment
         url = "https://api.paystack.co/transaction/initialize"
         headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_API_KEY}",
+            "Authorization": f"Bearer {PAYSTACK_API_KEY}",
             "Content-Type": "application/json",
         }
 
@@ -1644,7 +1644,7 @@ class ConfirmPerNightPaymentView(APIView):
         # Verify payment with Paystack
         url = f"https://api.paystack.co/transaction/verify/{reference}"
         headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_API_KEY}",
+            "Authorization": f"Bearer {PAYSTACK_API_KEY}",
         }
 
         response = requests.get(url, headers=headers)
