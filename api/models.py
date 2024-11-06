@@ -370,6 +370,8 @@ class PerNightProperty(BaseProperty):
     property_style = models.CharField(max_length=20, choices=PROPERTY_STYLES)
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)
+    number_of_units = models.PositiveIntegerField()
+
     min_nights = models.PositiveIntegerField(default=1)
     max_nights = models.PositiveIntegerField(null=True, blank=True)
     is_available = models.BooleanField(default=True)
@@ -398,7 +400,6 @@ class PerNightBooking(models.Model):
     client = models.ForeignKey(Profile, on_delete=models.CASCADE)
     check_in_date = models.DateField()
     check_out_date = models.DateField()
-    number_of_units = models.PositiveIntegerField()
     total_nights = models.PositiveIntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=BOOKING_STATUS, default="PENDING")

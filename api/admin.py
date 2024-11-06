@@ -264,6 +264,7 @@ class PerNightBookingAdmin(admin.ModelAdmin):
         "check_in_date",
         "check_out_date",
         "total_nights",
+        "number_of_units",
         "total_price",
         "status",
     )
