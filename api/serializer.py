@@ -539,6 +539,7 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
             "area",
             "host_username",
             "price_per_night",
+            "number_of_units",
             "property_style",
             "check_in_time",
             "check_out_time",
