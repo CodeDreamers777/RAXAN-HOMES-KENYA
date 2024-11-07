@@ -152,7 +152,7 @@ class EmailService:
                     "email": os.getenv("SENDER_EMAIL", "raxanhomes@gmail.com"),
                 },
                 "to": [{"email": recipient_email, "name": recipient_name}],
-                "subject": "Password Reset Request - Raxan Homes",
+                "subject": "Otp Verification Request - Raxan Homes",
                 "htmlContent": html_content,
             }
 
