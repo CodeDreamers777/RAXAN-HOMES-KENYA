@@ -1618,12 +1618,20 @@ class InitiatePerNightPaymentView(APIView):
 
         if response.status_code == 200:
             response_data = response.json()
+            # Create a new payment record
+            payment = Payment.objects.create(
+                profile=request.user.profile,
+                amount=total_price,
+                reference=response_data["data"]["reference"],
+                status="PENDING",
+            )
             return Response(
                 {
                     "authorization_url": response_data["data"]["authorization_url"],
                     "access_code": response_data["data"]["access_code"],
                     "reference": response_data["data"]["reference"],
                     "price_breakdown": metadata["price_breakdown"],
+                    "payment_id": payment.id,
                 }
             )
         else:
@@ -1663,16 +1671,22 @@ class ConfirmPerNightPaymentView(APIView):
                         check_in_date=metadata["check_in_date"],
                         check_out_date=metadata["check_out_date"],
                         total_nights=metadata["total_nights"],
-                        total_price=response_data["data"]["amount"]
+                        total_price=int(response_data["data"]["amount"])
                         / 100,  # Convert from kobo
                         guests=metadata["guests"],
                         status="CONFIRMED",
                     )
 
+                    # Update the payment status
+                    payment = Payment.objects.get(reference=reference)
+                    payment.status = "SUCCESS"
+                    payment.save()
+
                     return Response(
                         {
                             "message": "Payment verified and booking confirmed",
                             "booking_id": booking.id,
+                            "payment_id": payment.id,
                             "amount_paid": response_data["data"]["amount"] / 100,
                             "status": "success",
                         }
@@ -1687,6 +1701,10 @@ class ConfirmPerNightPaymentView(APIView):
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
             else:
+                # Update the payment status
+                payment = Payment.objects.get(reference=reference)
+                payment.status = "FAILED"
+                payment.save()
                 return Response(
                     {
                         "error": "Payment verification failed",
