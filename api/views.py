@@ -1670,10 +1670,10 @@ class ConfirmPerNightPaymentView(APIView):
                         client_id=metadata["user_id"],
                         check_in_date=metadata["check_in_date"],
                         check_out_date=metadata["check_out_date"],
-                        total_nights=metadata["total_nights"],
+                        total_nights=int(metadata["total_nights"]),
                         total_price=int(response_data["data"]["amount"])
                         / 100,  # Convert from kobo
-                        guests=metadata["guests"],
+                        guests=int(metadata["guests"]),
                         status="CONFIRMED",
                     )
 
