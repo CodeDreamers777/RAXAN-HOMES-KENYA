@@ -1552,6 +1552,22 @@ class InitiatePerNightPaymentView(APIView):
         # Calculate total nights and validate against property restrictions
         total_nights = (check_out_date - check_in_date).days
 
+        if property.min_nights and total_nights < property.min_nights:
+            return Response(
+                {
+                    "error": f"Minimum stay for this property is {property.min_nights} nights"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if property.max_nights and total_nights > property.max_nights:
+            return Response(
+                {
+                    "error": f"Maximum stay for this property is {property.max_nights} nights"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             # This will validate min/max nights
             booking = PerNightBooking(
