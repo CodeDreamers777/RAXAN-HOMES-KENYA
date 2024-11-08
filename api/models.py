@@ -367,7 +367,7 @@ class PerNightProperty(BaseProperty):
         ("SHARED_ROOM", "Shared Room"),
     ]
 
-    id = models.CharField(primary_key=True, max_length=36, default=uuid.uuid4().hex)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
     property_style = models.CharField(max_length=20, choices=PROPERTY_STYLES)
     check_in_time = models.TimeField(null=True, blank=True)
@@ -387,7 +387,6 @@ class PerNightProperty(BaseProperty):
         if not self.pk:  # New property being created
             if not self.host.is_seller:
                 raise ValueError("Only sellers can add per-night properties.")
-            self.id = uuid.uuid4().hex
         super().save(*args, **kwargs)
 
 
