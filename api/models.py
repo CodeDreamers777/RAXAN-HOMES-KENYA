@@ -142,6 +142,7 @@ class BaseProperty(models.Model):
         ("SHORT_LET", "Short Let Property"),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField()
     location = models.CharField(max_length=1000)
@@ -225,7 +226,7 @@ class PropertyForSale(BaseProperty):
 class PropertyImage(models.Model):
     image = models.ImageField(upload_to="property_images")
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
+    object_id = models.UUIDField()  # Update this to UUIDField
     property = GenericForeignKey("content_type", "object_id")
 
     def __str__(self):
