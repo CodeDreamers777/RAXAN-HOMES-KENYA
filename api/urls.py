@@ -96,6 +96,11 @@ urlpatterns = [
     path(
         "manage/", views.UserAccountManagementView.as_view(), name="account_management"
     ),
+    path(
+        "check-booking/<str:username>/<uuid:property_id>/<str:property_type>/",
+        views.check_booking_exists,
+        name="check-booking-exists",
+    ),
     # Include the router URLs in our urlpatterns
     *router.urls,
 ]

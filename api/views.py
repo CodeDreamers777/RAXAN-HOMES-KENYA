@@ -4,7 +4,7 @@ from django_otp.oath import TOTP
 from django_otp.util import random_hex
 import time
 from datetime import datetime
-
+from rest_framework.decorators import api_view
 from django.template.loader import render_to_string
 from django.db.models import Q, Max
 from rest_framework import generics, permissions
@@ -1344,6 +1344,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
             property_model = RentalProperty
         elif property_type == "sale":
             property_model = PropertyForSale
+        elif property_type == "per_night":
+            property_model = PerNightProperty
         else:
             return Response(
                 {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
@@ -1377,6 +1379,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 property_model = RentalProperty
             elif property_type == "sale":
                 property_model = PropertyForSale
+            elif property_type == "sale":
+                property_model = PerNightProperty
             else:
                 return Review.objects.none()
 
@@ -1427,6 +1431,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
             property_model = RentalProperty
         elif property_type == "sale":
             property_model = PropertyForSale
+        elif property_type == "per_night":
+            property_model = PerNightProperty
         else:
             return Response(
                 {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
@@ -1733,3 +1739,68 @@ class ConfirmPerNightPaymentView(APIView):
                 {"error": "Failed to verify payment"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+@api_view(["GET"])
+def check_booking_exists(request, username, property_id, property_type):
+    """
+    Check if a booking exists for a given property and user.
+    property_type should be one of: 'rental', 'sale', 'per_night'
+    """
+    try:
+        # Get the user profile
+        user = get_object_or_404(User, username=username)
+        profile = user.profile
+
+        property_type = property_type.lower()
+        booking_exists = False
+
+        if property_type == "rental":
+            # Check rental property booking
+            property_obj = get_object_or_404(RentalProperty, id=property_id)
+            booking_exists = Booking.objects.filter(
+                property=property_obj, client=profile
+            ).exists()
+
+        elif property_type == "per_night":
+            # Check per night property booking
+            property_obj = get_object_or_404(PerNightProperty, id=property_id)
+            booking_exists = PerNightBooking.objects.filter(
+                property=property_obj, client=profile
+            ).exists()
+
+        elif property_type == "sale":
+            # For sale properties, check viewing bookings
+            property_obj = get_object_or_404(PropertyForSale, id=property_id)
+            booking_exists = BookForSaleViewing.objects.filter(
+                property=property_obj, client=profile
+            ).exists()
+        else:
+            return Response(
+                {
+                    "error": "Invalid property type. Must be 'rental', 'sale', or 'per_night'"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        response_data = {
+            "username": username,
+            "property_id": property_id,
+            "property_type": property_type,
+            "booking_exists": booking_exists,
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    except (
+        RentalProperty.DoesNotExist,
+        PropertyForSale.DoesNotExist,
+        PerNightProperty.DoesNotExist,
+    ):
+        return Response(
+            {"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
