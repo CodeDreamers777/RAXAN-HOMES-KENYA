@@ -1787,8 +1787,7 @@ def check_booking_exists(request, username, property_id, property_type):
             "username": username,
             "property_id": property_id,
             "property_type": property_type,
-            "has_booking": True,
-            "booking_exists": booking_exists,
+            "has_booking": booking_exists,
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
