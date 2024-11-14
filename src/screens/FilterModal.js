@@ -28,6 +28,8 @@ const FilterModal = ({
   const maxBedroomsRef = useRef(null);
   const minBathroomsRef = useRef(null);
   const maxBathroomsRef = useRef(null);
+  const minPerNightRef = useRef(null);
+  const maxPerNightRef = useRef(null);
 
   const updateFilter = (filterName, index, value) => {
     setFilters((prevFilters) => ({
@@ -66,7 +68,7 @@ const FilterModal = ({
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Property Status</Text>
               <View style={styles.filterOptions}>
-                {["all", "rental", "sale"].map((type) => (
+                {["all", "rental", "sale", "per_night"].map((type) => (
                   <TouchableOpacity
                     key={type}
                     style={[
@@ -86,7 +88,9 @@ const FilterModal = ({
                         ? "All"
                         : type === "rental"
                           ? "For Rent"
-                          : "For Sale"}
+                          : type === "sale"
+                            ? "For Sale"
+                            : "Per Night"}
                     </Text>
                   </TouchableOpacity>
                 ))}

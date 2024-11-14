@@ -12,7 +12,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 
 const ReviewScreen = ({ route, navigation }) => {
-  const { propertyId, propertyName, existingReview, isRental } = route.params;
+  const { propertyId, propertyName, existingReview, isRental, isPerNight } =
+    route.params;
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
   const [username, setUsername] = useState("");
@@ -59,7 +60,7 @@ const ReviewScreen = ({ route, navigation }) => {
       const url = existingReview
         ? `${API_BASE_URL}/api/v1/reviews/${existingReview.id}/`
         : `${API_BASE_URL}/api/v1/reviews/`;
-
+      console.log(url);
       const response = await fetch(url, {
         method: method,
         headers: {
@@ -70,12 +71,16 @@ const ReviewScreen = ({ route, navigation }) => {
         },
         body: JSON.stringify({
           property_id: propertyId,
-          property_type: isRental ? "rental" : "sale",
+          property_type: isRental
+            ? "rental"
+            : isPerNight
+              ? "per_night"
+              : "sale",
           rating: reviewRating,
           comment: reviewText,
         }),
       });
-
+      console.log(response);
       if (!response.ok) {
         throw new Error("Failed to submit review");
       }

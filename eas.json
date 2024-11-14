@@ -10,9 +10,23 @@
     "preview": {
       "distribution": "internal"
     },
-    "production": {}
+    "production": {
+      "ios": {
+        "releaseChannel": "production"
+      },
+      "android": {
+        "releaseChannel": "production",
+        "buildType": "app-bundle"
+      }
+    }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "your-apple-id@example.com",
+        "ascAppId": "com.your-company.your-app-name"
+      },
+      "android": {}
+    }
   }
 }

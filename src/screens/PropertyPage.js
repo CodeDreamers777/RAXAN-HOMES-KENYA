@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  TextInput,
   Image,
   StyleSheet,
   ScrollView,
@@ -16,7 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 const { width } = Dimensions.get("window");
@@ -101,12 +100,9 @@ const PropertyScreen = ({ route, navigation }) => {
   const [bookingMessage, setBookingMessage] = useState("");
   const [bookingId, setBookingId] = useState(null);
   const [showMap, setShowMap] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
   const [userReview, setUserReview] = useState(null);
   const [username, setUsername] = useState("");
-  const [reviewText, setReviewText] = useState("");
-  const [reviewRating, setReviewRating] = useState(0);
-  const [hoveredRating, setHoveredRating] = useState(0);
+  const [hasBooking, setHasBooking] = useState(false);
 
   const { propertyId } = route.params;
 
@@ -114,9 +110,54 @@ const PropertyScreen = ({ route, navigation }) => {
     fetchPropertyDetails();
   }, []);
 
+  const checkBookingStatus = async () => {
+    try {
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
+
+      // Get the current user's username from AsyncStorage
+      const userDataString = await AsyncStorage.getItem("userData");
+      const userData = JSON.parse(userDataString);
+      const currentUsername = userData.username;
+
+      // Determine property type
+      let propertyType;
+      if ("price_per_night" in property) {
+        propertyType = "per_night";
+      } else if ("price_per_month" in property) {
+        propertyType = "rental";
+      } else {
+        propertyType = "sale";
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/check-booking/${currentUsername}/${propertyId}/${propertyType}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Referer: API_BASE_URL,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to check booking status");
+      }
+
+      const data = await response.json();
+      console.log(data);
+      setHasBooking(data.has_booking);
+    } catch (error) {
+      console.error("Error checking booking status:", error);
+      setHasBooking(false);
+    }
+  };
+
+  // Modify the existing useEffect to also check booking status when property data is loaded
   useEffect(() => {
     if (property) {
       fetchCurrentUserReview();
+      checkBookingStatus();
     }
   }, [property]);
 
@@ -132,6 +173,11 @@ const PropertyScreen = ({ route, navigation }) => {
         "Location coordinates are not available for this property.",
       );
     }
+  };
+  const handleScheduleViewing = () => {
+    navigation.navigate("ScheduleViewing", {
+      propertyId: propertyId, // Make sure propertyId is defined in your component
+    });
   };
 
   const checkLocationPermission = async () => {
@@ -181,6 +227,7 @@ const PropertyScreen = ({ route, navigation }) => {
       }
 
       const data = await response.json();
+      console.log(data);
       setProperty(data);
     } catch (error) {
       setError(error.message);
@@ -370,73 +417,6 @@ const PropertyScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleReviewButtonPress = () => {
-    if (userReview) {
-      // If user has already reviewed, show their review
-      Alert.alert(
-        "Your Review",
-        `Rating: ${userReview.rating}\nComment: ${userReview.comment}`,
-        [
-          { text: "OK", onPress: () => {} },
-          {
-            text: "Edit",
-            onPress: () => {
-              setShowReviewModal(true);
-            },
-          },
-        ],
-      );
-    } else {
-      // If user hasn't reviewed, open the review modal
-      setShowReviewModal(true);
-    }
-  };
-
-  const handleSubmitReview = async () => {
-    try {
-      const accessTokenData = await AsyncStorage.getItem("accessToken");
-      const { value: accessToken } = JSON.parse(accessTokenData);
-      const csrfToken = await AsyncStorage.getItem("csrfToken");
-      if (!accessToken || !csrfToken) {
-        throw new Error("No access token or CSRF token found");
-      }
-
-      const method = userReview ? "PATCH" : "POST";
-      const url = userReview
-        ? `${API_BASE_URL}/api/v1/reviews/${userReview.id}/`
-        : `${API_BASE_URL}/api/v1/reviews/`;
-
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-          "X-CSRFToken": csrfToken,
-          Referer: API_BASE_URL,
-        },
-        body: JSON.stringify({
-          property_id: propertyId,
-          property_type:
-            property && "price_per_month" in property ? "rental" : "sale",
-          rating: reviewRating,
-          comment: reviewText,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to submit review");
-      }
-
-      const data = await response.json();
-      setUserReview(data);
-      setShowReviewModal(false);
-      Alert.alert("Success", "Your review has been submitted!");
-      fetchPropertyDetails(); // Refresh property details to update the rating
-    } catch (error) {
-      console.error("Error submitting review:", error);
-      Alert.alert("Error", "Failed to submit review. Please try again.");
-    }
-  };
   const getRatingLabel = (rating) => {
     if (rating === 5) return "Excellent!";
     if (rating === 4) return "Very Good!";
@@ -446,99 +426,73 @@ const PropertyScreen = ({ route, navigation }) => {
     return "";
   };
 
-  // Updated Review Modal Component
-  const ReviewModal = () => (
-    <Modal visible={showReviewModal} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modernModalContent}>
-          <Text style={styles.modernModalTitle}>
-            {userReview ? "Edit Your Review" : "Share Your Experience"}
-          </Text>
+  const renderActionButton = () => {
+    const isRental = "price_per_month" in property;
+    const isPerNight = "price_per_night" in property;
 
-          {/* Star Rating Section */}
-          <View style={styles.modernRatingContainer}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity
-                key={star}
-                onPress={() => setReviewRating(star)}
-                style={styles.starButton}
-              >
-                <Ionicons
-                  name={star <= reviewRating ? "star" : "star-outline"}
-                  size={32}
-                  color={star <= reviewRating ? "#FFD700" : "#D1D5DB"}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Rating Label */}
-          <Text style={styles.ratingLabel}>{getRatingLabel(reviewRating)}</Text>
-
-          {/* Review Text Input */}
-          <View style={styles.modernInputContainer}>
-            <TextInput
-              style={styles.modernReviewInput}
-              multiline
-              placeholder="Tell us about your experience..."
-              value={reviewText}
-              onChangeText={setReviewText}
-              maxLength={500}
-            />
-            <Text style={styles.characterCount}>{reviewText.length}/500</Text>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.modernButtonContainer}>
-            <TouchableOpacity
-              style={styles.modernCancelButton}
-              onPress={() => setShowReviewModal(false)}
-            >
-              <Text style={styles.modernCancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.modernSubmitButton,
-                (!reviewRating || !reviewText.trim()) &&
-                  styles.modernSubmitButtonDisabled,
-              ]}
-              onPress={handleSubmitReview}
-              disabled={!reviewRating || !reviewText.trim()}
-            >
-              <Text style={styles.modernSubmitButtonText}>Submit Review</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+    return (
+      <View style={styles.actionButtonContainer}>
+        {isPerNight ? (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionButtonPerNight]}
+            onPress={() =>
+              navigation.navigate("BookingScreen", { propertyId: propertyId })
+            }
+          >
+            <Text style={styles.actionButtonText}>Book Now</Text>
+          </TouchableOpacity>
+        ) : isRental ? (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionButtonPerMonth]}
+            onPress={handleBookNow}
+          >
+            <Text style={styles.actionButtonText}>Book Now</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleScheduleViewing}
+          >
+            <Text style={styles.actionButtonText}>Book Viewing</Text>
+          </TouchableOpacity>
+        )}
       </View>
-    </Modal>
-  );
+    );
+  };
 
   // Replace the ReviewButton component with this:
-  const ReviewButton = () => (
-    <TouchableOpacity
-      style={styles.modernReviewButton}
-      onPress={() =>
-        navigation.navigate("Review", {
-          propertyId: property.id,
-          propertyName: property.name,
-          existingReview: userReview,
-          isRental: "price_per_month" in property,
-        })
-      }
-    >
-      <View style={styles.modernReviewButtonContent}>
-        <Ionicons
-          name={userReview ? "star" : "create-outline"}
-          size={24}
-          color="#fff"
-        />
-        <Text style={styles.modernReviewButtonText}>
-          {userReview ? "View Your Review" : "Write a Review"}
-        </Text>
-      </View>
-      <View style={styles.buttonShine} />
-    </TouchableOpacity>
-  );
+  const ReviewButton = () => {
+    if (!hasBooking) {
+      return null; // Don't render anything if user hasn't booked
+    }
+
+    return (
+      <TouchableOpacity
+        style={styles.modernReviewButton}
+        onPress={() =>
+          navigation.navigate("Review", {
+            propertyId: property.id,
+            propertyName: property.name,
+            existingReview: userReview,
+            isRental: "price_per_month" in property,
+            isPerNight: "price_per_night" in property, // New flag for per-night properties
+          })
+        }
+      >
+        <View style={styles.modernReviewButtonContent}>
+          <Ionicons
+            name={userReview ? "star" : "create-outline"}
+            size={24}
+            color="#fff"
+          />
+          <Text style={styles.modernReviewButtonText}>
+            {userReview ? "View Your Review" : "Write a Review"}
+          </Text>
+        </View>
+        <View style={styles.buttonShine} />
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -565,6 +519,7 @@ const PropertyScreen = ({ route, navigation }) => {
   }
 
   const isRental = "price_per_month" in property;
+  const isPerNight = "price_per_night" in property;
 
   // Function to format price in Kenyan Shillings
   const formatPrice = (price) => {
@@ -597,13 +552,45 @@ const PropertyScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
         <View style={styles.propertyDetails}>
-          <Text style={styles.propertyPrice}>
-            {isRental
-              ? `${formatPrice(property.price_per_month)}/Month`
-              : formatPrice(property.price)}
-          </Text>
+          {isPerNight ? (
+            <View>
+              <Text style={styles.propertyPrice}>
+                {formatPrice(property.price_per_night)}/Night
+              </Text>
+              <Text style={styles.propertySubtitle}>
+                {property.min_nights} night minimum stay
+              </Text>
+              {property.max_nights > 0 && (
+                <Text style={styles.propertySubtitle}>
+                  {property.max_nights} night maximum stay
+                </Text>
+              )}
+            </View>
+          ) : (
+            <Text style={styles.propertyPrice}>
+              {formatPrice(property.price)}
+            </Text>
+          )}
           <RatingStars rating={property.rating || 0} />
         </View>
+
+        {isPerNight && (
+          <View style={styles.checkInOutContainer}>
+            <View style={styles.checkInOutItem}>
+              <Ionicons name="calendar-outline" size={24} color="#666" />
+              <Text style={styles.checkInOutText}>
+                Check-in: {property.check_in_time}
+              </Text>
+            </View>
+            <View style={styles.checkInOutItem}>
+              <Ionicons name="calendar-outline" size={24} color="#666" />
+              <Text style={styles.checkInOutText}>
+                Check-out: {property.check_out_time}
+              </Text>
+            </View>
+          </View>
+        )}
+
         <View style={styles.descriptionContainer}>
           <Text style={styles.sectionTitle}>Description</Text>
           <Text style={styles.propertyDescription}>{property.description}</Text>
@@ -642,7 +629,7 @@ const PropertyScreen = ({ route, navigation }) => {
               <Ionicons name="resize-outline" size={24} color="#666" />
               <Text style={styles.detailText}>{property.area} sq ft</Text>
             </View>
-            {isRental && (
+            {isPerNight && (
               <View style={styles.detailItem}>
                 <Ionicons name="home-outline" size={24} color="#666" />
                 <Text style={styles.detailText}>
@@ -659,15 +646,12 @@ const PropertyScreen = ({ route, navigation }) => {
           <Ionicons name="chatbubble-outline" size={24} color="#fff" />
           <Text style={styles.chatButtonText}>Chat with Host</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={handleBookNow}>
-          <Text style={styles.actionButtonText}>Book Now</Text>
-        </TouchableOpacity>
+        {renderActionButton()}
       </View>
       {/* Add the new Review Button */}
       <ReviewButton />
 
       {/* Add the new Review Modal */}
-      <ReviewModal />
 
       <Modal visible={showPaymentWebView} animationType="slide">
         <View style={{ flex: 1 }}>
@@ -694,8 +678,8 @@ const PropertyScreen = ({ route, navigation }) => {
         <View style={styles.mapContainer}>
           <MapView
             style={styles.map}
-            provider={PROVIDER_GOOGLE}
-            mapType="hybrid"
+            provider={PROVIDER_DEFAULT} // Changed from PROVIDER_GOOGLE
+            mapType="standard" // Changed from hybrid
             initialRegion={{
               latitude: parseFloat(property.latitude),
               longitude: parseFloat(property.longitude),
@@ -1185,6 +1169,94 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     transform: [{ skewX: "-20deg" }, { translateX: -200 }],
+  },
+  dateLabel: {
+    fontSize: 16,
+    color: "#4B5563",
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  dateButton: {
+    backgroundColor: "#F3F4F6",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: "#1F2937",
+    textAlign: "center",
+  },
+  notesLabel: {
+    fontSize: 16,
+    color: "#4B5563",
+    marginBottom: 8,
+  },
+  notesInput: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    minHeight: 120,
+    fontSize: 16,
+    color: "#1F2937",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modernModalContent: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 24,
+    width: "90%",
+    maxWidth: 500,
+    maxHeight: "80%",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
+  notesInput: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    minHeight: 120,
+    fontSize: 16,
+    color: "#1F2937",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    textAlignVertical: "top",
+  },
+  propertySubtitle: {
+    fontSize: 16,
+    color: "#666",
+  },
+  checkInOutContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 16,
+  },
+  checkInOutItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkInOutText: {
+    fontSize: 16,
+    color: "#666",
+    marginLeft: 8,
   },
 });
 

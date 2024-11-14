@@ -50,6 +50,7 @@ function HomePage({ navigation }) {
   const [properties, setProperties] = useState({
     properties_for_sale: [],
     rental_properties: [],
+    per_night_properties: [],
   });
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -64,7 +65,9 @@ function HomePage({ navigation }) {
   const [wishlist, setWishlist] = useState(new Set());
 
   const formatPrice = (price) => {
-    return `KSh ${price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+    return price
+      ? `KSh ${price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`
+      : "N/A";
   };
 
   useEffect(() => {
@@ -128,6 +131,7 @@ function HomePage({ navigation }) {
       }
 
       const data = await response.json();
+      console.log("This is the data");
       console.log(data);
 
       // Fetch wishlist from the server
@@ -159,6 +163,10 @@ function HomePage({ navigation }) {
           ...prop,
           is_in_wishlist: newWishlist.has(prop.id),
         })),
+        per_night_properties: data.per_night_properties.map((prop) => ({
+          ...prop,
+          is_in_wishlist: newWishlist.has(prop.id),
+        })),
       };
 
       setProperties(updatedProperties);
@@ -173,22 +181,24 @@ function HomePage({ navigation }) {
   }, []);
 
   const getFilteredProperties = () => {
-    // Get the base properties based on type
     let baseProperties = [];
     if (filters.type === "sale") {
       baseProperties = [...properties.properties_for_sale];
     } else if (filters.type === "rental") {
       baseProperties = [...properties.rental_properties];
+    } else if (filters.type === "per_night") {
+      baseProperties = [...properties.per_night_properties];
     } else {
       baseProperties = [
         ...properties.properties_for_sale,
         ...properties.rental_properties,
+        ...properties.per_night_properties,
       ];
     }
 
     // Filter properties based on criteria
     const filteredProperties = baseProperties.filter((prop) => {
-      const price = prop.price_per_month || prop.price;
+      const price = prop.price_per_month || prop.price_per_night || prop.price;
       const matchesPrice =
         price >= filters.priceRange[0] && price <= filters.priceRange[1];
 
@@ -338,13 +348,6 @@ function HomePage({ navigation }) {
           color="#fff"
         />
       </TouchableOpacity>
-      <View style={styles.priceTag}>
-        <Text style={styles.priceText}>
-          {item.price_per_month
-            ? `${formatPrice(item.price_per_month)}/Month`
-            : formatPrice(item.price)}
-        </Text>
-      </View>
       <View style={styles.propertyInfo}>
         <Text
           style={styles.propertyTitle}
@@ -362,6 +365,23 @@ function HomePage({ navigation }) {
         </Text>
         <View style={styles.propertyDetails}>
           <RatingStars rating={item.rating || 0} />
+          <View style={styles.priceContainer}>
+            {item.price_per_night && (
+              <Text style={[styles.priceText, styles.pricePerNight]}>
+                {formatPrice(item.price_per_night)}/Night
+              </Text>
+            )}
+            {item.price_per_month && (
+              <Text style={[styles.priceText, styles.pricePerMonth]}>
+                {formatPrice(item.price_per_month)}/Month
+              </Text>
+            )}
+            {item.price && (
+              <Text style={[styles.priceText, styles.pricePerSale]}>
+                {formatPrice(item.price)}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -429,6 +449,22 @@ function HomePage({ navigation }) {
             ]}
           >
             Rental
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterOption,
+            filters.type === "per_night" && styles.activeFilterOption,
+          ]}
+          onPress={() => handleFilterOptionPress("per_night")}
+        >
+          <Text
+            style={[
+              styles.filterOptionText,
+              filters.type === "per_night" && styles.activeFilterOptionText,
+            ]}
+          >
+            Per Night
           </Text>
         </TouchableOpacity>
       </View>
@@ -521,10 +557,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
+  priceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
   priceText: {
-    color: "#fff",
+    color: "#333",
     fontWeight: "bold",
-    fontSize: 14, // Slightly reduced font size to accommodate longer text
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  pricePerNight: {
+    color: "#4a90e2",
+  },
+  pricePerMonth: {
+    color: "#228B22",
+  },
+  pricePerSale: {
+    color: "#FF6347",
   },
   propertyInfo: {
     padding: 16,

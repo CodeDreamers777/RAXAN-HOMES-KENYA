@@ -59,6 +59,10 @@ function ViewMyListings() {
           ...p,
           type: "sale",
         })),
+        ...(data.per_night_properties || []).map((p) => ({
+          ...p,
+          type: "per_night",
+        })),
       ];
       setProperties(allProperties);
     } catch (error) {
@@ -204,6 +208,19 @@ function ViewMyListings() {
             ]}
           >
             For Sale
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "per_night" && styles.activeTab]}
+          onPress={() => setActiveTab("per_night")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "per_night" && styles.activeTabText,
+            ]}
+          >
+            Per Night
           </Text>
         </TouchableOpacity>
       </View>

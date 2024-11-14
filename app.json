@@ -25,12 +25,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.crispusdev.riyadhstay",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
-      "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_ANDROID_MAPS_API_KEY_HERE"
-        }
-      }
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,7 +33,8 @@
     "extra": {
       "eas": {
         "projectId": "ea660533-756f-4679-9364-ee1b9f66099e"
-      }
+      },
+      "googleMapsApiKey": "AIzaSyBTMBEfyQpyEVvKgzfHkV43Km2ZNfcKYyo"
     },
     "plugins": [
       [

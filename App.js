@@ -33,6 +33,9 @@ import ConversationDetailScreen from "./src/screens/ConversationDetailScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import WebViewScreen from "./src/screens/Webview";
 import ViewRatingsScreen from "./src/screens/ViewRatingScreen";
+import ScheduleViewingScreen from "./src/screens/ScheduleViewingScreen";
+import ViewingListPage from "./src/screens/ViewListPage";
+import BookingScreen from "./src/screens/BookingPerNight";
 import {
   ForgotPasswordScreen,
   OTPVerificationScreen,
@@ -200,6 +203,16 @@ function App() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="ScheduleViewing"
+          component={ScheduleViewingScreen}
+          options={{
+            title: "Schedule Viewing",
+            headerBackTitle: "Back",
+          }}
+        />
+        <Stack.Screen name="ViewingsList" component={ViewingListPage} />
+        <Stack.Screen name="BookingScreen" component={BookingScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

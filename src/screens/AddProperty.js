@@ -17,7 +17,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_OPENSTREETMAP } from "react-native-maps";
 import * as Location from "expo-location";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
@@ -27,9 +27,11 @@ const AddPropertyPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [propertyCategory, setPropertyCategory] = useState("");
   const [propertyType, setPropertyType] = useState("");
+  const [propertyStyle, setPropertyStyle] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [pricePerNight, setPricePerNight] = useState("");
   const [location, setLocation] = useState("");
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
@@ -45,6 +47,12 @@ const AddPropertyPage = () => {
   const [csrfToken, setCSRFToken] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [yearBuilt, setYearBuilt] = useState("");
+  const [checkInTime, setCheckInTime] = useState("15:00");
+  const [checkOutTime, setCheckOutTime] = useState("11:00");
+  const [minNights, setMinNights] = useState("");
+  const [maxNights, setMaxNights] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [rentalDeposit, setRentalDeposit] = useState("");
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -142,56 +150,115 @@ const AddPropertyPage = () => {
       return;
     }
 
-    // Validate required fields
-    const requiredFields = [
-      propertyCategory,
-      propertyType,
-      name,
-      description,
-      price,
-      location,
-      bedrooms,
-      bathrooms,
-      area,
-    ];
-
+    let requiredFields;
     if (propertyCategory === "rental") {
-      requiredFields.push(numberOfUnits);
+      requiredFields = [
+        propertyType,
+        name,
+        description,
+        location,
+        bedrooms,
+        bathrooms,
+        area,
+        price,
+        numberOfUnits,
+        isAvailable,
+        amenities,
+      ];
     } else if (propertyCategory === "sale") {
-      requiredFields.push(yearBuilt);
+      requiredFields = [
+        propertyType,
+        name,
+        description,
+        location,
+        bedrooms,
+        bathrooms,
+        area,
+        price,
+        yearBuilt,
+        amenities,
+      ];
+    } else if (propertyCategory === "per_night") {
+      requiredFields = [
+        propertyStyle,
+        name,
+        description,
+        location,
+        bedrooms,
+        bathrooms,
+        area,
+        pricePerNight,
+        numberOfUnits,
+        checkInTime,
+        checkOutTime,
+        minNights,
+        maxNights,
+        isAvailable,
+        amenities,
+      ];
+    } else {
+      setErrorMessage("Please select a valid property category.");
+      return;
     }
 
     if (requiredFields.some((field) => !field) || amenities.length === 0) {
-      Alert.alert("Error", "Please fill in all required fields.");
+      setErrorMessage("Please fill in all required fields.");
       return;
     }
 
     setIsLoading(true);
     const formData = new FormData();
-    formData.append("property_category", propertyCategory);
-    formData.append("property_type", propertyType);
-    formData.append("name", name);
-    formData.append("description", description);
-    formData.append("location", location);
 
-    // Only append latitude and longitude if they are set (i.e., map was used)
+    if (propertyCategory === "rental") {
+      formData.append("property_category", propertyCategory);
+      formData.append("property_type", propertyType);
+      formData.append("name", name);
+      formData.append("description", description);
+      formData.append("location", location);
+      formData.append("bedrooms", bedrooms);
+      formData.append("bathrooms", bathrooms);
+      formData.append("area", area);
+      formData.append("price_per_month", price);
+      formData.append("deposit", rentalDeposit);
+      formData.append("number_of_units", numberOfUnits);
+      formData.append("is_available", isAvailable === "yes");
+      formData.append("amenities", JSON.stringify(amenities));
+    } else if (propertyCategory === "sale") {
+      formData.append("property_category", propertyCategory);
+
+      formData.append("property_type", propertyType);
+      formData.append("name", name);
+      formData.append("description", description);
+      formData.append("location", location);
+      formData.append("bedrooms", bedrooms);
+      formData.append("bathrooms", bathrooms);
+      formData.append("area", area);
+      formData.append("price", price);
+      formData.append("year_built", yearBuilt);
+      formData.append("amenities", JSON.stringify(amenities));
+    } else if (propertyCategory === "per_night") {
+      formData.append("property_category", propertyCategory);
+
+      formData.append("property_style", propertyStyle);
+      formData.append("name", name);
+      formData.append("description", description);
+      formData.append("location", location);
+      formData.append("bedrooms", bedrooms);
+      formData.append("bathrooms", bathrooms);
+      formData.append("area", area);
+      formData.append("price_per_night", pricePerNight);
+      formData.append("number_of_units", numberOfUnits);
+      formData.append("check_in_time", checkInTime);
+      formData.append("check_out_time", checkOutTime);
+      formData.append("min_nights", minNights);
+      formData.append("max_nights", maxNights);
+      formData.append("is_available", isAvailable === "yes");
+      formData.append("amenities", JSON.stringify(amenities));
+    }
+
     if (latitude !== null && longitude !== null) {
       formData.append("latitude", latitude.toString());
       formData.append("longitude", longitude.toString());
-    }
-
-    formData.append("bedrooms", bedrooms);
-    formData.append("bathrooms", bathrooms);
-    formData.append("area", area);
-    formData.append("amenities", JSON.stringify(amenities));
-
-    if (propertyCategory === "rental") {
-      formData.append("price_per_month", price);
-      formData.append("number_of_units", numberOfUnits);
-      formData.append("is_available", isAvailable === "yes");
-    } else {
-      formData.append("price", price);
-      formData.append("year_built", yearBuilt);
     }
 
     images.forEach((image, index) => {
@@ -202,6 +269,7 @@ const AddPropertyPage = () => {
         name: filename,
       });
     });
+    console.log(formData);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {
@@ -218,66 +286,23 @@ const AddPropertyPage = () => {
       if (response.ok) {
         const data = await response.json();
         console.log("Property added successfully:", data);
-        Alert.alert("Success", "Property added successfully!", [
-          { text: "OK", onPress: () => navigation.navigate("Profile") },
-        ]);
+        navigation.navigate("Profile");
       } else {
         const errorData = await response.json();
         console.error("Error adding property:", errorData);
 
-        if (errorData.error && errorData.error.includes("subscription")) {
-          Alert.alert(
-            "Subscription Error",
-            "You need an active subscription to create properties. Please upgrade your subscription.",
-            [
-              {
-                text: "OK",
-                onPress: () => navigation.navigate("Settings"),
-              },
-              { text: "Cancel" },
-            ],
-          );
-        } else if (
-          errorData.error &&
-          errorData.error.includes("property listing limit")
-        ) {
-          Alert.alert(
-            "Limit Reached",
-            "You have reached your property listing limit. Please upgrade your subscription to add more properties.",
-            [
-              {
-                text: "Upgrade",
-                onPress: () => navigation.navigate("Settings"),
-              },
-              { text: "Cancel" },
-            ],
-          );
+        if (errorData.error) {
+          setErrorMessage(errorData.error);
         } else {
-          Alert.alert(
-            "Error",
+          setErrorMessage(
             "An unknown error occurred while adding the property. Please contact support if this persists.",
-            [
-              { text: "OK" },
-              {
-                text: "Contact Support",
-                onPress: () => navigation.navigate("Support"),
-              },
-            ],
           );
         }
       }
     } catch (error) {
       console.error("Error submitting property:", error);
-      Alert.alert(
-        "Error",
+      setErrorMessage(
         "An unexpected error occurred. Please try again or contact support if this persists.",
-        [
-          { text: "OK" },
-          {
-            text: "Contact Support",
-            onPress: () => navigation.navigate("Support"),
-          },
-        ],
       );
     } finally {
       setIsLoading(false);
@@ -289,29 +314,50 @@ const AddPropertyPage = () => {
   const years = Array.from({ length: currentYear - 1899 }, (_, i) =>
     (currentYear - i).toString(),
   );
-  return (
-    <ScrollView style={styles.container}>
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <Text style={styles.header}>Add Property</Text>
 
-        <View style={styles.inputContainer}>
-          <MaterialIcons
-            name="category"
-            size={24}
-            color="#4CAF50"
-            style={styles.icon}
-          />
-          <Picker
-            selectedValue={propertyCategory}
-            style={styles.picker}
-            onValueChange={(itemValue) => setPropertyCategory(itemValue)}
-          >
-            <Picker.Item label="Select Property Category" value="" />
-            <Picker.Item label="Rental" value="rental" />
-            <Picker.Item label="For Sale" value="sale" />
-          </Picker>
+  const renderPropertyTypeOrStyle = () => {
+    if (propertyCategory === "per_night") {
+      return (
+        <View>
+          <View style={styles.inputContainer}>
+            <MaterialIcons
+              name="home"
+              size={24}
+              color="#4CAF50"
+              style={styles.icon}
+            />
+            <Picker
+              selectedValue={propertyStyle}
+              style={styles.picker}
+              onValueChange={(itemValue) => setPropertyStyle(itemValue)}
+            >
+              <Picker.Item label="Select Property Style" value="" />
+              <Picker.Item label="Entire Place" value="ENTIRE_PLACE" />
+              <Picker.Item label="Private Room" value="PRIVATE_ROOM" />
+              <Picker.Item label="Shared Room" value="SHARED_ROOM" />
+            </Picker>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <MaterialIcons
+              name="apartment"
+              size={24}
+              color="#4CAF50"
+              style={styles.icon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Number of Units"
+              placeholderTextColor="#a0a0a0"
+              value={numberOfUnits}
+              onChangeText={setNumberOfUnits}
+              keyboardType="numeric"
+            />
+          </View>
         </View>
-
+      );
+    } else {
+      return (
         <View style={styles.inputContainer}>
           <MaterialIcons
             name="home"
@@ -334,6 +380,40 @@ const AddPropertyPage = () => {
             <Picker.Item label="Short Let Property" value="SHORT_LET" />
           </Picker>
         </View>
+      );
+    }
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        <Text style={styles.header}>Add Property</Text>
+
+        <View style={styles.inputContainer}>
+          <MaterialIcons
+            name="category"
+            size={24}
+            color="#4CAF50"
+            style={styles.icon}
+          />
+          <Picker
+            selectedValue={propertyCategory}
+            style={styles.picker}
+            onValueChange={(itemValue) => {
+              setPropertyCategory(itemValue);
+              // Reset property type and style when category changes
+              setPropertyType("");
+              setPropertyStyle("");
+            }}
+          >
+            <Picker.Item label="Select Property Category" value="" />
+            <Picker.Item label="Rental" value="rental" />
+            <Picker.Item label="For Sale" value="sale" />
+            <Picker.Item label="Per Night" value="per_night" />
+          </Picker>
+        </View>
+
+        {renderPropertyTypeOrStyle()}
 
         <View style={styles.inputContainer}>
           <MaterialIcons
@@ -378,14 +458,38 @@ const AddPropertyPage = () => {
           <TextInput
             style={styles.input}
             placeholder={
-              propertyCategory === "rental" ? "Price per Month" : "Sale Price"
+              propertyCategory === "rental"
+                ? "Price per Month"
+                : propertyCategory === "per_night"
+                  ? "Price per Night"
+                  : "Sale Price"
             }
             placeholderTextColor="#a0a0a0"
-            value={price}
-            onChangeText={setPrice}
+            value={propertyCategory === "per_night" ? pricePerNight : price}
+            onChangeText={
+              propertyCategory === "per_night" ? setPricePerNight : setPrice
+            }
             keyboardType="numeric"
           />
         </View>
+        {propertyCategory === "rental" && (
+          <View style={styles.inputContainer}>
+            <MaterialIcons
+              name="attach-money"
+              size={24}
+              color="#4CAF50"
+              style={styles.icon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Rental Deposit"
+              placeholderTextColor="#a0a0a0"
+              value={rentalDeposit}
+              onChangeText={setRentalDeposit}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
 
         <View style={styles.inputContainer}>
           <MaterialIcons
@@ -518,6 +622,97 @@ const AddPropertyPage = () => {
           </>
         )}
 
+        {propertyCategory === "per_night" && (
+          <>
+            <View style={styles.rowContainer}>
+              <View style={[styles.inputContainer, styles.halfWidth]}>
+                <MaterialIcons
+                  name="access-time"
+                  size={24}
+                  color="#4CAF50"
+                  style={styles.icon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Check-in Time (HH:MM)"
+                  placeholderTextColor="#a0a0a0"
+                  value={checkInTime}
+                  onChangeText={setCheckInTime}
+                />
+              </View>
+
+              <View style={[styles.inputContainer, styles.halfWidth]}>
+                <MaterialIcons
+                  name="access-time"
+                  size={24}
+                  color="#4CAF50"
+                  style={styles.icon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Check-out Time (HH:MM)"
+                  placeholderTextColor="#a0a0a0"
+                  value={checkOutTime}
+                  onChangeText={setCheckOutTime}
+                />
+              </View>
+            </View>
+
+            <View style={styles.rowContainer}>
+              <View style={[styles.inputContainer, styles.halfWidth]}>
+                <MaterialIcons
+                  name="nights-stay"
+                  size={24}
+                  color="#4CAF50"
+                  style={styles.icon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Min Nights"
+                  placeholderTextColor="#a0a0a0"
+                  value={minNights}
+                  onChangeText={setMinNights}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={[styles.inputContainer, styles.halfWidth]}>
+                <MaterialIcons
+                  name="nights-stay"
+                  size={24}
+                  color="#4CAF50"
+                  style={styles.icon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Max Nights"
+                  placeholderTextColor="#a0a0a0"
+                  value={maxNights}
+                  onChangeText={setMaxNights}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <MaterialIcons
+                name="check-circle"
+                size={24}
+                color="#4CAF50"
+                style={styles.icon}
+              />
+              <Picker
+                selectedValue={isAvailable}
+                style={styles.picker}
+                onValueChange={(itemValue) => setIsAvailable(itemValue)}
+              >
+                <Picker.Item label="Is Available" value="yes" />
+                <Picker.Item label="Not Available" value="no" />
+              </Picker>
+            </View>
+          </>
+        )}
+
         <View style={styles.inputContainer}>
           <MaterialIcons
             name="list"
@@ -559,12 +754,12 @@ const AddPropertyPage = () => {
             </View>
           ))}
         </View>
+
         <Modal visible={showMap} animationType="slide">
           <View style={styles.mapContainer}>
             <MapView
               style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              mapType="hybrid"
+              provider={PROVIDER_OPENSTREETMAP}
               initialRegion={{
                 latitude: latitude || 0,
                 longitude: longitude || 0,
@@ -588,6 +783,11 @@ const AddPropertyPage = () => {
             </TouchableOpacity>
           </View>
         </Modal>
+        {errorMessage && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.submitButton, isLoading && styles.disabledButton]}
@@ -725,6 +925,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  errorContainer: {
+    backgroundColor: "#FFF5F5",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: "#E53E3E",
+    fontSize: 14,
   },
 });
 

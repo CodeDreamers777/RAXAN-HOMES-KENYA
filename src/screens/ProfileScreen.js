@@ -67,6 +67,10 @@ function ProfileScreen() {
   const handleViewMyBookings = () => {
     navigation.navigate("BookingsScreen");
   };
+
+  const handleForSaleBookings = () => {
+    navigation.navigate("ViewingsList");
+  };
   const handleSettingsPress = () => {
     navigation.navigate("Settings");
   };
@@ -467,6 +471,14 @@ function ProfileScreen() {
           <Text style={styles.actionButtonText}>View My Bookings</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.actionButton, styles.forSaleBookingsButton]}
+          onPress={handleForSaleBookings}
+        >
+          <Ionicons name="home-outline" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>For Sale Bookings</Text>
+        </TouchableOpacity>
+
         {profile?.user_type === "SELLER" && (
           <>
             <TouchableOpacity
@@ -531,7 +543,7 @@ function ProfileScreen() {
       <FlatList
         ListHeaderComponent={renderHeader}
         ListFooterComponent={renderFooter}
-        data={[]} // Empty data since we're not rendering reviews inline anymore
+        data={[]}
         renderItem={null}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
@@ -880,6 +892,9 @@ const styles = StyleSheet.create({
   },
   viewBookingsButton: {
     backgroundColor: "#2c5282",
+  },
+  forSaleBookingsButton: {
+    backgroundColor: "#1e40af", // Deep blue color to differentiate from other booking button
   },
 });
 
