@@ -37,7 +37,7 @@ if not UPLOAD_THING_API_KEY:
 UPLOAD_URL = "https://api.uploadthing.com/v6/uploadFiles"
 headers = {
     "Content-Type": "application/json",
-    "X-Uploadthing-Api-Key": UPLOAD_THING_API_KEY,
+    "x-uploadthing-api-key": UPLOAD_THING_API_KEY,
 }
 
 
