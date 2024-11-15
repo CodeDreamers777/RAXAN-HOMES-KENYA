@@ -23,9 +23,22 @@ from django.db.models import Avg
 from django.core.files.uploadedfile import InMemoryUploadedFile
 import requests
 
-API_KEY = "your_api_key"
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+# Get API key from environment variable
+UPLOAD_THING_API_KEY = os.getenv("UPLOAD_THING_API_KEY")
+if not UPLOAD_THING_API_KEY:
+    raise ValueError("UPLOAD_THING_API_KEY environment variable is not set")
+
+
 UPLOAD_URL = "https://api.uploadthing.com/v6/uploadFiles"
-headers = {"Content-Type": "application/json", "X-Uploadthing-Api-Key": API_KEY}
+headers = {
+    "Content-Type": "application/json",
+    "X-Uploadthing-Api-Key": UPLOAD_THING_API_KEY,
+}
 
 
 class SignupSerializer(serializers.Serializer):
