@@ -24,8 +24,8 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 import requests
 
 API_KEY = "your_api_key"
-UPLOAD_URL = "https://api.uploadthing.com/upload"
-headers = {"Authorization": f"Bearer {API_KEY}"}
+UPLOAD_URL = "https://api.uploadthing.com/v6/uploadFiles"
+headers = {"Content-Type": "application/json", "X-Uploadthing-Api-Key": API_KEY}
 
 
 class SignupSerializer(serializers.Serializer):
