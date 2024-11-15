@@ -298,7 +298,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
                 }
 
                 # Send the POST request
-                response = requests.post(UPLOAD_URL, headers=HEADERS, json=payload)
+                response = requests.post(UPLOAD_URL, headers=headers, json=payload)
                 response.raise_for_status()  # Raise an exception for HTTP errors
 
                 # Parse the response
