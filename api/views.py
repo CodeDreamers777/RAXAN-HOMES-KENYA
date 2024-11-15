@@ -39,7 +39,6 @@ from .models import (
     Review,
     Booking,
     Message,
-    SubscriptionPlan,
     Payment,
     BookForSaleViewing,
 )
@@ -52,7 +51,6 @@ from .serializer import (
     BookingSerializer,
     MessageSerializer,
     MessageCreateSerializer,
-    SubscriptionPlanSerializer,
     OTPEmailSerializer,
     BookForSaleViewingSerializer,
     ForgotPasswordSerializer,
@@ -650,16 +648,14 @@ class PropertyViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Previous queries remain the same, now add per-night properties
         rental_properties = RentalProperty.objects.filter(is_available=True)
         properties_for_sale = PropertyForSale.objects.all()
         per_night_properties = PerNightProperty.objects.filter(is_available=True)
 
-        # Get featured properties (now including per-night properties)
-        featured_properties = list(
-            list(RentalProperty.objects.filter(host__subscription__name="PREMIUM"))
-            + list(PerNightProperty.objects.filter(host__subscription__name="PREMIUM"))
-        )
+        featured_properties = [
+            *RentalProperty.objects.filter(is_featured=True),
+            *PerNightProperty.objects.filter(is_featured=True),
+        ]
 
         return (
             rental_properties,
@@ -749,31 +745,6 @@ class PropertyViewSet(viewsets.ViewSet):
                     {"error": "Only sellers can create properties"},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-
-            # Special checks for sale properties
-            if property_type == "sale":
-                if not profile.subscription:
-                    return Response(
-                        {
-                            "error": "You need an active subscription to create properties for sale"
-                        },
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
-
-                # Property for sale limit check
-                current_property_count = PropertyForSale.objects.filter(
-                    host=profile
-                ).count()
-                if (
-                    current_property_count
-                    >= profile.subscription.properties_for_sale_limit
-                ):
-                    return Response(
-                        {
-                            "error": "You have reached your property for sale listing limit"
-                        },
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
 
             # Save the property
             property = serializer.save(host=profile)
@@ -1216,120 +1187,6 @@ class UnreadMessageCountView(APIView):
         ).count()
 
         return Response({"unread_count": unread_count})
-
-
-class SubscriptionPlanListView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        plans = SubscriptionPlan.objects.all()
-        serializer = SubscriptionPlanSerializer(plans, many=True)
-        return Response(serializer.data)
-
-
-class InitiateSubscriptionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        plan_id = request.data.get("plan_id")
-        try:
-            plan = SubscriptionPlan.objects.get(id=plan_id)
-        except SubscriptionPlan.DoesNotExist:
-            return Response(
-                {"error": "Invalid plan ID"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        profile = request.user.profile
-        if not profile.is_seller:
-            return Response(
-                {"error": "Only sellers can subscribe to plans"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Initialize payment with Paystack
-        url = "https://api.paystack.co/transaction/initialize"
-        headers = {
-            "Authorization": f"Bearer {PAYSTACK_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        data = {
-            "amount": int(plan.price * 100),  # Amount in kobo
-            "email": request.user.email,
-        }
-
-        response = requests.post(url, headers=headers, json=data)
-
-        if response.status_code == 200:
-            result = response.json()
-            # Create a new Payment object
-            payment = Payment.objects.create(
-                profile=profile,
-                amount=plan.price,
-                reference=result["data"]["reference"],
-                status="pending",
-            )
-            return Response(
-                {
-                    "payment_url": result["data"]["authorization_url"],
-                    "reference": payment.reference,
-                }
-            )
-        else:
-            return Response(
-                {"error": "Unable to initiate payment"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-
-class VerifySubscriptionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        reference = request.data.get("reference")
-        try:
-            payment = Payment.objects.get(
-                reference=reference, profile=request.user.profile
-            )
-        except Payment.DoesNotExist:
-            return Response(
-                {"error": "Invalid payment reference"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Verify payment with Paystack
-        url = f"https://api.paystack.co/transaction/verify/{reference}"
-        headers = {
-            "Authorization": f"Bearer {PAYSTACK_API_KEY}",
-        }
-
-        response = requests.get(url, headers=headers)
-
-        if response.status_code == 200:
-            result = response.json()
-            if result["data"]["status"] == "success":
-                # Update payment status
-                payment.status = "success"
-                payment.save()
-
-                # Update user's subscription
-                profile = request.user.profile
-                profile.subscription = SubscriptionPlan.objects.get(
-                    price=payment.amount
-                )
-                profile.subscription_start_date = timezone.now()
-                profile.save()
-
-                return Response({"message": "Subscription updated successfully"})
-            else:
-                return Response(
-                    {"error": "Payment was not successful"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        else:
-            return Response(
-                {"error": "Unable to verify payment"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
 
 
 class ReviewViewSet(viewsets.ModelViewSet):

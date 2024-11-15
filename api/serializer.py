@@ -11,7 +11,6 @@ from .models import (
     Review,
     WishlistItem,
     Message,
-    SubscriptionPlan,
     BookForSaleViewing,
 )
 from django.contrib.auth.models import User
@@ -107,12 +106,6 @@ class SignupSerializer(serializers.Serializer):
         return user
 
 
-class SubscriptionPlanSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SubscriptionPlan
-        fields = ["id", "name", "price", "properties_for_sale_limit"]
-
-
 class ProfileSerializer(serializers.ModelSerializer):
     user_type = serializers.SerializerMethodField()
     username = serializers.CharField(source="user.username")
@@ -131,8 +124,6 @@ class ProfileSerializer(serializers.ModelSerializer):
             "identification_type",
             "identification_number",
             "is_seller",
-            "subscription",
-            "subscription_start_date",
         ]
         read_only_fields = ["updated", "created", "user_type"]
 
@@ -327,10 +318,7 @@ class RentalPropertySerializer(BasePropertySerializer):
         ]
 
     def get_is_featured(self, obj):
-        # obj.host is already a Profile instance
-        if obj.host.subscription:
-            return obj.host.subscription.name == "PREMIUM"
-        return False
+        return obj.is_featured
 
     def get_total_price(self, obj):
         # Handle case where deposit might be None

@@ -23,22 +23,6 @@ class UserType(models.Model):
         return f"{self.user.username} - {self.get_user_type_display()}"
 
 
-class SubscriptionPlan(models.Model):
-    PLAN_TYPES = [
-        ("BASIC", "Basic"),
-        ("STANDARD", "Standard"),
-        ("PREMIUM", "Premium"),
-    ]
-    name = models.CharField(max_length=20, choices=PLAN_TYPES)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    properties_for_sale_limit = models.PositiveIntegerField(
-        help_text="Number of properties for sale allowed per month. Use 0 for unlimited."
-    )
-
-    def __str__(self):
-        return self.name
-
-
 class Profile(models.Model):
     IDENTIFICATION_CHOICES = [
         ("ID", "National ID"),
@@ -56,10 +40,6 @@ class Profile(models.Model):
         upload_to="profile_pictures", blank=True, null=True
     )
     is_seller = models.BooleanField(default=False)
-    subscription = models.ForeignKey(
-        SubscriptionPlan, on_delete=models.SET_NULL, null=True, blank=True
-    )
-    subscription_start_date = models.DateTimeField(null=True, blank=True)
     identification_type = models.CharField(
         max_length=8, choices=IDENTIFICATION_CHOICES, null=True, blank=True
     )
@@ -81,26 +61,13 @@ class Profile(models.Model):
         return self.user.username
 
     def save(self, *args, **kwargs):
-        # Remove the validation check from here
         super().save(*args, **kwargs)
 
     def can_add_property_for_sale(self):
-        if not self.is_seller or not self.subscription:
-            return False
-        if self.subscription.name == "PREMIUM":
-            return True
-
-        start_of_month = timezone.now().replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        )
-        properties_this_month = PropertyForSale.objects.filter(
-            host=self, created_at__gte=start_of_month
-        ).count()
-
-        return properties_this_month < self.subscription.properties_for_sale_limit
+        return self.is_seller
 
     def can_add_rental_property(self):
-        return self.is_seller  # Sellers can always add rental properties for free
+        return self.is_seller
 
 
 @receiver(post_save, sender=User)
@@ -119,9 +86,7 @@ def update_profile_seller_status(sender, instance, **kwargs):
     if instance.user_type == "SELLER":
         profile = Profile.objects.get(user=instance.user)
         profile.is_seller = True
-        standard_plan = SubscriptionPlan.objects.get(name="STANDARD")
-        profile.subscription = standard_plan
-        profile.subscription_start_date = timezone.now()
+        profile.save()
 
 
 class Amenity(models.Model):
@@ -171,14 +136,11 @@ class BaseProperty(models.Model):
         return self.name
 
     def delete(self, *args, **kwargs):
-        # Delete associated reviews
         content_type = ContentType.objects.get_for_model(self)
         Review.objects.filter(content_type=content_type, object_id=self.id).delete()
-        # Delete associated images
         PropertyImage.objects.filter(
             content_type=content_type, object_id=self.id
         ).delete()
-        # Call the "real" delete() method
         super().delete(*args, **kwargs)
 
 
@@ -189,6 +151,7 @@ class RentalProperty(BaseProperty):
     )
     number_of_units = models.PositiveIntegerField()
     is_available = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)  # Add this line
 
     def images(self):
         return PropertyImage.objects.filter(
@@ -206,6 +169,7 @@ class PropertyForSale(BaseProperty):
     price = models.DecimalField(max_digits=12, decimal_places=2)
     is_sold = models.BooleanField(default=False)
     year_built = models.PositiveIntegerField(null=True, blank=True)
+    is_featured = models.BooleanField(default=False)  # Add this line
 
     def images(self):
         return PropertyImage.objects.filter(
@@ -214,19 +178,15 @@ class PropertyForSale(BaseProperty):
 
     def save(self, *args, **kwargs):
         if not self.pk:  # New property being created
-            if not self.host.subscription:
-                raise ValueError("You need a subscription to add properties for sale.")
             if not self.host.can_add_property_for_sale():
-                raise ValueError(
-                    "You have reached your limit for properties for sale this month."
-                )
+                raise ValueError("Only sellers can add properties for sale.")
         super().save(*args, **kwargs)
 
 
 class PropertyImage(models.Model):
     image = models.ImageField(upload_to="property_images")
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.UUIDField()  # Update this to UUIDField
+    object_id = models.UUIDField()
     property = GenericForeignKey("content_type", "object_id")
 
     def __str__(self):
@@ -246,7 +206,7 @@ class Booking(models.Model):
 
 class Review(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
+    object_id = models.UUIDField()
     property = GenericForeignKey("content_type", "object_id")
     reviewer = models.ForeignKey(Profile, on_delete=models.CASCADE)
     rating = models.PositiveIntegerField()
@@ -350,7 +310,6 @@ class BookForSaleViewing(models.Model):
 
     class Meta:
         ordering = ["-viewing_date"]
-        # Prevent multiple bookings for the same property at the same time
         constraints = [
             models.UniqueConstraint(
                 fields=["property", "viewing_date"], name="unique_property_viewing_time"
@@ -378,6 +337,7 @@ class PerNightProperty(BaseProperty):
     min_nights = models.PositiveIntegerField(default=1)
     max_nights = models.PositiveIntegerField(null=True, blank=True)
     is_available = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)  # Add this line
 
     def images(self):
         return PropertyImage.objects.filter(

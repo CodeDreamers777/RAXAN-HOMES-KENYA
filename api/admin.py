@@ -13,7 +13,6 @@ from .models import (
     RentalPricingPeriod,
     WishlistItem,
     Message,
-    SubscriptionPlan,
     Payment,
     PerNightBooking,
     PerNightProperty,
@@ -121,13 +120,6 @@ class WishlistItemAdmin(admin.ModelAdmin):
         return str(obj.property)
 
     get_property_name.short_description = "Property"
-
-
-@admin.register(SubscriptionPlan)
-class SubscriptionPlanAdmin(admin.ModelAdmin):
-    list_display = ("name", "price", "properties_for_sale_limit")
-    list_filter = ("name",)
-    search_fields = ("name",)
 
 
 @admin.register(Payment)

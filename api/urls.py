@@ -69,21 +69,6 @@ urlpatterns = [
         name="get_unread_message_count",
     ),
     path(
-        "subscription-plans/",
-        views.SubscriptionPlanListView.as_view(),
-        name="subscription-plans",
-    ),
-    path(
-        "initiate-subscription/",
-        views.InitiateSubscriptionView.as_view(),
-        name="initiate-subscription",
-    ),
-    path(
-        "verify-subscription/",
-        views.VerifySubscriptionView.as_view(),
-        name="verify-subscription",
-    ),
-    path(
         "per-night/initiate-payment/",
         views.InitiatePerNightPaymentView.as_view(),
         name="initiate-per-night-payment",
