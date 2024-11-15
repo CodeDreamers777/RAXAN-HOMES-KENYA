@@ -37,7 +37,7 @@ if not UPLOAD_THING_API_KEY:
 UPLOAD_URL = "https://api.uploadthing.com/v6/uploadFiles"
 headers = {
     "Content-Type": "application/json",
-    "x-uploadthing-api-key": UPLOAD_THING_API_KEY,
+    "X-Uploadthing-Api-Key": UPLOAD_THING_API_KEY,
 }
 
 
@@ -284,23 +284,39 @@ class BasePropertySerializer(serializers.ModelSerializer):
     def _handle_images(self, instance, image_files):
         for image_file in image_files:
             try:
-                with open(image_file.name, "wb") as f:
+                # Save the image temporarily
+                file_path = os.path.join("/tmp", image_file.name)
+                with open(file_path, "wb") as f:
                     f.write(image_file.read())
 
-                # Upload the image to the external API
-                with open(image_file.name, "rb") as image_file:
-                    files = {"file": image_file}
-                    response = requests.post(UPLOAD_URL, headers=headers, files=files)
-                    print(response)
-                    response.raise_for_status()
-                    data = response.json()
-                    print(data)
-                    image_url = data.get("url")
+                # Prepare the JSON payload
+                file_size = os.path.getsize(file_path)
+                payload = {
+                    "files": [{"name": image_file.name, "size": file_size}],
+                    "acl": "public-read",
+                    "contentDisposition": "inline",
+                }
 
-                # Create a new PropertyImage instance with the uploaded image URL
+                # Send the POST request
+                response = requests.post(UPLOAD_URL, headers=HEADERS, json=payload)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+
+                # Parse the response
+                data = response.json()
+                print(data)
+                image_url = data.get("url")
+                if not image_url:
+                    raise ValueError("URL not returned in response")
+
+                # Save the uploaded image URL to the database
                 PropertyImage.objects.create(property=instance, image_url=image_url)
+
             except Exception as e:
                 print(f"Error saving image: {str(e)}")
+            finally:
+                # Clean up the temporary file
+                if os.path.exists(file_path):
+                    os.remove(file_path)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
