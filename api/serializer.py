@@ -21,6 +21,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
+import requests
+
+API_KEY = "your_api_key"
+UPLOAD_URL = "https://api.uploadthing.com/upload"
+headers = {"Authorization": f"Bearer {API_KEY}"}
 
 
 class SignupSerializer(serializers.Serializer):
@@ -264,35 +269,25 @@ class BasePropertySerializer(serializers.ModelSerializer):
         print(f"Amenities set for property {instance.id}: {amenities}")
 
     def _handle_images(self, instance, image_files):
-        print(f"Handling images for property {instance.id}")
-        print(f"Number of image files: {len(image_files)}")
         for image_file in image_files:
             try:
-                print(f"Attempting to save image: {image_file}")
-                if isinstance(image_file, InMemoryUploadedFile):
-                    print(f"Image file name: {image_file.name}")
-                    print(f"Image file size: {image_file.size}")
-                    print(f"Image file content type: {image_file.content_type}")
+                with open(image_file.name, "wb") as f:
+                    f.write(image_file.read())
 
-                    # Try to read the file content
-                    file_content = image_file.read()
-                    print(
-                        f"Successfully read {len(file_content)} bytes from the image file"
-                    )
+                # Upload the image to the external API
+                with open(image_file.name, "rb") as image_file:
+                    files = {"file": image_file}
+                    response = requests.post(UPLOAD_URL, headers=headers, files=files)
+                    print(response)
+                    response.raise_for_status()
+                    data = response.json()
+                    print(data)
+                    image_url = data.get("url")
 
-                    # Important: Seek back to the beginning of the file
-                    image_file.seek(0)
-
-                    new_image = PropertyImage(property=instance, image=image_file)
-                    new_image.save()
-                    print(f"Image saved successfully with id: {new_image.id}")
-                else:
-                    print(f"Unexpected type for image_file: {type(image_file)}")
+                # Create a new PropertyImage instance with the uploaded image URL
+                PropertyImage.objects.create(property=instance, image_url=image_url)
             except Exception as e:
                 print(f"Error saving image: {str(e)}")
-                import traceback
-
-                print(traceback.format_exc())
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

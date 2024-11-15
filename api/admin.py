@@ -101,7 +101,7 @@ class RentalPricingPeriodAdmin(admin.ModelAdmin):
 
 @admin.register(PropertyImage)
 class PropertyImageAdmin(admin.ModelAdmin):
-    list_display = ("get_property_name", "image")
+    list_display = ("get_property_name", "image_url")
     search_fields = ("property__name",)
 
     def get_property_name(self, obj):
