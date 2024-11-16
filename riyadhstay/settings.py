@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+import cloudinary_storage
 
 # Load environment variables from .env file
 load_dotenv()
@@ -197,6 +198,9 @@ CORS_ALLOW_HEADERS = ["*"]
 CORS_ALLOW_METHODS = ["*"]
 
 
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+
 MEDIA_URL = "/media/"  # This is required
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
@@ -207,5 +211,3 @@ CLOUDINARY_STORAGE = {
     "API_KEY": os.getenv("API_KEY"),
     "API_SECRET": os.getenv("API_SECRET"),
 }
-
-DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
