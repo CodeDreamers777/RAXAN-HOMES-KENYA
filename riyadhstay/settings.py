@@ -17,6 +17,9 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+print(os.getenv("CLOUD_NAME"))  # Should output your cloud name
+print(os.getenv("API_KEY"))  # Should output your API key
+print(os.getenv("API_SECRET"))  # Should output your API secret
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,12 +45,12 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "cloudinary_storage",  # should come before django.contrib.staticfiles
     "django.contrib.staticfiles",
+    "cloudinary",
     "rest_framework",
     "api",
     "corsheaders",
-    "cloudinary",
-    "cloudinary_storage",
 ]
 
 MIDDLEWARE = [
@@ -194,8 +197,8 @@ CORS_ALLOW_HEADERS = ["*"]
 CORS_ALLOW_METHODS = ["*"]
 
 
-# MEDIA_URL = "/media/"
-# MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"  # This is required
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
 # Cloudinary configuration
