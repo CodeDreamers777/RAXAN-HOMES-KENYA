@@ -9,6 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.validators import RegexValidator
 from django.utils import timezone
 from django.db.models import Count
+from cloudinary.models import CloudinaryField
 
 
 class UserType(models.Model):
@@ -184,9 +185,12 @@ class PropertyForSale(BaseProperty):
 
 
 class PropertyImage(models.Model):
-    image = models.ImageField(
-        upload_to="property_images", null=True, blank=True
-    )  # Allow null values
+    image = CloudinaryField(
+        "image",
+        folder="property_images",  # This will create a folder in Cloudinary
+        null=True,
+        blank=True,
+    )
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.UUIDField()
     property = GenericForeignKey("content_type", "object_id")

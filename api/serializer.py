@@ -20,6 +20,7 @@ from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg
 
+from cloudinary.uploader import upload
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
@@ -263,9 +264,10 @@ class BasePropertySerializer(serializers.ModelSerializer):
         instance.amenities.set(amenities)
         print(f"Amenities set for property {instance.id}: {amenities}")
 
-    def _handle_images(self, instance, image_files):
+    def handle_images(self, instance, image_files):
         print(f"Handling images for property {instance.id}")
         print(f"Number of image files: {len(image_files)}")
+
         for image_file in image_files:
             try:
                 print(f"Attempting to save image: {image_file}")
@@ -273,15 +275,19 @@ class BasePropertySerializer(serializers.ModelSerializer):
                     print(f"Image file name: {image_file.name}")
                     print(f"Image file size: {image_file.size}")
                     print(f"Image file content type: {image_file.content_type}")
-                    # Try to read the file content
-                    file_content = image_file.read()
-                    print(
-                        f"Successfully read {len(file_content)} bytes from the image file"
+
+                    # Create the PropertyImage instance with the Cloudinary field
+                    new_image = PropertyImage(
+                        property=instance,
                     )
-                    # Important: Seek back to the beginning of the file
-                    image_file.seek(0)
-                    new_image = PropertyImage(property=instance, image=image_file)
+
+                    # Save the instance first to get an ID
                     new_image.save()
+
+                    # Now save the image file to the CloudinaryField
+                    new_image.image = image_file
+                    new_image.save()
+
                     print(f"Image saved successfully with id: {new_image.id}")
                 else:
                     print(f"Unexpected type for image_file: {type(image_file)}")
