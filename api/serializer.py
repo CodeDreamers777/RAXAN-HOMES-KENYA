@@ -264,7 +264,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
         instance.amenities.set(amenities)
         print(f"Amenities set for property {instance.id}: {amenities}")
 
-    def handle_images(self, instance, image_files):
+    def _handle_images(self, instance, image_files):
         print(f"Handling images for property {instance.id}")
         print(f"Number of image files: {len(image_files)}")
 
