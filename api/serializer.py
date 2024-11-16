@@ -21,24 +21,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
-import requests
-
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-
-# Get API key from environment variable
-UPLOAD_THING_API_KEY = os.getenv("UPLOAD_THING_API_KEY")
-if not UPLOAD_THING_API_KEY:
-    raise ValueError("UPLOAD_THING_API_KEY environment variable is not set")
-
-
-UPLOAD_URL = "https://api.uploadthing.com/v6/uploadFiles"
-headers = {
-    "Content-Type": "application/json",
-    "X-Uploadthing-Api-Key": UPLOAD_THING_API_KEY,
-}
 
 
 class SignupSerializer(serializers.Serializer):
@@ -282,41 +264,32 @@ class BasePropertySerializer(serializers.ModelSerializer):
         print(f"Amenities set for property {instance.id}: {amenities}")
 
     def _handle_images(self, instance, image_files):
+        print(f"Handling images for property {instance.id}")
+        print(f"Number of image files: {len(image_files)}")
         for image_file in image_files:
             try:
-                # Save the image temporarily
-                file_path = os.path.join("/tmp", image_file.name)
-                with open(file_path, "wb") as f:
-                    f.write(image_file.read())
-
-                # Prepare the JSON payload
-                file_size = os.path.getsize(file_path)
-                payload = {
-                    "files": [{"name": image_file.name, "size": file_size}],
-                    "acl": "public-read",
-                    "contentDisposition": "inline",
-                }
-
-                # Send the POST request
-                response = requests.post(UPLOAD_URL, headers=headers, json=payload)
-                response.raise_for_status()  # Raise an exception for HTTP errors
-
-                # Parse the response
-                data = response.json()
-                print(data)
-                image_url = data.get("url")
-                if not image_url:
-                    raise ValueError("URL not returned in response")
-
-                # Save the uploaded image URL to the database
-                PropertyImage.objects.create(property=instance, image_url=image_url)
-
+                print(f"Attempting to save image: {image_file}")
+                if isinstance(image_file, InMemoryUploadedFile):
+                    print(f"Image file name: {image_file.name}")
+                    print(f"Image file size: {image_file.size}")
+                    print(f"Image file content type: {image_file.content_type}")
+                    # Try to read the file content
+                    file_content = image_file.read()
+                    print(
+                        f"Successfully read {len(file_content)} bytes from the image file"
+                    )
+                    # Important: Seek back to the beginning of the file
+                    image_file.seek(0)
+                    new_image = PropertyImage(property=instance, image=image_file)
+                    new_image.save()
+                    print(f"Image saved successfully with id: {new_image.id}")
+                else:
+                    print(f"Unexpected type for image_file: {type(image_file)}")
             except Exception as e:
                 print(f"Error saving image: {str(e)}")
-            finally:
-                # Clean up the temporary file
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+                import traceback
+
+                print(traceback.format_exc())
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
