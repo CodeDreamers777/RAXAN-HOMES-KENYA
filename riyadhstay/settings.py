@@ -14,13 +14,24 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
-import cloudinary_storage
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # Load environment variables from .env file
 load_dotenv()
-print(os.getenv("CLOUD_NAME"))  # Should output your cloud name
-print(os.getenv("API_KEY"))  # Should output your API key
-print(os.getenv("API_SECRET"))  # Should output your API secret
+
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+)
+
+print("Cloudinary credentials:")
+print(f"Cloud name: {os.getenv('CLOUDINARY_CLOUD_NAME')}")
+print(f"API key: {os.getenv('CLOUDINARY_API_KEY')}")
+print(f"API secret: {os.getenv('CLOUDINARY_API_SECRET')}")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -207,7 +218,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Cloudinary configuration
 CLOUDINARY_STORAGE = {
-    "CLOUD_NAME": os.getenv("CLOUD_NAME"),
-    "API_KEY": os.getenv("API_KEY"),
-    "API_SECRET": os.getenv("API_SECRET"),
+    "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
+    "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
+    "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
 }
