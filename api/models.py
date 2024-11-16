@@ -184,7 +184,9 @@ class PropertyForSale(BaseProperty):
 
 
 class PropertyImage(models.Model):
-    image = models.ImageField(upload_to="property_images")
+    image = models.ImageField(
+        upload_to="property_images", null=True, blank=True
+    )  # Allow null values
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.UUIDField()
     property = GenericForeignKey("content_type", "object_id")
