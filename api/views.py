@@ -840,13 +840,15 @@ class WishlistView(APIView):
         property_type = request.data.get("property_type")
         property_id = request.data.get("property_id")
 
-        if property_type not in ["rental", "sale"]:
+        if property_type not in ["rental", "sale", "per_night"]:
             return Response(
                 {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         if property_type == "rental":
             model = RentalProperty
+        elif property_type == "per_night":
+            model = PerNightProperty
         else:
             model = PropertyForSale
 
@@ -878,13 +880,16 @@ class WishlistView(APIView):
         property_type = request.data.get("property_type")
         property_id = request.data.get("property_id")
 
-        if property_type not in ["rental", "sale"]:
+        if property_type not in ["rental", "sale", "per_night"]:
             return Response(
                 {"error": "Invalid property type"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         if property_type == "rental":
             model = RentalProperty
+        elif property_type == "per_night":
+            model = PerNightProperty
+
         else:
             model = PropertyForSale
 
