@@ -330,9 +330,19 @@ class RentalPropertySerializer(BasePropertySerializer):
 
 
 class PropertyForSaleSerializer(BasePropertySerializer):
+    is_featured = serializers.SerializerMethodField()
+
     class Meta(BasePropertySerializer.Meta):
         model = PropertyForSale
-        fields = BasePropertySerializer.Meta.fields + ["price", "is_sold", "year_built"]
+        fields = BasePropertySerializer.Meta.fields + [
+            "price",
+            "is_sold",
+            "year_built",
+            "is_featured",
+        ]
+
+    def get_is_featured(self, obj):
+        return obj.is_featured
 
 
 class WishlistItemSerializer(serializers.ModelSerializer):
@@ -502,6 +512,8 @@ class BookForSaleViewingSerializer(serializers.ModelSerializer):
 
 class PerNightPropertySerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
+    is_featured = serializers.SerializerMethodField()
+
     host_username = serializers.CharField(source="host.user.username", read_only=True)
     uploaded_images = serializers.ListField(
         child=serializers.ImageField(
@@ -530,6 +542,7 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
             "area",
             "host_username",
             "price_per_night",
+            "is_featured",
             "number_of_units",
             "property_style",
             "check_in_time",
@@ -551,6 +564,9 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
             {"id": image.id, "image": image.image.url if image.image else None}
             for image in images
         ]
+
+    def get_is_featured(self, obj):
+        return obj.is_featured
 
     def get_rating(self, obj):
         from django.contrib.contenttypes.models import ContentType
