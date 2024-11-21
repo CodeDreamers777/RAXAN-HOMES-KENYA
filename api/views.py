@@ -787,10 +787,12 @@ class PropertyViewSet(viewsets.ViewSet):
         # Get all properties owned by the user
         rental_properties = RentalProperty.objects.filter(host=user_profile)
         properties_for_sale = PropertyForSale.objects.filter(host=user_profile)
+        per_night_properties = PerNightProperty.objects.filter(host=user_profile)
 
-        # Get content types for both property models
+        # Get content types for all property models
         rental_content_type = ContentType.objects.get_for_model(RentalProperty)
         sale_content_type = ContentType.objects.get_for_model(PropertyForSale)
+        per_night_content_type = ContentType.objects.get_for_model(PerNightProperty)
 
         # Get all reviews for the user's properties
         reviews = Review.objects.filter(
@@ -802,25 +804,65 @@ class PropertyViewSet(viewsets.ViewSet):
                 Q(content_type=sale_content_type)
                 & Q(object_id__in=properties_for_sale.values_list("id", flat=True))
             )
+            | (
+                Q(content_type=per_night_content_type)
+                & Q(object_id__in=per_night_properties.values_list("id", flat=True))
+            )
         ).order_by("-created_at")
 
         serializer = ReviewSerializer(reviews, many=True)
 
         return Response(serializer.data)
 
+    def update(self, request, pk=None):
+        property = self.get_object(pk)
+        if property is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the user is the host and a seller
+        if (
+            property.host.user != request.user
+            or request.user.usertype.user_type != "SELLER"
+        ):
+            return Response(
+                {"error": "You do not have permission to update this property"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Choose the right serializer based on property type
+        if isinstance(property, RentalProperty):
+            serializer = RentalPropertySerializer(
+                property, data=request.data, partial=True
+            )
+        elif isinstance(property, PropertyForSale):
+            serializer = PropertyForSaleSerializer(
+                property, data=request.data, partial=True
+            )
+        elif isinstance(property, PerNightProperty):
+            serializer = PerNightPropertySerializer(
+                property, data=request.data, partial=True
+            )
+        else:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def destroy(self, request, pk=None):
         property = self.get_object(pk)
         if property is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-            if (
-                property.host.user != request.user
-                or request.user.usertype.user_type != "SELLER"
-            ):
-                return Response(
-                    {"error": "You do not have permission to delete this property"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+        if (
+            property.host.user != request.user
+            or request.user.usertype.user_type != "SELLER"
+        ):
+            return Response(
+                {"error": "You do not have permission to delete this property"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         property.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
