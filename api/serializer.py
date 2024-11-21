@@ -4,6 +4,7 @@ from .models import (
     RentalProperty,
     PropertyForSale,
     PerNightProperty,
+    PerNightBooking,
     PropertyImage,
     Amenity,
     UserType,
@@ -652,3 +653,37 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
             instance.amenities.all(), many=True
         ).data
         return representation
+
+
+class PerNightBookingSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="property.name", read_only=True)
+    property_id = serializers.CharField(source="property.id", read_only=True)
+    host_username = serializers.CharField(
+        source="property.host.user.username", read_only=True
+    )
+    client_email = serializers.EmailField(source="client.user.email", read_only=True)
+    client_phone_number = serializers.CharField(
+        source="client.phone_number", read_only=True
+    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = PerNightBooking
+        fields = [
+            "id",
+            "property",
+            "property_id",
+            "property_name",
+            "host_username",
+            "client_email",
+            "client_phone_number",
+            "check_in_date",
+            "check_out_date",
+            "total_nights",
+            "total_price",
+            "status",
+            "status_display",
+            "guests",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]

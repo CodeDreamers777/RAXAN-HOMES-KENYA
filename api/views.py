@@ -54,6 +54,7 @@ from .serializer import (
     OTPEmailSerializer,
     BookForSaleViewingSerializer,
     ForgotPasswordSerializer,
+    PerNightBookingSerializer,
     PerNightPropertySerializer,
     OTPVerificationSerializer,
     ResetPasswordSerializer,
@@ -1708,3 +1709,22 @@ def check_booking_exists(request, username, property_id, property_type):
         )
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PerNightBookingListView(generics.ListAPIView):
+    serializer_class = PerNightBookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user_profile = self.request.user.profile
+        user_type = self.request.query_params.get("user_type", "client")
+
+        if user_type == "client":
+            # Return bookings for the logged-in user as a client
+            return PerNightBooking.objects.filter(client=user_profile)
+        elif user_type == "seller":
+            # Return bookings for properties hosted by the logged-in user
+            return PerNightBooking.objects.filter(property__host=user_profile)
+        else:
+            # Return an empty queryset for invalid user type
+            return PerNightBooking.objects.none()
