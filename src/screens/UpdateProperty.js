@@ -87,20 +87,57 @@ function UpdateProperty({ route, navigation }) {
     setShowMap(false);
   };
 
+  const renderLabeledInput = (
+    label,
+    iconName,
+    value,
+    onChangeText,
+    placeholder,
+    inputProps = {},
+  ) => (
+    <View style={styles.labeledInputContainer}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <View style={styles.inputContainer}>
+        <Ionicons
+          name={iconName}
+          size={24}
+          color="#4CAF50"
+          style={styles.icon}
+        />
+        <TextInput
+          style={styles.input}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          {...inputProps}
+        />
+      </View>
+    </View>
+  );
+
   const renderLocationInput = () => (
-    <View style={styles.inputContainer}>
-      <Ionicons
-        name="location-outline"
-        size={24}
-        color="#4CAF50"
-        style={styles.icon}
-      />
-      <TextInput
-        style={styles.input}
-        value={property.location}
-        onChangeText={(text) => setProperty({ ...property, location: text })}
-        placeholder="Location"
-      />
+    <View style={styles.labeledInputContainer}>
+      <Text style={styles.inputLabel}>Location</Text>
+      <View style={styles.inputContainer}>
+        <Ionicons
+          name="location-outline"
+          size={24}
+          color="#4CAF50"
+          style={styles.icon}
+        />
+        <TextInput
+          style={styles.input}
+          value={property.location}
+          onChangeText={(text) => setProperty({ ...property, location: text })}
+          placeholder="Enter location"
+        />
+        <TouchableOpacity
+          onPress={handleLocationPress}
+          style={styles.mapButton}
+        >
+          <Ionicons name="map-outline" size={24} color="#4CAF50" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -156,7 +193,6 @@ function UpdateProperty({ route, navigation }) {
       formData.append("name", property.name);
       formData.append("description", property.description);
       formData.append("location", property.location);
-      formData.append("property_type", property.property_type);
       formData.append("bedrooms", property.bedrooms.toString());
       formData.append("bathrooms", property.bathrooms.toString());
       formData.append("area", property.area);
@@ -165,11 +201,22 @@ function UpdateProperty({ route, navigation }) {
         JSON.stringify(property.amenities.map((a) => a.name)),
       );
 
-      if ("price_per_month" in property) {
+      if ("price_per_night" in property) {
+        // Per-night property fields
+        formData.append("price_per_night", property.price_per_night);
+        formData.append("number_of_units", property.number_of_units.toString());
+        formData.append("is_available", property.is_available.toString());
+        formData.append("check_in_time", property.check_in_time);
+        formData.append("check_out_time", property.check_out_time);
+        formData.append("min_nights", property.min_nights.toString());
+        formData.append("max_nights", property.max_nights.toString());
+      } else if ("price_per_month" in property) {
+        // Rental property fields
         formData.append("price_per_month", property.price_per_month);
         formData.append("number_of_units", property.number_of_units.toString());
         formData.append("is_available", property.is_available.toString());
       } else {
+        // Sale property fields
         formData.append("price", property.price);
         formData.append("year_built", property.year_built.toString());
         formData.append("is_sold", property.is_sold.toString());
@@ -290,216 +337,233 @@ function UpdateProperty({ route, navigation }) {
   }
 
   const isRental = "price_per_month" in property;
+  const isPerNight = "price_per_night" in property;
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Update Property</Text>
 
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="home-outline"
-          size={24}
-          color="#4CAF50"
-          style={styles.icon}
-        />
-        <TextInput
-          style={styles.input}
-          value={property.name}
-          onChangeText={(text) => setProperty({ ...property, name: text })}
-          placeholder="Property Name"
-        />
-      </View>
+      {renderLabeledInput(
+        "Property Name",
+        "home-outline",
+        property.name,
+        (text) => setProperty({ ...property, name: text }),
+        "Enter property name",
+      )}
 
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="document-text-outline"
-          size={24}
-          color="#4CAF50"
-          style={styles.icon}
-        />
-        <TextInput
-          style={[styles.input, styles.multilineInput]}
-          value={property.description}
-          onChangeText={(text) =>
-            setProperty({ ...property, description: text })
-          }
-          placeholder="Description"
-          multiline
-          numberOfLines={4}
-        />
+      <View style={styles.labeledInputContainer}>
+        <Text style={styles.inputLabel}>Description</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons
+            name="document-text-outline"
+            size={24}
+            color="#4CAF50"
+            style={styles.icon}
+          />
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            value={property.description}
+            onChangeText={(text) =>
+              setProperty({ ...property, description: text })
+            }
+            placeholder="Enter property description"
+            multiline
+            numberOfLines={4}
+          />
+        </View>
       </View>
 
       {renderLocationInput()}
 
-      <View style={styles.pickerContainer}>
-        <Ionicons
-          name="business-outline"
-          size={24}
-          color="#4CAF50"
-          style={styles.icon}
-        />
-        <Picker
-          selectedValue={property.property_type}
-          onValueChange={(itemValue) =>
-            setProperty({ ...property, property_type: itemValue })
-          }
-          style={styles.picker}
-        >
-          <Picker.Item label="House" value="HOUSE" />
-          <Picker.Item label="Apartment" value="APARTMENT" />
-          <Picker.Item label="Villa" value="VILLA" />
-        </Picker>
-      </View>
-
       <View style={styles.row}>
-        <View style={[styles.inputContainer, styles.halfWidth]}>
-          <Ionicons
-            name="bed-outline"
-            size={24}
-            color="#4CAF50"
-            style={styles.icon}
-          />
-          <TextInput
-            style={styles.input}
-            value={property.bedrooms?.toString()}
-            onChangeText={(text) =>
-              setProperty({ ...property, bedrooms: parseInt(text) || 0 })
-            }
-            placeholder="Bedrooms"
-            keyboardType="numeric"
-          />
-        </View>
+        {renderLabeledInput(
+          "Bedrooms",
+          "bed-outline",
+          property.bedrooms?.toString(),
+          (text) => setProperty({ ...property, bedrooms: parseInt(text) || 0 }),
+          "Number of bedrooms",
+          { keyboardType: "numeric" },
+        )}
 
-        <View style={[styles.inputContainer, styles.halfWidth]}>
-          <Ionicons
-            name="water-outline"
-            size={24}
-            color="#4CAF50"
-            style={styles.icon}
-          />
-          <TextInput
-            style={styles.input}
-            value={property.bathrooms?.toString()}
-            onChangeText={(text) =>
-              setProperty({ ...property, bathrooms: parseInt(text) || 0 })
-            }
-            placeholder="Bathrooms"
-            keyboardType="numeric"
-          />
-        </View>
+        {renderLabeledInput(
+          "Bathrooms",
+          "water-outline",
+          property.bathrooms?.toString(),
+          (text) =>
+            setProperty({ ...property, bathrooms: parseInt(text) || 0 }),
+          "Number of bathrooms",
+          { keyboardType: "numeric" },
+        )}
       </View>
 
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="resize-outline"
-          size={24}
-          color="#4CAF50"
-          style={styles.icon}
-        />
-        <TextInput
-          style={styles.input}
-          value={property.area}
-          onChangeText={(text) => setProperty({ ...property, area: text })}
-          placeholder="Area (sqft)"
-          keyboardType="numeric"
-        />
-      </View>
+      {renderLabeledInput(
+        "Area (sqft)",
+        "resize-outline",
+        property.area,
+        (text) => setProperty({ ...property, area: text }),
+        "Enter property area",
+        { keyboardType: "numeric" },
+      )}
 
-      {isRental ? (
+      {isPerNight ? (
         <>
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="cash-outline"
-              size={24}
-              color="#4CAF50"
-              style={styles.icon}
-            />
-            <TextInput
-              style={styles.input}
-              value={property.price_per_month}
-              onChangeText={(text) =>
-                setProperty({ ...property, price_per_month: text })
-              }
-              placeholder="Price per month"
-              keyboardType="numeric"
-            />
-          </View>
+          {renderLabeledInput(
+            "Price per Night",
+            "cash-outline",
+            property.price_per_night,
+            (text) => setProperty({ ...property, price_per_night: text }),
+            "Enter nightly rate",
+            { keyboardType: "numeric" },
+          )}
 
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="people-outline"
-              size={24}
-              color="#4CAF50"
-              style={styles.icon}
-            />
-            <TextInput
-              style={styles.input}
-              value={property.number_of_units?.toString()}
-              onChangeText={(text) =>
+          {renderLabeledInput(
+            "Number of Units",
+            "people-outline",
+            property.number_of_units?.toString(),
+            (text) =>
+              setProperty({
+                ...property,
+                number_of_units: parseInt(text) || 0,
+              }),
+            "Enter number of units",
+            { keyboardType: "numeric" },
+          )}
+
+          {renderLabeledInput(
+            "Check-in Time",
+            "time-outline",
+            property.check_in_time,
+            (text) => setProperty({ ...property, check_in_time: text }),
+            "Enter check-in time (HH:MM)",
+          )}
+
+          {renderLabeledInput(
+            "Check-out Time",
+            "time-outline",
+            property.check_out_time,
+            (text) => setProperty({ ...property, check_out_time: text }),
+            "Enter check-out time (HH:MM)",
+          )}
+
+          <View style={styles.row}>
+            {renderLabeledInput(
+              "Minimum Nights",
+              "calendar-outline",
+              property.min_nights?.toString(),
+              (text) =>
                 setProperty({
                   ...property,
-                  number_of_units: parseInt(text) || 0,
-                })
-              }
-              placeholder="Number of Units"
-              keyboardType="numeric"
-            />
+                  min_nights: parseInt(text) || 0,
+                }),
+              "Minimum stay",
+              { keyboardType: "numeric" },
+            )}
+
+            {renderLabeledInput(
+              "Maximum Nights",
+              "calendar-outline",
+              property.max_nights?.toString(),
+              (text) =>
+                setProperty({
+                  ...property,
+                  max_nights: parseInt(text) || 0,
+                }),
+              "Maximum stay",
+              { keyboardType: "numeric" },
+            )}
           </View>
 
-          <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>Is Available</Text>
-            <Switch
-              value={property.is_available}
-              onValueChange={(value) =>
-                setProperty({ ...property, is_available: value })
-              }
-            />
+          <View style={styles.labeledInputContainer}>
+            <Text style={styles.inputLabel}>Availability</Text>
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchLabel}>Is Available</Text>
+              <Switch
+                value={property.is_available}
+                onValueChange={(value) =>
+                  setProperty({ ...property, is_available: value })
+                }
+              />
+            </View>
+          </View>
+        </>
+      ) : isRental ? (
+        <>
+          {renderLabeledInput(
+            "Price per Month",
+            "cash-outline",
+            property.price_per_month,
+            (text) => setProperty({ ...property, price_per_month: text }),
+            "Enter monthly rent",
+            { keyboardType: "numeric" },
+          )}
+
+          {renderLabeledInput(
+            "Deposit Amount",
+            "cash-outline",
+            property.deposit,
+            (text) => setProperty({ ...property, deposit: text }),
+            "Enter deposit amount",
+            { keyboardType: "numeric" },
+          )}
+
+          {renderLabeledInput(
+            "Number of Units",
+            "people-outline",
+            property.number_of_units?.toString(),
+            (text) =>
+              setProperty({
+                ...property,
+                number_of_units: parseInt(text) || 0,
+              }),
+            "Enter number of units",
+            { keyboardType: "numeric" },
+          )}
+
+          <View style={styles.labeledInputContainer}>
+            <Text style={styles.inputLabel}>Availability</Text>
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchLabel}>Is Available</Text>
+              <Switch
+                value={property.is_available}
+                onValueChange={(value) =>
+                  setProperty({ ...property, is_available: value })
+                }
+              />
+            </View>
           </View>
         </>
       ) : (
         <>
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="cash-outline"
-              size={24}
-              color="#4CAF50"
-              style={styles.icon}
-            />
-            <TextInput
-              style={styles.input}
-              value={property.price}
-              onChangeText={(text) => setProperty({ ...property, price: text })}
-              placeholder="Price"
-              keyboardType="numeric"
-            />
-          </View>
+          {renderLabeledInput(
+            "Price",
+            "cash-outline",
+            property.price,
+            (text) => setProperty({ ...property, price: text }),
+            "Enter property price",
+            { keyboardType: "numeric" },
+          )}
 
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="calendar-outline"
-              size={24}
-              color="#4CAF50"
-              style={styles.icon}
-            />
-            <TextInput
-              style={styles.input}
-              value={property.year_built?.toString()}
-              onChangeText={(text) =>
-                setProperty({ ...property, year_built: parseInt(text) || 0 })
-              }
-              placeholder="Year Built"
-              keyboardType="numeric"
-            />
-          </View>
+          {renderLabeledInput(
+            "Year Built",
+            "calendar-outline",
+            property.year_built?.toString(),
+            (text) =>
+              setProperty({ ...property, year_built: parseInt(text) || 0 }),
+            "Enter year of construction",
+            { keyboardType: "numeric" },
+          )}
 
-          <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>Is Sold</Text>
-            <Switch
-              value={property.is_sold}
-              onValueChange={(value) =>
-                setProperty({ ...property, is_sold: value })
-              }
-            />
+          <View style={styles.labeledInputContainer}>
+            <Text style={styles.inputLabel}>Property Status</Text>
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchLabel}>Is Sold</Text>
+              <Switch
+                value={property.is_sold}
+                onValueChange={(value) =>
+                  setProperty({ ...property, is_sold: value })
+                }
+              />
+            </View>
           </View>
         </>
       )}
@@ -515,16 +579,22 @@ function UpdateProperty({ route, navigation }) {
           </View>
         ))}
       </View>
-      <View style={styles.addAmenityContainer}>
-        <TextInput
-          style={styles.addAmenityInput}
-          value={newAmenity}
-          onChangeText={setNewAmenity}
-          placeholder="Add new amenity"
-        />
-        <TouchableOpacity style={styles.addAmenityButton} onPress={addAmenity}>
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
+      <View style={styles.labeledInputContainer}>
+        <Text style={styles.inputLabel}>Add Amenity</Text>
+        <View style={styles.addAmenityContainer}>
+          <TextInput
+            style={styles.addAmenityInput}
+            value={newAmenity}
+            onChangeText={setNewAmenity}
+            placeholder="Enter new amenity"
+          />
+          <TouchableOpacity
+            style={styles.addAmenityButton}
+            onPress={addAmenity}
+          >
+            <Ionicons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Text style={styles.sectionTitle}>Property Images</Text>
@@ -688,6 +758,18 @@ const styles = StyleSheet.create({
   map: {
     width: "100%",
     height: "100%",
+  },
+  labeledInputContainer: {
+    marginBottom: 15,
+  },
+  inputLabel: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 5,
+    fontWeight: "bold",
+  },
+  mapButton: {
+    padding: 10,
   },
 });
 

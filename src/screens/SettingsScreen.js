@@ -25,8 +25,6 @@ const SettingsScreen = ({ navigation }) => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
   const [profile, setProfile] = useState(null);
   const [paymentUrl, setPaymentUrl] = useState("");
@@ -60,16 +58,6 @@ const SettingsScreen = ({ navigation }) => {
       }
       const profileData = await response.json();
       setProfile(profileData);
-
-      // Fetch subscription plans
-      const plansResponse = await fetch(
-        `${API_BASE_URL}/api/v1/subscription-plans/`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        },
-      );
-      const plansData = await plansResponse.json();
-      setSubscriptionPlans(plansData);
     } catch (error) {
       console.error("Error fetching profile:", error);
       Alert.alert("Error", "Failed to load profile. Please try again.");
@@ -200,116 +188,6 @@ const SettingsScreen = ({ navigation }) => {
     setShowWebView(true);
   };
 
-  const handleUpgradePlan = () => {
-    setShowSubscriptionModal(true);
-  };
-
-  const handleSubscribe = async (planId) => {
-    try {
-      const accessTokenData = await AsyncStorage.getItem("accessToken");
-      const { value: accessToken } = JSON.parse(accessTokenData);
-      const csrfToken = await AsyncStorage.getItem("csrfToken");
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/initiate-subscription/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-            "X-CSRFToken": csrfToken,
-            Referer: API_BASE_URL,
-          },
-          body: JSON.stringify({ plan_id: planId }),
-        },
-      );
-
-      const data = await response.json();
-      if (data.payment_url && data.reference) {
-        setPaymentUrl(data.payment_url);
-        setPaymentReference(data.reference);
-        setShowWebViewPayment(true);
-      } else {
-        Alert.alert(
-          "Error",
-          "Failed to initiate subscription. Please try again.",
-        );
-      }
-    } catch (error) {
-      console.error("Error initiating subscription:", error);
-      Alert.alert(
-        "Error",
-        "An error occurred while initiating the subscription. Please try again.",
-      );
-    }
-  };
-
-  const handleWebViewClose = async () => {
-    setShowWebViewPayment(false);
-    try {
-      const accessTokenData = await AsyncStorage.getItem("accessToken");
-      const { value: accessToken } = JSON.parse(accessTokenData);
-      const csrfToken = await AsyncStorage.getItem("csrfToken");
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/verify-subscription/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-            "X-CSRFToken": csrfToken,
-            Referer: API_BASE_URL,
-          },
-          body: JSON.stringify({ reference: paymentReference }),
-        },
-      );
-
-      const data = await response.json();
-      if (data.message === "Subscription updated successfully") {
-        Alert.alert(
-          "Success",
-          "Your subscription has been updated successfully.",
-        );
-        await fetchProfileData();
-        setShowSubscriptionModal(false);
-      } else {
-        Alert.alert(
-          "Error",
-          "Failed to verify subscription. Please contact support.",
-        );
-      }
-    } catch (error) {
-      console.error("Error verifying subscription:", error);
-      Alert.alert(
-        "Error",
-        "An error occurred while verifying the subscription. Please try again.",
-      );
-    }
-  };
-
-  const renderSubscriptionPlan = ({ item }) => (
-    <View style={styles.planCard}>
-      <Text style={styles.planName}>{item.name}</Text>
-      <Text style={styles.planPrice}>KSH {item.price}</Text>
-      <Text style={styles.planLimit}>
-        {item.properties_for_sale_limit === 0
-          ? "Unlimited listings"
-          : `${item.properties_for_sale_limit} listings`}
-      </Text>
-      {profile?.subscription === item.id ? (
-        <View style={styles.subscribedButton}>
-          <Text style={styles.subscribedButtonText}>Subscribed</Text>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.subscribeButton}
-          onPress={() => handleSubscribe(item.id)}
-        >
-          <Text style={styles.subscribeButtonText}>Subscribe</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
@@ -341,13 +219,6 @@ const SettingsScreen = ({ navigation }) => {
           <Text style={styles.settingText}>Privacy Policy</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.settingItem}
-          onPress={handleUpgradePlan}
-        >
-          <Ionicons name="arrow-up-circle-outline" size={24} color="#333" />
-          <Text style={styles.settingText}>Upgrade My Plan</Text>
-        </TouchableOpacity>
         <TouchableOpacity
           style={styles.settingItem}
           onPress={() => setShowDeleteAccountModal(true)}
@@ -489,115 +360,6 @@ const SettingsScreen = ({ navigation }) => {
             ref={webViewRef}
             source={{ uri: webViewUrl }}
             style={styles.webView}
-          />
-        </SafeAreaView>
-      </Modal>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showSubscriptionModal}
-        onRequestClose={() => setShowSubscriptionModal(false)}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>Choose Your Plan</Text>
-            <View style={styles.tabContainer}>
-              {subscriptionPlans.map((plan, index) => (
-                <TouchableOpacity
-                  key={plan.id}
-                  style={[styles.tab, activeTab === index && styles.activeTab]}
-                  onPress={() => setActiveTab(index)}
-                >
-                  <Text
-                    style={[
-                      styles.tabText,
-                      activeTab === index && styles.activeTabText,
-                    ]}
-                  >
-                    {plan.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <ScrollView style={styles.planContent}>
-              {subscriptionPlans[activeTab] && (
-                <>
-                  <Text style={styles.planName}>
-                    {subscriptionPlans[activeTab].name} Plan
-                  </Text>
-                  <Text style={styles.planPrice}>
-                    KSH {subscriptionPlans[activeTab].price}/month
-                  </Text>
-                  <View style={styles.planFeatures}>
-                    <Text style={styles.featureTitle}>Features:</Text>
-                    <Text style={styles.feature}>
-                      •{" "}
-                      {subscriptionPlans[activeTab]
-                        .properties_for_sale_limit === 0
-                        ? "Unlimited listings"
-                        : `${subscriptionPlans[activeTab].properties_for_sale_limit} listings per month`}
-                    </Text>
-                    {subscriptionPlans[activeTab].name === "PREMIUM" && (
-                      <>
-                        <Text style={styles.feature}>• Featured listings</Text>
-                      </>
-                    )}
-                  </View>
-                </>
-              )}
-            </ScrollView>
-            {profile?.subscription === subscriptionPlans[activeTab]?.id ? (
-              <View style={styles.subscribedButton}>
-                <Text style={styles.subscribedButtonText}>Subscribed</Text>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.subscribeButton}
-                onPress={() => handleSubscribe(subscriptionPlans[activeTab].id)}
-              >
-                <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.skipButton}
-              onPress={() => setShowSubscriptionModal(false)}
-            >
-              <Text style={styles.skipButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* WebView Payment Modal */}
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={showWebViewPayment}
-        onRequestClose={handleWebViewClose}
-      >
-        <SafeAreaView style={{ flex: 1 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              padding: 10,
-            }}
-          >
-            <TouchableOpacity
-              onPress={handleWebViewClose}
-              style={styles.closeButton}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-          <WebView
-            ref={webViewRef}
-            source={{ uri: paymentUrl }}
-            style={{ flex: 1 }}
-            onNavigationStateChange={(navState) => {
-              // You can add logic here to detect when the payment is complete
-              // and automatically close the WebView if needed
-            }}
           />
         </SafeAreaView>
       </Modal>
@@ -762,30 +524,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#4a4a4a",
     marginBottom: 5,
-  },
-  subscribeButton: {
-    backgroundColor: "#0d1b21",
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  subscribeButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  subscribedButton: {
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  subscribedButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
   },
   skipButton: {
     padding: 10,

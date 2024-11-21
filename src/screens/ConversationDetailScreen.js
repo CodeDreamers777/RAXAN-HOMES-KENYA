@@ -9,11 +9,14 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  TextInput,
 } from "react-native";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
@@ -24,9 +27,11 @@ const ConversationDetailScreen = ({ route, navigation }) => {
   const [isSending, setIsSending] = useState(false);
   const [userType, setUserType] = useState(null);
   const [isOptionsVisible, setIsOptionsVisible] = useState(false);
+  const [inputMessage, setInputMessage] = useState("");
   const flatListRef = useRef(null);
   const lastMessageTimestampRef = useRef(null);
   const animatedHeight = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const clientOptions = [
     "What is the rental price or sale price?",
@@ -53,7 +58,16 @@ const ConversationDetailScreen = ({ route, navigation }) => {
   }, []);
 
   useEffect(() => {
-    navigation.setOptions({ title: otherUserName });
+    navigation.setOptions({
+      title: otherUserName,
+      headerStyle: {
+        backgroundColor: "#4CAF50",
+      },
+      headerTintColor: "#fff",
+      headerTitleStyle: {
+        fontWeight: "bold",
+      },
+    });
   }, [navigation, otherUserName]);
 
   const fetchMessages = useCallback(
@@ -168,17 +182,13 @@ const ConversationDetailScreen = ({ route, navigation }) => {
       console.error("Error sending message:", error);
     } finally {
       setIsSending(false);
-      setIsOptionsVisible(false); // Hide options after sending
+      setIsOptionsVisible(false);
+      setInputMessage("");
     }
   };
 
   const renderMessageItem = ({ item }) => (
-    <LinearGradient
-      colors={
-        item.sender.id === otherUserId
-          ? ["#E8F5E9", "#C8E6C9"]
-          : ["#E3F2FD", "#BBDEFB"]
-      }
+    <Animated.View
       style={[
         styles.messageItem,
         item.sender.id === otherUserId
@@ -186,14 +196,16 @@ const ConversationDetailScreen = ({ route, navigation }) => {
           : styles.sentMessage,
       ]}
     >
-      <Text style={styles.messageContent}>{item.content}</Text>
-      <Text style={styles.messageTime}>
-        {new Date(item.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </Text>
-    </LinearGradient>
+      <BlurView intensity={80} tint="light" style={styles.messageBlur}>
+        <Text style={styles.messageContent}>{item.content}</Text>
+        <Text style={styles.messageTime}>
+          {new Date(item.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Text>
+      </BlurView>
+    </Animated.View>
   );
 
   const toggleOptions = () => {
@@ -203,6 +215,12 @@ const ConversationDetailScreen = ({ route, navigation }) => {
       duration: 300,
       useNativeDriver: false,
     }).start();
+  };
+
+  const handleSend = () => {
+    if (inputMessage.trim()) {
+      sendMessage(inputMessage.trim());
+    }
   };
 
   if (isInitialLoading) {
@@ -219,7 +237,7 @@ const ConversationDetailScreen = ({ route, navigation }) => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
-      <LinearGradient colors={["#F5F5F5", "#E0E0E0"]} style={styles.gradient}>
+      <LinearGradient colors={["#E8F5E9", "#C8E6C9"]} style={styles.gradient}>
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -231,6 +249,33 @@ const ConversationDetailScreen = ({ route, navigation }) => {
           }
           onLayout={() => flatListRef.current.scrollToEnd({ animated: true })}
         />
+        <Animated.View
+          style={[
+            styles.inputContainer,
+            {
+              transform: [
+                {
+                  translateY: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                },
+              ],
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <TextInput
+            style={styles.input}
+            value={inputMessage}
+            onChangeText={setInputMessage}
+            placeholder="Type a message..."
+            placeholderTextColor="#999"
+          />
+          <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
+            <Ionicons name="send" size={24} color="#4CAF50" />
+          </TouchableOpacity>
+        </Animated.View>
         <View style={styles.optionsContainer}>
           <TouchableOpacity
             onPress={toggleOptions}
@@ -251,7 +296,7 @@ const ConversationDetailScreen = ({ route, navigation }) => {
               {
                 maxHeight: animatedHeight.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0, 300], // Adjust this value based on your needs
+                  outputRange: [0, 300],
                 }),
                 opacity: animatedHeight,
               },
@@ -292,11 +337,14 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   messageItem: {
-    padding: 12,
     marginVertical: 4,
     marginHorizontal: 12,
-    borderRadius: 20,
     maxWidth: "80%",
+  },
+  messageBlur: {
+    borderRadius: 20,
+    overflow: "hidden",
+    padding: 12,
   },
   sentMessage: {
     alignSelf: "flex-end",
@@ -314,6 +362,26 @@ const styles = StyleSheet.create({
     color: "#666",
     alignSelf: "flex-end",
     marginTop: 4,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "white",
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    marginRight: 10,
+  },
+  sendButton: {
+    padding: 10,
   },
   optionsContainer: {
     backgroundColor: "rgba(255, 255, 255, 0.9)",

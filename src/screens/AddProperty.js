@@ -11,6 +11,7 @@ import {
   Animated,
   ActivityIndicator,
   Modal,
+  Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -19,8 +20,21 @@ import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
 import MapView, { Marker, PROVIDER_OPENSTREETMAP } from "react-native-maps";
 import * as Location from "expo-location";
+import Constants from "expo-constants";
+
+// Conditionally import RNIap
+let RNIap;
+if (!Constants.appOwnership || Constants.appOwnership !== "expo") {
+  RNIap = require("react-native-iap");
+}
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
+
+// SKUs for featured property in-app purchase
+const skus = Platform.select({
+  ios: ["com.yourapp.featuredproperty"],
+  android: ["com.yourapp.featuredproperty"],
+});
 
 const AddPropertyPage = () => {
   const navigation = useNavigation();
@@ -41,6 +55,7 @@ const AddPropertyPage = () => {
   const [area, setArea] = useState("");
   const [numberOfUnits, setNumberOfUnits] = useState("");
   const [isAvailable, setIsAvailable] = useState("yes");
+  const [isFeatured, setIsFeatured] = useState("no");
   const [amenities, setAmenities] = useState([]);
   const [images, setImages] = useState([]);
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -53,6 +68,8 @@ const AddPropertyPage = () => {
   const [maxNights, setMaxNights] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [rentalDeposit, setRentalDeposit] = useState("");
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isExpoGo, setIsExpoGo] = useState(false);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -63,41 +80,82 @@ const AddPropertyPage = () => {
 
     fetchCSRFToken();
     getAccessToken();
+
+    // Check if running in Expo Go
+    if (Constants.appOwnership === "expo") {
+      setIsExpoGo(true);
+    } else {
+      // Initialize IAP only if not in Expo Go
+      initializeIAP();
+    }
+
+    // Cleanup function
+    return () => {
+      if (!isExpoGo && RNIap) {
+        RNIap.endConnection();
+      }
+    };
   }, []);
-  const openMap = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission to access location was denied");
+
+  const initializeIAP = async () => {
+    if (isExpoGo) return;
+
+    try {
+      await RNIap.initConnection();
+      await RNIap.getProducts(skus);
+
+      // Listeners for purchases
+      const purchaseUpdateSubscription = RNIap.purchaseUpdatedListener(
+        (purchase) => {
+          console.log("Purchase successful", purchase);
+          setIsFeatured("yes");
+          Alert.alert("Success", "Your property is now featured!");
+          setIsPurchasing(false);
+        },
+      );
+
+      const purchaseErrorSubscription = RNIap.purchaseErrorListener((error) => {
+        console.log("Purchase error", error);
+        Alert.alert(
+          "Purchase Failed",
+          "Unable to complete the featured listing purchase.",
+        );
+        setIsPurchasing(false);
+      });
+
+      // Clean up subscriptions on unmount
+      return () => {
+        if (purchaseUpdateSubscription) {
+          purchaseUpdateSubscription.remove();
+        }
+        if (purchaseErrorSubscription) {
+          purchaseErrorSubscription.remove();
+        }
+      };
+    } catch (err) {
+      console.warn(err.code, err.message);
+    }
+  };
+
+  const handleFeaturedPurchase = async () => {
+    if (isExpoGo) {
+      Alert.alert(
+        "Expo Go Limitation",
+        "In-app purchases are not available in Expo Go. Please use a development build to test this feature.",
+      );
       return;
     }
 
-    let currentLocation = await Location.getCurrentPositionAsync({});
-    setLatitude(currentLocation.coords.latitude);
-    setLongitude(currentLocation.coords.longitude);
-    setShowMap(true);
-  };
-
-  const handleMapPress = (event) => {
-    const { coordinate } = event.nativeEvent;
-    setLatitude(coordinate.latitude);
-    setLongitude(coordinate.longitude);
-  };
-
-  const confirmLocation = async () => {
+    setIsPurchasing(true);
     try {
-      let address = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-      if (address && address.length > 0) {
-        setLocation(
-          `${address[0].street}, ${address[0].city}, ${address[0].region}, ${address[0].country}`,
-        );
-      }
-      setShowMap(false);
-    } catch (error) {
-      console.error("Error getting address:", error);
-      Alert.alert("Error", "Failed to get address. Please try again.");
+      await RNIap.requestPurchase(skus[0]);
+    } catch (err) {
+      console.warn(err.code, err.message);
+      setIsPurchasing(false);
+      Alert.alert(
+        "Purchase Failed",
+        "Unable to complete the featured listing purchase.",
+      );
     }
   };
 
@@ -145,6 +203,19 @@ const AddPropertyPage = () => {
   };
 
   const handleSubmit = async () => {
+    if (isFeatured === "yes" && !isPurchasing) {
+      if (isExpoGo) {
+        Alert.alert(
+          "Expo Go Limitation",
+          "Featured listings are not available in Expo Go. Your listing will be submitted as a regular listing.",
+        );
+        setIsFeatured("no");
+      } else {
+        await handleFeaturedPurchase();
+        return;
+      }
+    }
+
     if (!accessToken) {
       Alert.alert("Error", "No access token found. Please log in again.");
       return;
@@ -163,6 +234,7 @@ const AddPropertyPage = () => {
         price,
         numberOfUnits,
         isAvailable,
+        isFeatured,
         amenities,
       ];
     } else if (propertyCategory === "sale") {
@@ -176,6 +248,7 @@ const AddPropertyPage = () => {
         area,
         price,
         yearBuilt,
+        isFeatured,
         amenities,
       ];
     } else if (propertyCategory === "per_night") {
@@ -194,6 +267,7 @@ const AddPropertyPage = () => {
         minNights,
         maxNights,
         isAvailable,
+        isFeatured,
         amenities,
       ];
     } else {
@@ -222,10 +296,10 @@ const AddPropertyPage = () => {
       formData.append("deposit", rentalDeposit);
       formData.append("number_of_units", numberOfUnits);
       formData.append("is_available", isAvailable === "yes");
+      formData.append("is_featured", isFeatured === "yes");
       formData.append("amenities", JSON.stringify(amenities));
     } else if (propertyCategory === "sale") {
       formData.append("property_category", propertyCategory);
-
       formData.append("property_type", propertyType);
       formData.append("name", name);
       formData.append("description", description);
@@ -235,10 +309,10 @@ const AddPropertyPage = () => {
       formData.append("area", area);
       formData.append("price", price);
       formData.append("year_built", yearBuilt);
+      formData.append("is_featured", isFeatured === "yes");
       formData.append("amenities", JSON.stringify(amenities));
     } else if (propertyCategory === "per_night") {
       formData.append("property_category", propertyCategory);
-
       formData.append("property_style", propertyStyle);
       formData.append("name", name);
       formData.append("description", description);
@@ -253,6 +327,7 @@ const AddPropertyPage = () => {
       formData.append("min_nights", minNights);
       formData.append("max_nights", maxNights);
       formData.append("is_available", isAvailable === "yes");
+      formData.append("is_featured", isFeatured === "yes");
       formData.append("amenities", JSON.stringify(amenities));
     }
 
@@ -269,7 +344,6 @@ const AddPropertyPage = () => {
         name: filename,
       });
     });
-    console.log(formData);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {
@@ -309,11 +383,42 @@ const AddPropertyPage = () => {
     }
   };
 
-  // Generate an array of years from 1900 to current year
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: currentYear - 1899 }, (_, i) =>
-    (currentYear - i).toString(),
-  );
+  const openMap = async () => {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission to access location was denied");
+      return;
+    }
+
+    let currentLocation = await Location.getCurrentPositionAsync({});
+    setLatitude(currentLocation.coords.latitude);
+    setLongitude(currentLocation.coords.longitude);
+    setShowMap(true);
+  };
+
+  const handleMapPress = (event) => {
+    const { coordinate } = event.nativeEvent;
+    setLatitude(coordinate.latitude);
+    setLongitude(coordinate.longitude);
+  };
+
+  const confirmLocation = async () => {
+    try {
+      let address = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+      if (address && address.length > 0) {
+        setLocation(
+          `${address[0].street}, ${address[0].city}, ${address[0].region}, ${address[0].country}`,
+        );
+      }
+      setShowMap(false);
+    } catch (error) {
+      console.error("Error getting address:", error);
+      Alert.alert("Error", "Failed to get address. Please try again.");
+    }
+  };
 
   const renderPropertyTypeOrStyle = () => {
     if (propertyCategory === "per_night") {
@@ -389,6 +494,16 @@ const AddPropertyPage = () => {
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <Text style={styles.header}>Add Property</Text>
 
+        {isExpoGo && (
+          <View style={styles.warningContainer}>
+            <MaterialIcons name="warning" size={24} color="#FFA500" />
+            <Text style={styles.warningText}>
+              You are running in Expo Go. Some features, including in-app
+              purchases, are limited.
+            </Text>
+          </View>
+        )}
+
         <View style={styles.inputContainer}>
           <MaterialIcons
             name="category"
@@ -401,7 +516,6 @@ const AddPropertyPage = () => {
             style={styles.picker}
             onValueChange={(itemValue) => {
               setPropertyCategory(itemValue);
-              // Reset property type and style when category changes
               setPropertyType("");
               setPropertyStyle("");
             }}
@@ -472,6 +586,7 @@ const AddPropertyPage = () => {
             keyboardType="numeric"
           />
         </View>
+
         {propertyCategory === "rental" && (
           <View style={styles.inputContainer}>
             <MaterialIcons
@@ -563,6 +678,34 @@ const AddPropertyPage = () => {
           />
         </View>
 
+        <View style={styles.featuredContainer}>
+          <Picker
+            selectedValue={isFeatured}
+            style={styles.picker}
+            onValueChange={(itemValue) => setIsFeatured(itemValue)}
+            enabled={!isExpoGo}
+          >
+            <Picker.Item label="None Featured Property" value="no" />
+            <Picker.Item label="Featured Property" value="yes" />
+          </Picker>
+
+          {isFeatured === "yes" && (
+            <View style={styles.infoBox}>
+              <MaterialIcons
+                name="info"
+                size={20}
+                color="#1976D2"
+                style={styles.infoIcon}
+              />
+              <Text style={styles.infoText}>
+                {isExpoGo
+                  ? "Featured properties are not available in Expo Go."
+                  : "Featured properties cost 999 KES per listing. You will be prompted to make the purchase before submitting."}
+              </Text>
+            </View>
+          )}
+        </View>
+
         {propertyCategory === "sale" && (
           <View style={styles.inputContainer}>
             <MaterialIcons
@@ -577,9 +720,16 @@ const AddPropertyPage = () => {
               onValueChange={(itemValue) => setYearBuilt(itemValue)}
             >
               <Picker.Item label="Select Year Built" value="" />
-              {years.map((year) => (
-                <Picker.Item key={year} label={year} value={year} />
-              ))}
+              {Array.from(
+                { length: new Date().getFullYear() - 1899 },
+                (_, i) => (
+                  <Picker.Item
+                    key={i}
+                    label={(new Date().getFullYear() - i).toString()}
+                    value={(new Date().getFullYear() - i).toString()}
+                  />
+                ),
+              )}
             </Picker>
           </View>
         )}
@@ -783,6 +933,7 @@ const AddPropertyPage = () => {
             </TouchableOpacity>
           </View>
         </Modal>
+
         {errorMessage && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{errorMessage}</Text>
@@ -790,11 +941,14 @@ const AddPropertyPage = () => {
         )}
 
         <TouchableOpacity
-          style={[styles.submitButton, isLoading && styles.disabledButton]}
+          style={[
+            styles.submitButton,
+            (isLoading || isPurchasing) && styles.disabledButton,
+          ]}
           onPress={handleSubmit}
-          disabled={isLoading}
+          disabled={isLoading || isPurchasing}
         >
-          {isLoading ? (
+          {isLoading || isPurchasing ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={styles.buttonText}>Submit</Text>
@@ -936,6 +1090,37 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#E53E3E",
     fontSize: 14,
+  },
+  featuredContainer: {
+    marginBottom: 16,
+  },
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E3F2FD",
+    padding: 10,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  infoIcon: {
+    marginRight: 8,
+  },
+  infoText: {
+    color: "#1976D2",
+    flex: 1,
+  },
+  warningContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3E0",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  warningText: {
+    marginLeft: 10,
+    color: "#FF9800",
+    flex: 1,
   },
 });
 

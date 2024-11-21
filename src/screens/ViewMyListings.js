@@ -126,7 +126,9 @@ function ViewMyListings() {
         <Text style={styles.propertyPrice}>
           {item.price_per_month
             ? `$${item.price_per_month}/month`
-            : `$${item.price}`}
+            : item.price_per_night
+              ? `$${item.price_per_night}/Per Night`
+              : `$${item.price}`}
         </Text>
         <View style={styles.propertyMeta}>
           <Text style={styles.propertyMetaText}>

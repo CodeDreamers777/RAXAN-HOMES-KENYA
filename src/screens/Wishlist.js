@@ -60,6 +60,7 @@ const WishlistScreen = ({ navigation }) => {
         const property = [
           ...propertiesData.properties_for_sale,
           ...propertiesData.rental_properties,
+          ...propertiesData.per_night_properties,
         ].find((p) => p.name === wishlistItem.property_name);
         return { ...wishlistItem, ...property, is_in_wishlist: true };
       });
@@ -92,9 +93,19 @@ const WishlistScreen = ({ navigation }) => {
         throw new Error("No access token or CSRF token found");
       }
 
+      let propertyType;
+      if (item.price_per_month) {
+        propertyType = "rental";
+      } else if (item.price_per_night) {
+        propertyType = "per_night";
+      } else if (item.price) {
+        propertyType = "sale";
+      } else {
+        throw new Error("Unknown property type");
+      }
+
       const requestBody = {
-        property_type:
-          item.property_type === "rentalproperty" ? "rental" : "sale",
+        property_type: propertyType,
         property_id: item.id,
       };
 
@@ -143,12 +154,18 @@ const WishlistScreen = ({ navigation }) => {
       <View style={styles.propertyInfo}>
         <Text style={styles.propertyName}>{item.property_name}</Text>
         <Text style={styles.propertyType}>
-          {item.property_type === "rentalproperty" ? "Rental" : "For Sale"}
+          {item.price_per_month
+            ? "Rental"
+            : item.price_per_night
+              ? "Per Night"
+              : "For Sale"}
         </Text>
         <Text style={styles.propertyPrice}>
           {item.price_per_month
             ? `$${item.price_per_month}/Month`
-            : `$${item.price}`}
+            : item.price_per_night
+              ? `$${item.price_per_night}/Night`
+              : `$${item.price}`}
         </Text>
         <Text style={styles.addedAt}>
           Added: {new Date(item.added_at).toLocaleDateString()}
@@ -264,5 +281,4 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
-
 export default WishlistScreen;

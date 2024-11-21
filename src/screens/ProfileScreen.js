@@ -5,16 +5,13 @@ import {
   View,
   Image,
   TouchableOpacity,
-  Modal,
   Alert,
   ActivityIndicator,
   FlatList,
   SafeAreaView,
   StatusBar,
-  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { WebView } from "react-native-webview";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -44,13 +41,6 @@ function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [reviews, setReviews] = useState([]);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
-  const [activeTab, setActiveTab] = useState(0);
-  const [paymentUrl, setPaymentUrl] = useState("");
-  const [paymentReference, setPaymentReference] = useState("");
-  const [showWebView, setShowWebView] = useState(false);
-  const webViewRef = useRef(null);
   const navigation = useNavigation();
 
   const handleAddPlace = () => {
@@ -64,6 +54,10 @@ function ProfileScreen() {
   const handleEditProfile = () => {
     navigation.navigate("EditProfile", { profile });
   };
+  const handlePerNightBookings = () => {
+    navigation.navigate("PerNightBookings");
+  };
+
   const handleViewMyBookings = () => {
     navigation.navigate("BookingsScreen");
   };
@@ -109,24 +103,6 @@ function ProfileScreen() {
       // Save entire user profile data to AsyncStorage
       await AsyncStorage.setItem("userData", JSON.stringify(profileData));
 
-      // Fetch subscription plans
-      const plansResponse = await fetch(
-        `${API_BASE_URL}/api/v1/subscription-plans/`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        },
-      );
-      const plansData = await plansResponse.json();
-      setSubscriptionPlans(plansData);
-
-      // Check if user is a seller and has no subscription
-      if (
-        profileData.user_type === "SELLER" &&
-        profileData.subscription === null
-      ) {
-        setShowSubscriptionModal(true);
-      }
-
       const reviewsResponse = await fetch(
         `${API_BASE_URL}/api/v1/properties/user_property_reviews/`,
         {
@@ -146,124 +122,6 @@ function ProfileScreen() {
   useEffect(() => {
     fetchProfileData();
   }, []);
-
-  const handleSubscribe = async (planId) => {
-    try {
-      const accessTokenData = await AsyncStorage.getItem("accessToken");
-      const { value: accessToken } = JSON.parse(accessTokenData);
-      const csrfToken = await AsyncStorage.getItem("csrfToken");
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/initiate-subscription/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-            "X-CSRFToken": csrfToken,
-            Referer: API_BASE_URL,
-          },
-          body: JSON.stringify({ plan_id: planId }),
-        },
-      );
-
-      const data = await response.json();
-      if (data.payment_url && data.reference) {
-        setPaymentUrl(data.payment_url);
-        setPaymentReference(data.reference);
-        setShowWebView(true);
-      } else {
-        Alert.alert(
-          "Error",
-          "Failed to initiate subscription. Please try again.",
-        );
-      }
-    } catch (error) {
-      console.error("Error initiating subscription:", error);
-      Alert.alert(
-        "Error",
-        "An error occurred while initiating the subscription. Please try again.",
-      );
-    }
-  };
-
-  const handleWebViewClose = async () => {
-    setShowWebView(false);
-    try {
-      const accessTokenData = await AsyncStorage.getItem("accessToken");
-      const { value: accessToken } = JSON.parse(accessTokenData);
-      const csrfToken = await AsyncStorage.getItem("csrfToken");
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/verify-subscription/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-            "X-CSRFToken": csrfToken,
-            Referer: API_BASE_URL,
-          },
-          body: JSON.stringify({ reference: paymentReference }),
-        },
-      );
-
-      const data = await response.json();
-      if (data.message === "Subscription updated successfully") {
-        Alert.alert(
-          "Success",
-          "Your subscription has been updated successfully.",
-        );
-        // Reload the profile data and close the subscription modal
-        await fetchProfileData();
-        setShowSubscriptionModal(false);
-      } else {
-        Alert.alert(
-          "Error",
-          "Failed to verify subscription. Please contact support.",
-        );
-      }
-    } catch (error) {
-      console.error("Error verifying subscription:", error);
-      Alert.alert(
-        "Error",
-        "An error occurred while verifying the subscription. Please try again.",
-      );
-    }
-  };
-
-  const WebViewModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={false}
-      visible={showWebView}
-      onRequestClose={handleWebViewClose}
-    >
-      <SafeAreaView style={{ flex: 1 }}>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            padding: 10,
-          }}
-        >
-          <TouchableOpacity
-            onPress={handleWebViewClose}
-            style={styles.closeButton}
-          >
-            <Text style={styles.closeButtonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-        <WebView
-          ref={webViewRef}
-          source={{ uri: paymentUrl }}
-          style={{ flex: 1 }}
-          onNavigationStateChange={(navState) => {
-            // You can add logic here to detect when the payment is complete
-            // and automatically close the WebView if needed
-          }}
-        />
-      </SafeAreaView>
-    </Modal>
-  );
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -302,124 +160,9 @@ function ProfileScreen() {
     }
   };
 
-  const renderSubscriptionPlan = ({ item }) => (
-    <View style={styles.planCard}>
-      <Text style={styles.planName}>{item.name}</Text>
-      <Text style={styles.planPrice}>KSH {item.price}</Text>
-      <Text style={styles.planLimit}>
-        {item.properties_for_sale_limit === 0
-          ? "Unlimited listings"
-          : `${item.properties_for_sale_limit} listings`}
-      </Text>
-      {profile?.subscription === item.id ? (
-        <View style={styles.subscribedButton}>
-          <Text style={styles.subscribedButtonText}>Subscribed</Text>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.subscribeButton}
-          onPress={() => handleSubscribe(item.id)}
-        >
-          <Text style={styles.subscribeButtonText}>Subscribe</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
-  const SubscriptionModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={showSubscriptionModal}
-      onRequestClose={() => setShowSubscriptionModal(false)}
-    >
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>Choose Your Plan</Text>
-          <View style={styles.tabContainer}>
-            {subscriptionPlans.map((plan, index) => (
-              <TouchableOpacity
-                key={plan.id}
-                style={[styles.tab, activeTab === index && styles.activeTab]}
-                onPress={() => setActiveTab(index)}
-              >
-                <Text
-                  style={[
-                    styles.tabText,
-                    activeTab === index && styles.activeTabText,
-                  ]}
-                >
-                  {plan.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <ScrollView style={styles.planContent}>
-            {subscriptionPlans[activeTab] && (
-              <>
-                <Text style={styles.planName}>
-                  {subscriptionPlans[activeTab].name} Plan
-                </Text>
-                <Text style={styles.planPrice}>
-                  KSH {subscriptionPlans[activeTab].price}/month
-                </Text>
-                <View style={styles.planFeatures}>
-                  <Text style={styles.featureTitle}>Features:</Text>
-                  <Text style={styles.feature}>
-                    •{" "}
-                    {subscriptionPlans[activeTab].properties_for_sale_limit ===
-                    0
-                      ? "Unlimited listings"
-                      : `${subscriptionPlans[activeTab].properties_for_sale_limit} listings per month`}
-                  </Text>
-                  {subscriptionPlans[activeTab].name === "PREMIUM" && (
-                    <>
-                      <Text style={styles.feature}>• Featured listings</Text>
-                    </>
-                  )}
-                </View>
-              </>
-            )}
-          </ScrollView>
-          {profile?.subscription === subscriptionPlans[activeTab]?.id ? (
-            <View style={styles.subscribedButton}>
-              <Text style={styles.subscribedButtonText}>Subscribed</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.subscribeButton}
-              onPress={() => handleSubscribe(subscriptionPlans[activeTab].id)}
-            >
-              <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={() => setShowSubscriptionModal(false)}
-          >
-            <Text style={styles.skipButtonText}>Maybe Later</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const renderReviewItem = ({ item }) => (
-    <View style={styles.reviewItem}>
-      <View style={styles.reviewHeader}>
-        <Text style={styles.reviewAuthor}>{item.author}</Text>
-        <View style={styles.ratingContainer}>
-          <Ionicons name="star" size={16} color="#FFA000" />
-          <Text style={styles.reviewRating}>{item.rating.toFixed(1)}</Text>
-        </View>
-      </View>
-      <Text style={styles.reviewContent}>{item.content}</Text>
-    </View>
-  );
-
   const renderHeader = () => (
     <LinearGradient
-      colors={["#1B263B", "#1c3640"]}
+      colors={["#2d6a4f", "#1b4332"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.profileHeader}
@@ -469,6 +212,14 @@ function ProfileScreen() {
         >
           <Ionicons name="calendar-outline" size={24} color="#fff" />
           <Text style={styles.actionButtonText}>View My Bookings</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.viewBookingsButton]}
+          onPress={handlePerNightBookings}
+        >
+          <Ionicons name="calendar-outline" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>View Per Night Bookings</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -548,8 +299,6 @@ function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
       />
-      <SubscriptionModal />
-      <WebViewModal />
     </SafeAreaView>
   );
 }
@@ -817,46 +566,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#4a4a4a",
     marginBottom: 5,
-  },
-  subscribeButton: {
-    backgroundColor: "#0d1b21",
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  subscribeButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  subscribedButton: {
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  subscribedButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  skipButton: {
-    padding: 10,
-  },
-  skipButtonText: {
-    color: "#666",
-    fontSize: 16,
-  },
-  closeButton: {
-    backgroundColor: "#0d1b21",
-    padding: 10,
-    borderRadius: 5,
-  },
-  closeButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
   },
   actionButton: {
     backgroundColor: "#0d1b21",

@@ -141,6 +141,7 @@ function HomePage({ navigation }) {
           Referer: API_BASE_URL,
         },
       });
+      console.log(wishlistResponse);
 
       if (!wishlistResponse.ok) {
         throw new Error("Failed to fetch wishlist");
@@ -246,7 +247,13 @@ function HomePage({ navigation }) {
       }
 
       const method = wishlist.has(item.id) ? "DELETE" : "POST";
-      const propertyType = item.price_per_month ? "rental" : "sale";
+
+      // Determine property type
+      const propertyType = item.price_per_night
+        ? "per_night"
+        : item.price_per_month
+          ? "rental"
+          : "sale";
 
       const response = await fetch(`${API_BASE_URL}/api/v1/wishlist/`, {
         method: method,

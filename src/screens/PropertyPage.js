@@ -385,10 +385,14 @@ const PropertyScreen = ({ route, navigation }) => {
       setUsername(currentUsername);
 
       let propertyType;
-      if (property && "price_per_month" in property) {
-        propertyType = "rental";
-      } else {
-        propertyType = "sale";
+      if (property) {
+        if ("price_per_month" in property) {
+          propertyType = "rental";
+        } else if ("price_per_night" in property) {
+          propertyType = "per_night";
+        } else {
+          propertyType = "sale";
+        }
       }
 
       const response = await fetch(
@@ -409,21 +413,10 @@ const PropertyScreen = ({ route, navigation }) => {
       console.log(data);
       if (data && data.length > 0) {
         setUserReview(data[0]);
-        setReviewText(data[0].comment);
-        setReviewRating(data[0].rating);
       }
     } catch (error) {
       console.error("Error fetching user review:", error);
     }
-  };
-
-  const getRatingLabel = (rating) => {
-    if (rating === 5) return "Excellent!";
-    if (rating === 4) return "Very Good!";
-    if (rating === 3) return "Good";
-    if (rating === 2) return "Fair";
-    if (rating === 1) return "Poor";
-    return "";
   };
 
   const renderActionButton = () => {

@@ -41,6 +41,7 @@ import {
   OTPVerificationScreen,
 } from "./src/screens/ForgotPasswordScreen";
 import ReviewScreen from "./src/screens/ReviewScreen";
+import PerNightBookings from "./src/screens/PerNightBookings";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -213,6 +214,7 @@ function App() {
         />
         <Stack.Screen name="ViewingsList" component={ViewingListPage} />
         <Stack.Screen name="BookingScreen" component={BookingScreen} />
+        <Stack.Screen name="PerNightBookings" component={PerNightBookings} />
       </Stack.Navigator>
     </NavigationContainer>
   );
