@@ -1283,7 +1283,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 property_model = RentalProperty
             elif property_type == "sale":
                 property_model = PropertyForSale
-            elif property_type == "sale":
+            elif property_type == "per_night":
                 property_model = PerNightProperty
             else:
                 return Review.objects.none()
