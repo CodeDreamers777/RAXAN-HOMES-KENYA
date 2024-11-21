@@ -82,6 +82,11 @@ urlpatterns = [
         "manage/", views.UserAccountManagementView.as_view(), name="account_management"
     ),
     path(
+        "per-night-bookings/",
+        views.PerNightBookingListView.as_view(),
+        name="per-night-bookings-list",
+    ),
+    path(
         "check-booking/<str:username>/<uuid:property_id>/<str:property_type>/",
         views.check_booking_exists,
         name="check-booking-exists",
