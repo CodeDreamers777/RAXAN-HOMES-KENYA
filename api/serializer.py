@@ -219,8 +219,13 @@ class BasePropertySerializer(serializers.ModelSerializer):
         return None
 
     def create(self, validated_data):
+        print("Validated data in CREATE:", validated_data)
+
         amenities_data = validated_data.pop("amenities", [])
         image_urls = validated_data.pop("images", [])
+
+        print("Image URLs in CREATE:", image_urls)
+
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
         self._handle_images(instance, image_urls)
@@ -264,7 +269,13 @@ class BasePropertySerializer(serializers.ModelSerializer):
 
     def _handle_images(self, instance, image_urls):
         print(f"Handling image URLs for property {instance.id}")
+        print(f"Type of image_urls: {type(image_urls)}")
         print(f"Number of image URLs: {len(image_urls)}")
+        print(f"Image URLs content: {image_urls}")
+
+        if not image_urls:
+            print("Warning: No image URLs to process")
+            return
 
         for image_url in image_urls:
             try:
