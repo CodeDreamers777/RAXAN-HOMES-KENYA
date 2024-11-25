@@ -170,12 +170,9 @@ class AmenitySerializer(serializers.ModelSerializer):
 class BasePropertySerializer(serializers.ModelSerializer):
     images = PropertyImageSerializer(many=True, read_only=True)
     uploaded_images = serializers.ListField(
-        child=serializers.ImageField(
-            max_length=1000000, allow_empty_file=False, use_url=False
-        ),
+        child=serializers.URLField(),  # Use URLField since you're passing URLs
         write_only=True,
         required=False,
-        source="images",
     )
     host = serializers.SerializerMethodField()
     amenities = serializers.ListField(
@@ -223,20 +220,19 @@ class BasePropertySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         amenities_data = validated_data.pop("amenities", [])
-        uploaded_images = validated_data.pop("images", [])
-        print("This are the image urls", uploaded_images)
+        image_urls = validated_data.pop("images", [])
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
-        self._handle_images(instance, uploaded_images)
+        self._handle_images(instance, image_urls)
         return instance
 
     def update(self, instance, validated_data):
         amenities_data = validated_data.pop("amenities", None)
-        uploaded_images = validated_data.pop("images", [])
+        image_urls = validated_data.pop("images", [])
         instance = super().update(instance, validated_data)
         if amenities_data is not None:
             self._handle_amenities(instance, amenities_data)
-        self._handle_images(instance, uploaded_images)
+        self._handle_images(instance, image_urls)
         return instance
 
     def _handle_amenities(self, instance, amenities_data):
