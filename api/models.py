@@ -185,7 +185,9 @@ class PropertyForSale(BaseProperty):
 
 
 class PropertyImage(models.Model):
-    image = models.URLField(max_length=1000)  # Change to URLField to store URLs
+    image = models.URLField(
+        max_length=1000, null=True
+    )  # Change to URLField to store URLs
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.UUIDField()
     property = GenericForeignKey("content_type", "object_id")
