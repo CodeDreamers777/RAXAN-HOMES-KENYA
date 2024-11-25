@@ -720,6 +720,7 @@ class PropertyViewSet(viewsets.ViewSet):
     def create(self, request):
         property_type = request.data.get("property_category")
         serializer = None
+        print("This is The request data", request.data)
 
         if property_type == "rental":
             serializer = RentalPropertySerializer(data=request.data)
