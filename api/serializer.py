@@ -218,13 +218,18 @@ class BasePropertySerializer(serializers.ModelSerializer):
             return round(reviews.aggregate(Avg("rating"))["rating__avg"], 1)
         return None
 
+    def to_internal_value(self, data):
+        # Explicitly ensure images are preserved
+        if "images" in data:
+            data["images"] = data["images"]
+        return super().to_internal_value(data)
+
     def create(self, validated_data):
-        print("Validated data in CREATE:", validated_data)
-
-        amenities_data = validated_data.pop("amenities", [])
+        # Explicitly handle images from validated_data
         image_urls = validated_data.pop("images", [])
+        amenities_data = validated_data.pop("amenities", [])
 
-        print("Image URLs in CREATE:", image_urls)
+        print("DEBUG: Image URLs before create:", image_urls)
 
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
