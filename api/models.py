@@ -185,12 +185,7 @@ class PropertyForSale(BaseProperty):
 
 
 class PropertyImage(models.Model):
-    image = CloudinaryField(
-        "image",
-        folder="property_images",  # This will create a folder in Cloudinary
-        null=True,
-        blank=True,
-    )
+    image = models.URLField(max_length=1000)  # Change to URLField to store URLs
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.UUIDField()
     property = GenericForeignKey("content_type", "object_id")

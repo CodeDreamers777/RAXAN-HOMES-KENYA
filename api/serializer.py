@@ -224,6 +224,7 @@ class BasePropertySerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         amenities_data = validated_data.pop("amenities", [])
         uploaded_images = validated_data.pop("images", [])
+        print("This are the image urls", uploaded_images)
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
         self._handle_images(instance, uploaded_images)
@@ -265,35 +266,24 @@ class BasePropertySerializer(serializers.ModelSerializer):
         instance.amenities.set(amenities)
         print(f"Amenities set for property {instance.id}: {amenities}")
 
-    def _handle_images(self, instance, image_files):
-        print(f"Handling images for property {instance.id}")
-        print(f"Number of image files: {len(image_files)}")
+    def _handle_images(self, instance, image_urls):
+        print(f"Handling image URLs for property {instance.id}")
+        print(f"Number of image URLs: {len(image_urls)}")
 
-        for image_file in image_files:
+        for image_url in image_urls:
             try:
-                print(f"Attempting to save image: {image_file}")
-                if isinstance(image_file, InMemoryUploadedFile):
-                    print(f"Image file name: {image_file.name}")
-                    print(f"Image file size: {image_file.size}")
-                    print(f"Image file content type: {image_file.content_type}")
+                print(f"Attempting to save image URL: {image_url}")
 
-                    # Create the PropertyImage instance with the Cloudinary field
-                    new_image = PropertyImage(
-                        property=instance,
-                    )
+                # Create the PropertyImage instance with the URL
+                new_image = PropertyImage(
+                    property=instance,
+                    image=image_url,  # Directly store the URL
+                )
+                new_image.save()
 
-                    # Save the instance first to get an ID
-                    new_image.save()
-
-                    # Now save the image file to the CloudinaryField
-                    new_image.image = image_file
-                    new_image.save()
-
-                    print(f"Image saved successfully with id: {new_image.id}")
-                else:
-                    print(f"Unexpected type for image_file: {type(image_file)}")
+                print(f"Image URL saved successfully with id: {new_image.id}")
             except Exception as e:
-                print(f"Error saving image: {str(e)}")
+                print(f"Error saving image URL: {str(e)}")
                 import traceback
 
                 print(traceback.format_exc())
