@@ -116,9 +116,10 @@ function ViewMyListings() {
       >
         <Image
           source={{
-            uri: `${API_BASE_URL}${item.images[0]?.image}`,
+            uri: item.images[0],
           }}
           style={styles.propertyImage}
+          onError={(e) => console.log("Image load error:", e.nativeEvent.error)}
         />
       </TouchableOpacity>
       <View style={styles.propertyInfo}>

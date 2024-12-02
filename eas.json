@@ -22,7 +22,7 @@
       },
       "android": {
         "releaseChannel": "production",
-        "buildType": "apk"
+        "buildType": "app-bundle"
       }
     }
   },

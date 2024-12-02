@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
-  StyleSheet,
   Text,
   View,
   TextInput,
   TouchableOpacity,
   ScrollView,
+  StyleSheet,
   Image,
   Alert,
   ActivityIndicator,
@@ -21,6 +21,33 @@ const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 const DEFAULT_LATITUDE = -1.286389; // Nairobi, Kenya
 const DEFAULT_LONGITUDE = 36.817223; // Nairobi, Kenya
 
+const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/di0pfjgns/upload";
+const CLOUDINARY_UPLOAD_PRESET = "ml_default";
+
+const uploadImageToCloudinary = async (uri) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", {
+      uri: uri,
+      type: "image/jpeg",
+      name: "upload.jpg",
+    });
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+    const response = await fetch(CLOUDINARY_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await response.json();
+    console.log("Cloudinary upload response:", data);
+    return data.secure_url;
+  } catch (error) {
+    console.error("Error uploading image to Cloudinary:", error);
+    throw error;
+  }
+};
+
 function UpdateProperty({ route, navigation }) {
   const { propertyId } = route.params;
   const [property, setProperty] = useState(null);
@@ -28,6 +55,7 @@ function UpdateProperty({ route, navigation }) {
   const [updating, setUpdating] = useState(false);
   const [newAmenity, setNewAmenity] = useState("");
   const [showMap, setShowMap] = useState(false);
+
   const fetchCSRFToken = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/get-csrf-token/`, {
@@ -40,6 +68,7 @@ function UpdateProperty({ route, navigation }) {
       console.error("Error fetching CSRF token:", error);
     }
   };
+
   const fetchPropertyDetails = async () => {
     try {
       const accessTokenData = await AsyncStorage.getItem("accessToken");
@@ -72,6 +101,172 @@ function UpdateProperty({ route, navigation }) {
     fetchPropertyDetails();
     fetchCSRFToken();
   }, []);
+
+  const handleUpdate = async () => {
+    setUpdating(true);
+    try {
+      const accessTokenData = await AsyncStorage.getItem("accessToken");
+      const { value: accessToken } = JSON.parse(accessTokenData);
+      const csrfToken = await AsyncStorage.getItem("csrfToken");
+
+      const formData = new FormData();
+      formData.append("name", property.name);
+      formData.append("description", property.description);
+      formData.append("bedrooms", property.bedrooms.toString());
+      formData.append("bathrooms", property.bathrooms.toString());
+      formData.append("area", property.area);
+      formData.append(
+        "amenities",
+        JSON.stringify(property.amenities.map((a) => a.name)),
+      );
+
+      if ("price_per_night" in property) {
+        formData.append("price_per_night", property.price_per_night);
+        formData.append("number_of_units", property.number_of_units.toString());
+        formData.append("is_available", property.is_available.toString());
+        formData.append("check_in_time", property.check_in_time);
+        formData.append("check_out_time", property.check_out_time);
+        formData.append("min_nights", property.min_nights.toString());
+        formData.append("max_nights", property.max_nights.toString());
+      } else if ("price_per_month" in property) {
+        formData.append("price_per_month", property.price_per_month);
+        formData.append("number_of_units", property.number_of_units.toString());
+        formData.append("is_available", property.is_available.toString());
+      } else {
+        formData.append("price", property.price);
+        formData.append("year_built", property.year_built.toString());
+        formData.append("is_sold", property.is_sold.toString());
+      }
+
+      const existingImages = [];
+      const newImages = [];
+
+      if (Array.isArray(property.images)) {
+        for (const image of property.images) {
+          if (image && typeof image === "object") {
+            if (
+              image.id &&
+              typeof image.image === "string" &&
+              image.image.indexOf("/media/") === 0
+            ) {
+              existingImages.push(image.id);
+            } else if (
+              typeof image.image === "string" &&
+              (image.image.indexOf("file://") === 0 ||
+                image.image.indexOf("content://") === 0)
+            ) {
+              try {
+                const cloudinaryUrl = await uploadImageToCloudinary(
+                  image.image,
+                );
+                newImages.push(cloudinaryUrl);
+              } catch (error) {
+                console.error("Error uploading image to Cloudinary:", error);
+                Alert.alert(
+                  "Error",
+                  "Failed to upload an image. Please try again.",
+                );
+              }
+            }
+          }
+        }
+      }
+
+      formData.append("existing_images", JSON.stringify(existingImages));
+      formData.append("new_images", JSON.stringify(newImages));
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/properties/${propertyId}/`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "X-CSRFToken": csrfToken,
+            Referer: API_BASE_URL,
+            "Content-Type": "multipart/form-data",
+          },
+          body: formData,
+          credentials: "include",
+        },
+      );
+
+      if (!response.ok) throw new Error("Failed to update property");
+      Alert.alert("Success", "Property updated successfully");
+      navigation.goBack();
+    } catch (error) {
+      console.error("Error updating property:", error);
+      Alert.alert("Error", "Failed to update property. Please try again.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleImagePick = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setUpdating(true);
+      try {
+        const cloudinaryUrl = await uploadImageToCloudinary(
+          result.assets[0].uri,
+        );
+        setProperty({
+          ...property,
+          images: [
+            ...property.images,
+            { id: Date.now(), image: cloudinaryUrl },
+          ],
+        });
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        Alert.alert("Error", "Failed to upload image. Please try again.");
+      } finally {
+        setUpdating(false);
+      }
+    }
+  };
+
+  const removeImage = (imageId) => {
+    setProperty({
+      ...property,
+      images: property.images.filter((img) => img.id !== imageId),
+    });
+  };
+
+  const addAmenity = () => {
+    if (newAmenity.trim()) {
+      setProperty({
+        ...property,
+        amenities: [
+          ...property.amenities,
+          { id: Date.now(), name: newAmenity.trim() },
+        ],
+      });
+      setNewAmenity("");
+    }
+  };
+
+  const removeAmenity = (amenityId) => {
+    setProperty({
+      ...property,
+      amenities: property.amenities.filter((a) => a.id !== amenityId),
+    });
+  };
+
+  const handleMapPress = (event) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    setProperty({
+      ...property,
+      latitude,
+      longitude,
+    });
+    setShowMap(false);
+  };
 
   const renderLabeledInput = (
     label,
@@ -133,168 +328,15 @@ function UpdateProperty({ route, navigation }) {
   }
 
   const getImageUri = (img) => {
-    if (typeof img.image === "string" && img.image.includes("/media/")) {
-      return `${API_BASE_URL}${img.image}`;
-    } else if (img.uri) {
+    if (typeof img === "string") {
+      return img;
+    } else if (img?.uri) {
       return img.uri;
-    } else if (typeof img.image === "string") {
+    } else if (typeof img?.image === "string") {
       return img.image;
     }
     return ""; // Fallback to empty string if no valid URI is found
   };
-
-  const handleUpdate = async () => {
-    setUpdating(true);
-    try {
-      const accessTokenData = await AsyncStorage.getItem("accessToken");
-      const { value: accessToken } = JSON.parse(accessTokenData);
-      const csrfToken = await AsyncStorage.getItem("csrfToken");
-
-      const formData = new FormData();
-      formData.append("name", property.name);
-      formData.append("description", property.description);
-      formData.append("bedrooms", property.bedrooms.toString());
-      formData.append("bathrooms", property.bathrooms.toString());
-      formData.append("area", property.area);
-      formData.append(
-        "amenities",
-        JSON.stringify(property.amenities.map((a) => a.name)),
-      );
-
-      if ("price_per_night" in property) {
-        // Per-night property fields
-        formData.append("price_per_night", property.price_per_night);
-        formData.append("number_of_units", property.number_of_units.toString());
-        formData.append("is_available", property.is_available.toString());
-        formData.append("check_in_time", property.check_in_time);
-        formData.append("check_out_time", property.check_out_time);
-        formData.append("min_nights", property.min_nights.toString());
-        formData.append("max_nights", property.max_nights.toString());
-      } else if ("price_per_month" in property) {
-        // Rental property fields
-        formData.append("price_per_month", property.price_per_month);
-        formData.append("number_of_units", property.number_of_units.toString());
-        formData.append("is_available", property.is_available.toString());
-      } else {
-        // Sale property fields
-        formData.append("price", property.price);
-        formData.append("year_built", property.year_built.toString());
-        formData.append("is_sold", property.is_sold.toString());
-      }
-
-      const existingImages = [];
-      const newImages = [];
-
-      if (Array.isArray(property.images)) {
-        property.images.forEach((image) => {
-          if (image && typeof image === "object") {
-            if (
-              image.id &&
-              typeof image.image === "string" &&
-              image.image.indexOf("/media/") === 0
-            ) {
-              existingImages.push(image.id);
-            } else if (
-              typeof image.image === "string" &&
-              (image.image.indexOf("file://") === 0 ||
-                image.image.indexOf("content://") === 0)
-            ) {
-              const filename = image.image.split("/").pop();
-              newImages.push({
-                uri: image.image,
-                type: "image/jpeg",
-                name: filename,
-              });
-            }
-          }
-        });
-      }
-
-      formData.append("existing_images", JSON.stringify(existingImages));
-
-      newImages.forEach((image, index) => {
-        formData.append(`images[${index}]`, image);
-      });
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/properties/${propertyId}/`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "X-CSRFToken": csrfToken,
-            Referer: API_BASE_URL,
-            "Content-Type": "multipart/form-data",
-          },
-          body: formData,
-          credentials: "include",
-        },
-      );
-
-      if (!response.ok) throw new Error("Failed to update property");
-      Alert.alert("Success", "Property updated successfully");
-      navigation.goBack();
-    } catch (error) {
-      console.error("Error updating property:", error);
-      Alert.alert("Error", "Failed to update property. Please try again.");
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleImagePick = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setProperty({
-        ...property,
-        images: [
-          ...property.images,
-          { id: Date.now(), uri: result.assets[0].uri },
-        ],
-      });
-    }
-  };
-
-  const removeImage = (imageId) => {
-    setProperty({
-      ...property,
-      images: property.images.filter((img) => img.id !== imageId),
-    });
-  };
-
-  const addAmenity = () => {
-    if (newAmenity.trim()) {
-      setProperty({
-        ...property,
-        amenities: [
-          ...property.amenities,
-          { id: Date.now(), name: newAmenity.trim() },
-        ],
-      });
-      setNewAmenity("");
-    }
-  };
-
-  const removeAmenity = (amenityId) => {
-    setProperty({
-      ...property,
-      amenities: property.amenities.filter((a) => a.id !== amenityId),
-    });
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-      </View>
-    );
-  }
 
   const isRental = "price_per_month" in property;
   const isPerNight = "price_per_night" in property;
