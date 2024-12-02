@@ -200,7 +200,6 @@ class BasePropertySerializer(serializers.ModelSerializer):
             "amenities",
             "host",
             "images",
-            "uploaded_images",
             "rating",
         ]
 
