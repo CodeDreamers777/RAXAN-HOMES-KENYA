@@ -168,10 +168,8 @@ class AmenitySerializer(serializers.ModelSerializer):
 
 
 class BasePropertySerializer(serializers.ModelSerializer):
-    images = PropertyImageSerializer(many=True, read_only=True)
-    uploaded_images = serializers.ListField(
-        child=serializers.URLField(),  # Use URLField since you're passing URLs
-        write_only=True,
+    images = serializers.ListField(
+        child=serializers.URLField(),
         required=False,
     )
     host = serializers.SerializerMethodField()
@@ -218,31 +216,21 @@ class BasePropertySerializer(serializers.ModelSerializer):
             return round(reviews.aggregate(Avg("rating"))["rating__avg"], 1)
         return None
 
-    def to_internal_value(self, data):
-        # Explicitly ensure images are preserved
-        if "images" in data:
-            data["images"] = data["images"]
-        return super().to_internal_value(data)
-
     def create(self, validated_data):
-        # Explicitly handle images from validated_data
         image_urls = validated_data.pop("images", [])
         amenities_data = validated_data.pop("amenities", [])
-
-        print("DEBUG: Image URLs before create:", image_urls)
-
         instance = super().create(validated_data)
         self._handle_amenities(instance, amenities_data)
-        self._handle_images(instance, image_urls)
+        self._save_images(instance, image_urls)
         return instance
 
     def update(self, instance, validated_data):
-        amenities_data = validated_data.pop("amenities", None)
         image_urls = validated_data.pop("images", [])
+        amenities_data = validated_data.pop("amenities", None)
         instance = super().update(instance, validated_data)
         if amenities_data is not None:
             self._handle_amenities(instance, amenities_data)
-        self._handle_images(instance, image_urls)
+        self._save_images(instance, image_urls)
         return instance
 
     def _handle_amenities(self, instance, amenities_data):
@@ -266,42 +254,35 @@ class BasePropertySerializer(serializers.ModelSerializer):
         amenities = []
         for name in amenities_data:
             name = name.strip().lower()
-            print(f"Processing amenity: {name}")
             amenity, _ = Amenity.objects.get_or_create(name=name)
             amenities.append(amenity)
         instance.amenities.set(amenities)
-        print(f"Amenities set for property {instance.id}: {amenities}")
 
-    def _handle_images(self, instance, image_urls):
-        print(f"Handling image URLs for property {instance.id}")
-        print(f"Type of image_urls: {type(image_urls)}")
-        print(f"Number of image URLs: {len(image_urls)}")
-        print(f"Image URLs content: {image_urls}")
+    def _save_images(self, instance, image_urls):
+        """
+        Saves provided image URLs to the `PropertyImage` model linked to the property.
+        """
+        print(f"Saving images for property {instance.id}: {image_urls}")
 
         if not image_urls:
-            print("Warning: No image URLs to process")
+            print("No images provided.")
             return
 
+        content_type = ContentType.objects.get_for_model(instance)
         for image_url in image_urls:
-            try:
-                print(f"Attempting to save image URL: {image_url}")
-
-                # Create the PropertyImage instance with the URL
-                new_image = PropertyImage(
-                    property=instance,
-                    image=image_url,  # Directly store the URL
-                )
-                new_image.save()
-
-                print(f"Image URL saved successfully with id: {new_image.id}")
-            except Exception as e:
-                print(f"Error saving image URL: {str(e)}")
-                import traceback
-
-                print(traceback.format_exc())
+            PropertyImage.objects.create(
+                property=instance,
+                image=image_url,
+                content_type=content_type,
+                object_id=instance.id,
+            )
+        print("Images saved successfully.")
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
+        representation["images"] = [
+            image.image for image in PropertyImage.objects.filter(object_id=instance.id)
+        ]
         representation["amenities"] = AmenitySerializer(
             instance.amenities.all(), many=True
         ).data
