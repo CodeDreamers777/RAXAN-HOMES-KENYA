@@ -340,7 +340,7 @@ function HomePage({ navigation }) {
       <Image
         source={
           item.images && item.images.length > 0
-            ? { uri: `${API_BASE_URL}${item.images[0].image}` }
+            ? { uri: item.images[0] } // Direct URL string
             : require("../../assets/room1.jpg")
         }
         style={styles.propertyImage}

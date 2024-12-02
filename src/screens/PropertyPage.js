@@ -68,8 +68,11 @@ const ImageCarousel = ({ images }) => {
         {images.map((image, index) => (
           <Image
             key={index}
-            source={{ uri: `${API_BASE_URL}${image.image}` }}
+            source={{ uri: image }}
             style={styles.propertyImage}
+            onError={(e) =>
+              console.log(`Image load error for ${image}:`, e.nativeEvent.error)
+            }
           />
         ))}
       </ScrollView>
@@ -79,7 +82,7 @@ const ImageCarousel = ({ images }) => {
             key={index}
             style={[
               styles.paginationDot,
-              index === activeIndex ? styles.paginationDotActive : null,
+              index === activeIndex && styles.activePaginationDot,
             ]}
           />
         ))}
@@ -559,6 +562,10 @@ const PropertyScreen = ({ route, navigation }) => {
                 </Text>
               )}
             </View>
+          ) : isRental ? (
+            <Text style={styles.propertyPrice}>
+              {formatPrice(property.price_per_month)}/Month
+            </Text>
           ) : (
             <Text style={styles.propertyPrice}>
               {formatPrice(property.price)}

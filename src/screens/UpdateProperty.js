@@ -15,7 +15,6 @@ import { Picker } from "@react-native-picker/picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
@@ -73,19 +72,6 @@ function UpdateProperty({ route, navigation }) {
     fetchPropertyDetails();
     fetchCSRFToken();
   }, []);
-  const handleLocationPress = () => {
-    setShowMap(true);
-  };
-  const handleMapPress = (event) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    setProperty({
-      ...property,
-      latitude,
-      longitude,
-      location: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-    });
-    setShowMap(false);
-  };
 
   const renderLabeledInput = (
     label,
@@ -94,8 +80,9 @@ function UpdateProperty({ route, navigation }) {
     onChangeText,
     placeholder,
     inputProps = {},
+    containerStyle = {},
   ) => (
-    <View style={styles.labeledInputContainer}>
+    <View style={[styles.labeledInputContainer, containerStyle]}>
       <Text style={styles.inputLabel}>{label}</Text>
       <View style={styles.inputContainer}>
         <Ionicons
@@ -111,32 +98,6 @@ function UpdateProperty({ route, navigation }) {
           placeholder={placeholder}
           {...inputProps}
         />
-      </View>
-    </View>
-  );
-
-  const renderLocationInput = () => (
-    <View style={styles.labeledInputContainer}>
-      <Text style={styles.inputLabel}>Location</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons
-          name="location-outline"
-          size={24}
-          color="#4CAF50"
-          style={styles.icon}
-        />
-        <TextInput
-          style={styles.input}
-          value={property.location}
-          onChangeText={(text) => setProperty({ ...property, location: text })}
-          placeholder="Enter location"
-        />
-        <TouchableOpacity
-          onPress={handleLocationPress}
-          style={styles.mapButton}
-        >
-          <Ionicons name="map-outline" size={24} color="#4CAF50" />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -192,7 +153,6 @@ function UpdateProperty({ route, navigation }) {
       const formData = new FormData();
       formData.append("name", property.name);
       formData.append("description", property.description);
-      formData.append("location", property.location);
       formData.append("bedrooms", property.bedrooms.toString());
       formData.append("bathrooms", property.bathrooms.toString());
       formData.append("area", property.area);
@@ -373,27 +333,29 @@ function UpdateProperty({ route, navigation }) {
         </View>
       </View>
 
-      {renderLocationInput()}
-
-      <View style={styles.row}>
-        {renderLabeledInput(
-          "Bedrooms",
-          "bed-outline",
-          property.bedrooms?.toString(),
-          (text) => setProperty({ ...property, bedrooms: parseInt(text) || 0 }),
-          "Number of bedrooms",
-          { keyboardType: "numeric" },
-        )}
-
-        {renderLabeledInput(
-          "Bathrooms",
-          "water-outline",
-          property.bathrooms?.toString(),
-          (text) =>
-            setProperty({ ...property, bathrooms: parseInt(text) || 0 }),
-          "Number of bathrooms",
-          { keyboardType: "numeric" },
-        )}
+      <View style={styles.rowContainer}>
+        <View style={styles.halfColumn}>
+          {renderLabeledInput(
+            "Bedrooms",
+            "bed-outline",
+            property.bedrooms?.toString(),
+            (text) =>
+              setProperty({ ...property, bedrooms: parseInt(text) || 0 }),
+            "Bedrooms",
+            { keyboardType: "numeric" },
+          )}
+        </View>
+        <View style={styles.halfColumn}>
+          {renderLabeledInput(
+            "Bathrooms",
+            "water-outline",
+            property.bathrooms?.toString(),
+            (text) =>
+              setProperty({ ...property, bathrooms: parseInt(text) || 0 }),
+            "Bathrooms",
+            { keyboardType: "numeric" },
+          )}
+        </View>
       </View>
 
       {renderLabeledInput(
@@ -644,132 +606,247 @@ function UpdateProperty({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 16,
     backgroundColor: "#f8f9fa",
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 20,
-    color: "#333",
+    fontWeight: "700",
+    marginBottom: 24,
+    color: "#2D3748",
     textAlign: "center",
+    letterSpacing: 0.5,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 10,
-    color: "#333",
+    fontWeight: "600",
+    marginTop: 24,
+    marginBottom: 16,
+    color: "#2D3748",
+    letterSpacing: 0.5,
+  },
+  rowContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginHorizontal: -8, // Compensate for the padding in halfColumn
+  },
+  halfColumn: {
+    flex: 1,
+    paddingHorizontal: 8,
+  },
+  labeledInputContainer: {
+    marginBottom: 20,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    marginBottom: 15,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  icon: {
-    padding: 10,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    marginBottom: 4,
   },
   input: {
     flex: 1,
     padding: 12,
     fontSize: 16,
+    color: "#2D3748",
+    fontWeight: "400",
+    minWidth: 50, // Add minimum width
+  },
+  focusedInput: {
+    borderColor: "#4CAF50",
+    borderWidth: 2,
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  icon: {
+    padding: 12,
+    color: "#4A5568",
+  },
+  input: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+    color: "#2D3748",
+    fontWeight: "400",
   },
   multilineInput: {
-    height: 100,
+    height: 120,
     textAlignVertical: "top",
-  },
-  pickerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  picker: {
-    flex: 1,
+    paddingTop: 12,
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 8,
   },
   halfWidth: {
     width: "48%",
-  },
-  imageContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 15,
-  },
-  image: {
-    width: "48%",
-    aspectRatio: 16 / 9,
-    marginBottom: 10,
-    borderRadius: 8,
-  },
-  button: {
-    flexDirection: "row",
-    backgroundColor: "#4CAF50",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 15,
-  },
-  updateButton: {
-    backgroundColor: "#2196F3",
-  },
-  buttonIcon: {
-    marginRight: 10,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
   },
   switchContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 15,
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   switchLabel: {
     fontSize: 16,
-    color: "#333",
+    color: "#4A5568",
+    fontWeight: "500",
   },
   amenitiesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginBottom: 15,
+    marginBottom: 20,
+    padding: 8,
   },
   amenityItem: {
-    backgroundColor: "#e0e0e0",
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EDF2F7",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     margin: 4,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  amenityText: {
+    color: "#4A5568",
+    marginRight: 8,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  addAmenityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  addAmenityInput: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 12,
+    marginRight: 8,
+    fontSize: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  addAmenityButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  imageContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  imageWrapper: {
+    width: "48%",
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  image: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 15,
+    padding: 4,
+  },
+  button: {
+    flexDirection: "row",
+    backgroundColor: "#4CAF50",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  updateButton: {
+    backgroundColor: "#2196F3",
+  },
+  buttonIcon: {
+    marginRight: 12,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+    letterSpacing: 0.5,
   },
   map: {
     width: "100%",
     height: "100%",
-  },
-  labeledInputContainer: {
-    marginBottom: 15,
-  },
-  inputLabel: {
-    fontSize: 16,
-    color: "#333",
-    marginBottom: 5,
-    fontWeight: "bold",
-  },
-  mapButton: {
-    padding: 10,
+    borderRadius: 12,
+    overflow: "hidden",
   },
 });
 

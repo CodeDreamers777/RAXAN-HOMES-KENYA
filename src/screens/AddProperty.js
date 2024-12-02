@@ -21,20 +21,13 @@ import { useNavigation } from "@react-navigation/native";
 import MapView, { Marker, PROVIDER_OPENSTREETMAP } from "react-native-maps";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
-
-// Conditionally import RNIap
-let RNIap;
-if (!Constants.appOwnership || Constants.appOwnership !== "expo") {
-  RNIap = require("react-native-iap");
-}
+import Purchases from "react-native-purchases";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
-
-// SKUs for featured property in-app purchase
-const skus = Platform.select({
-  ios: ["com.yourapp.featuredproperty"],
-  android: ["com.yourapp.featuredproperty"],
-});
+// Add Cloudinary configuration
+const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/di0pfjgns/upload";
+const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
 const AddPropertyPage = () => {
   const navigation = useNavigation();
@@ -56,8 +49,13 @@ const AddPropertyPage = () => {
   const [numberOfUnits, setNumberOfUnits] = useState("");
   const [isAvailable, setIsAvailable] = useState("yes");
   const [isFeatured, setIsFeatured] = useState("no");
+  const [newAmenity, setNewAmenity] = useState("");
+  const [amenityId, setAmenityId] = useState(1); // For generating unique IDs
+
+  // Replace the existing amenities state with this new format
   const [amenities, setAmenities] = useState([]);
   const [images, setImages] = useState([]);
+  const [imageUrls, setImageUrls] = useState([]);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [csrfToken, setCSRFToken] = useState("");
   const [accessToken, setAccessToken] = useState("");
@@ -80,60 +78,25 @@ const AddPropertyPage = () => {
 
     fetchCSRFToken();
     getAccessToken();
+    initializeRevenueCat();
 
     // Check if running in Expo Go
     if (Constants.appOwnership === "expo") {
       setIsExpoGo(true);
-    } else {
-      // Initialize IAP only if not in Expo Go
-      initializeIAP();
     }
-
-    // Cleanup function
-    return () => {
-      if (!isExpoGo && RNIap) {
-        RNIap.endConnection();
-      }
-    };
   }, []);
 
-  const initializeIAP = async () => {
+  const initializeRevenueCat = async () => {
     if (isExpoGo) return;
 
     try {
-      await RNIap.initConnection();
-      await RNIap.getProducts(skus);
-
-      // Listeners for purchases
-      const purchaseUpdateSubscription = RNIap.purchaseUpdatedListener(
-        (purchase) => {
-          console.log("Purchase successful", purchase);
-          setIsFeatured("yes");
-          Alert.alert("Success", "Your property is now featured!");
-          setIsPurchasing(false);
-        },
-      );
-
-      const purchaseErrorSubscription = RNIap.purchaseErrorListener((error) => {
-        console.log("Purchase error", error);
-        Alert.alert(
-          "Purchase Failed",
-          "Unable to complete the featured listing purchase.",
-        );
-        setIsPurchasing(false);
-      });
-
-      // Clean up subscriptions on unmount
-      return () => {
-        if (purchaseUpdateSubscription) {
-          purchaseUpdateSubscription.remove();
-        }
-        if (purchaseErrorSubscription) {
-          purchaseErrorSubscription.remove();
-        }
-      };
+      if (Platform.OS === "android") {
+        await Purchases.configure({ apiKey: "your-android-api-key" });
+      } else if (Platform.OS === "ios") {
+        await Purchases.configure({ apiKey: "your-ios-api-key" });
+      }
     } catch (err) {
-      console.warn(err.code, err.message);
+      console.warn("Error initializing RevenueCat:", err);
     }
   };
 
@@ -148,14 +111,28 @@ const AddPropertyPage = () => {
 
     setIsPurchasing(true);
     try {
-      await RNIap.requestPurchase(skus[0]);
-    } catch (err) {
-      console.warn(err.code, err.message);
-      setIsPurchasing(false);
-      Alert.alert(
-        "Purchase Failed",
-        "Unable to complete the featured listing purchase.",
+      const purchaseResult = await Purchases.purchaseProduct(
+        FEATURED_PROPERTY_PRODUCT_ID,
       );
+      if (
+        purchaseResult.customerInfo.entitlements.active[
+          FEATURED_PROPERTY_PRODUCT_ID
+        ]
+      ) {
+        console.log("Purchase successful");
+        setIsFeatured("yes");
+        Alert.alert("Success", "Your property is now featured!");
+      }
+    } catch (e) {
+      if (!e.userCancelled) {
+        console.error(e);
+        Alert.alert(
+          "Purchase Failed",
+          "Unable to complete the featured listing purchase.",
+        );
+      }
+    } finally {
+      setIsPurchasing(false);
     }
   };
 
@@ -170,6 +147,23 @@ const AddPropertyPage = () => {
     } catch (error) {
       console.error("Error fetching CSRF token:", error);
     }
+  };
+  // Add new amenity function
+  const addAmenity = () => {
+    if (newAmenity.trim()) {
+      const amenity = {
+        id: amenityId,
+        name: newAmenity.trim(),
+      };
+      setAmenities([...amenities, amenity]);
+      setAmenityId(amenityId + 1);
+      setNewAmenity("");
+    }
+  };
+
+  // Remove amenity function
+  const removeAmenity = (id) => {
+    setAmenities(amenities.filter((amenity) => amenity.id !== id));
   };
 
   const getAccessToken = async () => {
@@ -195,6 +189,37 @@ const AddPropertyPage = () => {
 
     if (!result.canceled) {
       setImages([...images, ...result.assets.map((asset) => asset.uri)]);
+    }
+  };
+
+  const uploadImageToCloudinary = async (uri) => {
+    try {
+      // Compress the image
+      const manipulatedImage = await manipulateAsync(
+        uri,
+        [{ resize: { width: 1000 } }],
+        { compress: 0.8, format: SaveFormat.JPEG },
+      );
+
+      const formData = new FormData();
+      formData.append("file", {
+        uri: manipulatedImage.uri,
+        type: "image/jpeg",
+        name: "upload.jpg",
+      });
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+      const response = await fetch(CLOUDINARY_URL, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      console.log(data);
+      return data.secure_url;
+    } catch (error) {
+      console.error("Error uploading image to Cloudinary:", error);
+      throw error;
     }
   };
 
@@ -281,103 +306,78 @@ const AddPropertyPage = () => {
     }
 
     setIsLoading(true);
-    const formData = new FormData();
-
-    if (propertyCategory === "rental") {
-      formData.append("property_category", propertyCategory);
-      formData.append("property_type", propertyType);
-      formData.append("name", name);
-      formData.append("description", description);
-      formData.append("location", location);
-      formData.append("bedrooms", bedrooms);
-      formData.append("bathrooms", bathrooms);
-      formData.append("area", area);
-      formData.append("price_per_month", price);
-      formData.append("deposit", rentalDeposit);
-      formData.append("number_of_units", numberOfUnits);
-      formData.append("is_available", isAvailable === "yes");
-      formData.append("is_featured", isFeatured === "yes");
-      formData.append("amenities", JSON.stringify(amenities));
-    } else if (propertyCategory === "sale") {
-      formData.append("property_category", propertyCategory);
-      formData.append("property_type", propertyType);
-      formData.append("name", name);
-      formData.append("description", description);
-      formData.append("location", location);
-      formData.append("bedrooms", bedrooms);
-      formData.append("bathrooms", bathrooms);
-      formData.append("area", area);
-      formData.append("price", price);
-      formData.append("year_built", yearBuilt);
-      formData.append("is_featured", isFeatured === "yes");
-      formData.append("amenities", JSON.stringify(amenities));
-    } else if (propertyCategory === "per_night") {
-      formData.append("property_category", propertyCategory);
-      formData.append("property_style", propertyStyle);
-      formData.append("name", name);
-      formData.append("description", description);
-      formData.append("location", location);
-      formData.append("bedrooms", bedrooms);
-      formData.append("bathrooms", bathrooms);
-      formData.append("area", area);
-      formData.append("price_per_night", pricePerNight);
-      formData.append("number_of_units", numberOfUnits);
-      formData.append("check_in_time", checkInTime);
-      formData.append("check_out_time", checkOutTime);
-      formData.append("min_nights", minNights);
-      formData.append("max_nights", maxNights);
-      formData.append("is_available", isAvailable === "yes");
-      formData.append("is_featured", isFeatured === "yes");
-      formData.append("amenities", JSON.stringify(amenities));
-    }
-
-    if (latitude !== null && longitude !== null) {
-      formData.append("latitude", latitude.toString());
-      formData.append("longitude", longitude.toString());
-    }
-
-    images.forEach((image, index) => {
-      const filename = image.split("/").pop();
-      formData.append("uploaded_images", {
-        uri: image,
-        type: "image/jpeg",
-        name: filename,
-      });
-    });
 
     try {
+      // Upload images to Cloudinary and get URLs
+      const uploadedImageUrls = await Promise.all(
+        images.map((image) => uploadImageToCloudinary(image)),
+      );
+
+      if (!uploadedImageUrls || uploadedImageUrls.length === 0) {
+        throw new Error("Image upload failed. No URLs returned.");
+      }
+
+      // Extract amenity names
+      const amenityNames = amenities.map((amenity) => amenity.name);
+      // Build payload based on the property category
+      const payload = {
+        property_category: propertyCategory,
+        property_type: propertyType,
+        name,
+        description,
+        location,
+        latitude: latitude || "",
+        longitude: longitude || "",
+        bedrooms,
+        bathrooms,
+        area,
+        ...(propertyCategory === "rental" && { price_per_month: price }),
+        ...(propertyCategory === "sale" && { price }),
+        ...(propertyCategory === "sale" && { year_built: yearBuilt }),
+        ...(propertyCategory === "per_night" && {
+          price_per_night: pricePerNight,
+        }),
+        ...(propertyCategory === "per_night" && { check_in_time: checkInTime }),
+        ...(propertyCategory === "per_night" && {
+          check_out_time: checkOutTime,
+        }),
+        ...(propertyCategory === "per_night" && { min_nights: minNights }),
+        ...(propertyCategory === "per_night" && { max_nights: maxNights }),
+        ...(propertyCategory !== "sale" && {
+          number_of_units: numberOfUnits || 0,
+        }),
+        is_available: isAvailable === "yes",
+        is_featured: isFeatured === "yes",
+        amenities: amenityNames, // Stringify amenities
+        images: uploadedImageUrls,
+      };
+      console.log(payload);
+
       const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "X-CSRFToken": csrfToken,
-          "Content-Type": "multipart/form-data",
+
+          "Content-Type": "application/json",
           Referer: API_BASE_URL,
         },
-        body: formData,
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         const data = await response.json();
         console.log("Property added successfully:", data);
-        navigation.navigate("Profile");
+        Alert.alert("Success", "Property added successfully!");
+        navigation.goBack();
       } else {
         const errorData = await response.json();
         console.error("Error adding property:", errorData);
-
-        if (errorData.error) {
-          setErrorMessage(errorData.error);
-        } else {
-          setErrorMessage(
-            "An unknown error occurred while adding the property. Please contact support if this persists.",
-          );
-        }
+        Alert.alert("Error", "Failed to add the property. Please try again.");
       }
     } catch (error) {
-      console.error("Error submitting property:", error);
-      setErrorMessage(
-        "An unexpected error occurred. Please try again or contact support if this persists.",
-      );
+      console.error("Error during submission:", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -419,6 +419,40 @@ const AddPropertyPage = () => {
       Alert.alert("Error", "Failed to get address. Please try again.");
     }
   };
+  // Replace the existing amenities input with this new UI
+  const renderAmenitiesSection = () => (
+    <View>
+      <Text style={styles.sectionTitle}>Amenities</Text>
+      <View style={styles.amenitiesContainer}>
+        {amenities.map((amenity) => (
+          <View key={amenity.id} style={styles.amenityItem}>
+            <Text style={styles.amenityText}>{amenity.name}</Text>
+            <TouchableOpacity onPress={() => removeAmenity(amenity.id)}>
+              <MaterialIcons name="close-circle" size={20} color="#FF0000" />
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+      <View style={styles.labeledInputContainer}>
+        <Text style={styles.inputLabel}>Add Amenity</Text>
+        <View style={styles.addAmenityContainer}>
+          <TextInput
+            style={styles.addAmenityInput}
+            value={newAmenity}
+            onChangeText={setNewAmenity}
+            placeholder="Enter new amenity"
+            placeholderTextColor="#a0a0a0"
+          />
+          <TouchableOpacity
+            style={styles.addAmenityButton}
+            onPress={addAmenity}
+          >
+            <MaterialIcons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
 
   const renderPropertyTypeOrStyle = () => {
     if (propertyCategory === "per_night") {
@@ -863,23 +897,7 @@ const AddPropertyPage = () => {
           </>
         )}
 
-        <View style={styles.inputContainer}>
-          <MaterialIcons
-            name="list"
-            size={24}
-            color="#4CAF50"
-            style={styles.icon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Amenities (comma-separated)"
-            placeholderTextColor="#a0a0a0"
-            value={amenities.join(", ")}
-            onChangeText={(text) =>
-              setAmenities(text.split(",").map((item) => item.trim()))
-            }
-          />
-        </View>
+        {renderAmenitiesSection()}
 
         <TouchableOpacity style={styles.button} onPress={pickImage}>
           <MaterialIcons
@@ -1121,6 +1139,88 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     color: "#FF9800",
     flex: 1,
+  },
+  // Add new styles for amenities section
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#2D3748",
+    marginBottom: 12,
+    marginTop: 20,
+  },
+  labeledInputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#4A5568",
+    marginBottom: 8,
+  },
+  amenitiesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 20,
+    padding: 8,
+  },
+  amenityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EDF2F7",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    margin: 4,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  amenityText: {
+    color: "#4A5568",
+    marginRight: 8,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  addAmenityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  addAmenityInput: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 12,
+    marginRight: 8,
+    fontSize: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  addAmenityButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });
 

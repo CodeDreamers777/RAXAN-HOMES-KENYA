@@ -152,9 +152,21 @@ function App() {
           component={AddPropertyPage}
           options={{ title: "Add Property" }}
         />
-        <Stack.Screen name="ViewMyListings" component={ViewMyListings} />
-        <Stack.Screen name="UpdateProperty" component={UpdateProperty} />
-        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen
+          name="ViewMyListings"
+          component={ViewMyListings}
+          options={{ title: "View My Listings" }}
+        />
+        <Stack.Screen
+          name="UpdateProperty"
+          component={UpdateProperty}
+          options={{ title: "Update Property" }}
+        />
+        <Stack.Screen
+          name="EditProfile"
+          component={EditProfileScreen}
+          options={{ title: "Edit Profile" }}
+        />
         <Stack.Screen
           name="BookingConfirmation"
           component={BookingConfirmation}
@@ -163,19 +175,23 @@ function App() {
         <Stack.Screen
           name="BookingsScreen"
           component={BookingsScreen}
-          options={{ title: "BookingsScreen" }}
+          options={{ title: "My Bookings" }}
         />
         <Stack.Screen
           name="BookingDetailScreen"
           component={BookingDetailScreen}
-          options={{ title: "BookingDetailScreen" }}
+          options={{ title: "Booking Details" }}
         />
         <Stack.Screen
           name="ConversationDetail"
           component={ConversationDetailScreen}
           options={({ route }) => ({ title: route.params.otherUserName })}
         />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ title: "Settings" }}
+        />
         <Stack.Screen
           name="WebView"
           component={WebViewScreen}
@@ -188,14 +204,20 @@ function App() {
             headerShown: false,
           }}
         />
-        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen
+          name="ForgotPassword"
+          component={ForgotPasswordScreen}
+          options={{ title: "Forgot Password" }}
+        />
         <Stack.Screen
           name="OTPVerification"
           component={OTPVerificationScreen}
+          options={{ title: "OTP Verification" }}
         />
         <Stack.Screen
           name="OtpVerification"
           component={OtpVerificationScreen}
+          options={{ title: "OTP Verification" }}
         />
         <Stack.Screen
           name="Review"
@@ -212,9 +234,21 @@ function App() {
             headerBackTitle: "Back",
           }}
         />
-        <Stack.Screen name="ViewingsList" component={ViewingListPage} />
-        <Stack.Screen name="BookingScreen" component={BookingScreen} />
-        <Stack.Screen name="PerNightBookings" component={PerNightBookings} />
+        <Stack.Screen
+          name="ViewingsList"
+          component={ViewingListPage}
+          options={{ title: "Viewings List" }}
+        />
+        <Stack.Screen
+          name="BookingScreen"
+          component={BookingScreen}
+          options={{ title: "Book Property" }}
+        />
+        <Stack.Screen
+          name="PerNightBookings"
+          component={PerNightBookings}
+          options={{ title: "Per Night Bookings" }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
