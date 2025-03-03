@@ -10,6 +10,8 @@ from django.db.models import Q, Max
 from rest_framework import generics, permissions
 from django.utils import timezone
 from django.contrib.auth import update_session_auth_hash
+from rest_framework import serializers
+
 
 from .serializer import ForgotPasswordSerializer, SignupSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
