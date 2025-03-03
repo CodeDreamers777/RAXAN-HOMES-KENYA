@@ -13,6 +13,7 @@ from .models import (
     WishlistItem,
     Message,
     BookForSaleViewing,
+    PropertyViewing,
 )
 from django.contrib.auth.models import User
 import json
@@ -669,3 +670,71 @@ class PerNightBookingSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+# Create a serializer for PropertyViewing
+class PropertyViewingSerializer(serializers.ModelSerializer):
+    property_type = serializers.CharField(write_only=True)
+    property_id = serializers.UUIDField(write_only=True)
+    property_name = serializers.SerializerMethodField()
+    client_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PropertyViewing
+        fields = [
+            "id",
+            "property_type",
+            "property_id",
+            "property_name",
+            "client_name",
+            "viewing_date",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "property_name",
+            "client_name",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_property_name(self, obj):
+        if obj.property:
+            return obj.property.name
+        return None
+
+    def get_client_name(self, obj):
+        return obj.client.user.username
+
+    def create(self, validated_data):
+        property_type = validated_data.pop("property_type")
+        property_id = validated_data.pop("property_id")
+
+        # Map property_type string to the corresponding model
+        property_models = {
+            "sale": PropertyForSale,
+            "rental": RentalProperty,
+            "pernight": PerNightProperty,
+        }
+
+        if property_type not in property_models:
+            raise serializers.ValidationError(f"Invalid property type: {property_type}")
+
+        model = property_models[property_type]
+        content_type = ContentType.objects.get_for_model(model)
+
+        try:
+            # Check if the property exists
+            property_obj = model.objects.get(id=property_id)
+        except model.DoesNotExist:
+            raise serializers.ValidationError(
+                f"Property with id {property_id} does not exist"
+            )
+
+        # Create the viewing
+        return PropertyViewing.objects.create(
+            content_type=content_type, object_id=property_id, **validated_data
+        )

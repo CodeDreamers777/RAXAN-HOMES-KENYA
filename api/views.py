@@ -38,6 +38,7 @@ from .models import (
     PerNightBooking,
     Review,
     Booking,
+    PropertyViewing,
     Message,
     Payment,
     BookForSaleViewing,
@@ -49,6 +50,7 @@ from .serializer import (
     ReviewSerializer,
     WishlistItemSerializer,
     BookingSerializer,
+    PropertyViewingSerializer,
     MessageSerializer,
     MessageCreateSerializer,
     OTPEmailSerializer,
@@ -1362,20 +1364,41 @@ class ReviewViewSet(viewsets.ModelViewSet):
             )
 
 
-class BookForSaleViewingViewSet(viewsets.ModelViewSet):
-    serializer_class = BookForSaleViewingSerializer
+# Update the ViewSet to work with any property type
+class PropertyViewingViewSet(viewsets.ModelViewSet):
+    serializer_class = PropertyViewingSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user_profile = self.request.user.profile
         if user_profile.is_seller:
-            return BookForSaleViewing.objects.filter(property__host=user_profile)
-        return BookForSaleViewing.objects.filter(client=user_profile)
+            # For sellers, get all viewings of their properties across all property types
+            property_types = [PropertyForSale, RentalProperty, PerNightProperty]
+            queryset = PropertyViewing.objects.none()
+
+            for model in property_types:
+                content_type = ContentType.objects.get_for_model(model)
+                property_ids = model.objects.filter(host=user_profile).values_list(
+                    "id", flat=True
+                )
+                queryset = queryset | PropertyViewing.objects.filter(
+                    content_type=content_type, object_id__in=property_ids
+                )
+
+            return queryset
+
+        # For clients, get all their viewing requests
+        return PropertyViewing.objects.filter(client=user_profile)
 
     def perform_create(self, serializer):
         try:
-            print(f"Request data: {self.request.data}")
-            if not self.request.data.get("property"):
+            if not self.request.data.get("property_type"):
+                return Response(
+                    {"error": "Property type is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not self.request.data.get("property_id"):
                 return Response(
                     {"error": "Property ID is required"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -1392,11 +1415,10 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
                 {"message": "Viewing scheduled successfully"},
                 status=status.HTTP_201_CREATED,
             )
+
         except serializers.ValidationError as ve:
-            print(f"Validation error: {ve}")
             return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            print(f"Error during booking creation: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
@@ -1409,10 +1431,13 @@ class BookForSaleViewingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Get the property host
+        property_host = instance.property.host if instance.property else None
+
         # Allow the client who created the viewing and the host of the property to update it
         if (
             instance.client != request.user.profile
-            and instance.property.host != request.user.profile
+            and property_host != request.user.profile
         ):
             return Response(
                 {"error": "You don't have permission to modify this viewing"},

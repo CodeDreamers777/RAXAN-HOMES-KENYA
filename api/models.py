@@ -391,3 +391,38 @@ class PerNightBooking(models.Model):
             raise ValueError(f"Maximum stay is {property.max_nights} nights")
 
         super().save(*args, **kwargs)
+
+
+class PropertyViewing(models.Model):
+    BOOKING_STATUS = [
+        ("PENDING", "Pending"),
+        ("CONFIRMED", "Confirmed"),
+        ("COMPLETED", "Completed"),
+        ("CANCELLED", "Cancelled"),
+    ]
+
+    # Use generic relation to reference any property type
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.UUIDField()
+    property = GenericForeignKey("content_type", "object_id")
+
+    client = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name="all_property_viewings"
+    )
+    viewing_date = models.DateTimeField()
+    status = models.CharField(max_length=10, choices=BOOKING_STATUS, default="PENDING")
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-viewing_date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["content_type", "object_id", "viewing_date"],
+                name="unique_any_property_viewing_time",
+            )
+        ]
+
+    def __str__(self):
+        return f"Viewing of {self.property.name} by {self.client.user.username} on {self.viewing_date}"
