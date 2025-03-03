@@ -21,6 +21,25 @@ import defaultUserProfileImage from "../../assets/user-profile.jpg";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
+// Green theme colors
+const COLORS = {
+  primary: "#2E7D32", // Dark green
+  primaryDark: "#1B5E20", // Darker green for gradients
+  primaryLight: "#4CAF50", // Medium green
+  secondary: "#A5D6A7", // Light green
+  background: "#F1F8E9", // Very light green/off-white
+  text: "#1B5E20", // Very dark green
+  textSecondary: "#33691E", // Dark olive green
+  textLight: "#E8F5E9", // Very light green for text on dark backgrounds
+  border: "#81C784", // Medium light green
+  white: "#FFFFFF",
+  error: "#D32F2F", // Red for errors and logout
+  accent: "#66BB6A", // Medium green for accents
+  highlight: "#C8E6C9", // Very light green for highlights
+  buttonGradientStart: "#43A047", // Start of button gradient
+  buttonGradientEnd: "#2E7D32", // End of button gradient
+};
+
 const fetchCSRFToken = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/get-csrf-token/`, {
@@ -162,7 +181,7 @@ function ProfileScreen() {
 
   const renderHeader = () => (
     <LinearGradient
-      colors={["#2d6a4f", "#1b4332"]}
+      colors={[COLORS.primary, COLORS.primaryDark]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.profileHeader}
@@ -185,7 +204,7 @@ function ProfileScreen() {
           style={styles.editProfileButton}
           onPress={handleEditProfile}
         >
-          <Ionicons name="pencil" size={18} color="#fff" />
+          <Ionicons name="pencil" size={18} color={COLORS.white} />
           <Text style={styles.editProfileText}>Edit Profile</Text>
         </TouchableOpacity>
       </View>
@@ -201,33 +220,17 @@ function ProfileScreen() {
             style={[styles.actionButton, styles.ratingsButton]}
             onPress={handleViewRatings}
           >
-            <Ionicons name="star-outline" size={24} color="#fff" />
+            <Ionicons name="star-outline" size={24} color={COLORS.white} />
             <Text style={styles.actionButtonText}>View All Ratings</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
-          style={[styles.actionButton, styles.viewBookingsButton]}
-          onPress={handleViewMyBookings}
-        >
-          <Ionicons name="calendar-outline" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>View My Bookings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.viewBookingsButton]}
-          onPress={handlePerNightBookings}
-        >
-          <Ionicons name="calendar-outline" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>View Per Night Bookings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.actionButton, styles.forSaleBookingsButton]}
           onPress={handleForSaleBookings}
         >
-          <Ionicons name="home-outline" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>For Sale Bookings</Text>
+          <Ionicons name="home-outline" size={24} color={COLORS.white} />
+          <Text style={styles.actionButtonText}>View Bookings</Text>
         </TouchableOpacity>
 
         {profile?.user_type === "SELLER" && (
@@ -236,14 +239,18 @@ function ProfileScreen() {
               style={[styles.actionButton, styles.addPlaceButton]}
               onPress={handleAddPlace}
             >
-              <Ionicons name="add-circle-outline" size={24} color="#fff" />
+              <Ionicons
+                name="add-circle-outline"
+                size={24}
+                color={COLORS.white}
+              />
               <Text style={styles.actionButtonText}>Add your place</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.viewListingsButton]}
               onPress={handleViewMyListings}
             >
-              <Ionicons name="list-outline" size={24} color="#fff" />
+              <Ionicons name="list-outline" size={24} color={COLORS.white} />
               <Text style={styles.actionButtonText}>View My Listings</Text>
             </TouchableOpacity>
           </>
@@ -255,9 +262,9 @@ function ProfileScreen() {
           style={styles.settingsButton}
           onPress={handleSettingsPress}
         >
-          <Ionicons name="settings-outline" size={24} color="#333" />
+          <Ionicons name="settings-outline" size={24} color={COLORS.text} />
           <Text style={styles.settingsText}>Settings</Text>
-          <Ionicons name="chevron-forward" size={24} color="#333" />
+          <Ionicons name="chevron-forward" size={24} color={COLORS.text} />
         </TouchableOpacity>
       </View>
 
@@ -268,10 +275,10 @@ function ProfileScreen() {
           disabled={loggingOut}
         >
           {loggingOut ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={COLORS.white} />
           ) : (
             <>
-              <Ionicons name="log-out-outline" size={24} color="#fff" />
+              <Ionicons name="log-out-outline" size={24} color={COLORS.white} />
               <Text style={styles.logoutText}>Logout</Text>
             </>
           )}
@@ -283,7 +290,7 @@ function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#0d1b21" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -306,7 +313,7 @@ function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: COLORS.background,
   },
   contentContainer: {
     paddingBottom: 20,
@@ -315,7 +322,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: COLORS.background,
   },
   profileHeader: {
     flexDirection: "row",
@@ -323,13 +330,21 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   profileImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: "#fff",
+    borderColor: COLORS.white,
   },
   profileInfo: {
     flex: 1,
@@ -338,17 +353,17 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#fff",
+    color: COLORS.white,
     marginBottom: 5,
   },
   profileEmail: {
     fontSize: 16,
-    color: "#e0e0e0",
+    color: COLORS.textLight,
     marginBottom: 5,
   },
   profilePhone: {
     fontSize: 16,
-    color: "#e0e0e0",
+    color: COLORS.textLight,
     marginBottom: 10,
   },
   editProfileButton: {
@@ -362,7 +377,7 @@ const styles = StyleSheet.create({
   },
   editProfileText: {
     fontSize: 16,
-    color: "#fff",
+    color: COLORS.white,
     marginLeft: 5,
   },
   profileSection: {
@@ -373,10 +388,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 15,
-    color: "#333",
+    color: COLORS.text,
   },
-  addPlaceButton: {
-    backgroundColor: "#0d1b21",
+  actionButton: {
+    backgroundColor: COLORS.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -392,20 +407,29 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  viewListingsButton: {
-    backgroundColor: "#1c3640",
-  },
-  addPlaceText: {
-    color: "#fff",
+  actionButtonText: {
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: "bold",
     marginLeft: 10,
+  },
+  addPlaceButton: {
+    backgroundColor: COLORS.primary,
+  },
+  viewListingsButton: {
+    backgroundColor: COLORS.primaryDark,
+  },
+  forSaleBookingsButton: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  ratingsButton: {
+    backgroundColor: "#8BC34A", // Lighter green for ratings button
   },
   settingsButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 15,
     borderRadius: 10,
     shadowColor: "#000",
@@ -416,15 +440,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   settingsText: {
     fontSize: 18,
-    color: "#333",
+    color: COLORS.text,
     flex: 1,
     marginLeft: 10,
   },
   logoutButton: {
-    backgroundColor: "#e53935",
+    backgroundColor: COLORS.error,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -440,13 +466,13 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   logoutText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: "bold",
     marginLeft: 10,
   },
   reviewItem: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     borderRadius: 10,
     padding: 15,
     marginHorizontal: 20,
@@ -459,6 +485,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   reviewHeader: {
     flexDirection: "row",
@@ -469,7 +497,7 @@ const styles = StyleSheet.create({
   reviewAuthor: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
+    color: COLORS.text,
   },
   ratingContainer: {
     flexDirection: "row",
@@ -477,15 +505,15 @@ const styles = StyleSheet.create({
   },
   reviewRating: {
     fontSize: 14,
-    color: "#FFA000",
+    color: "#8BC34A", // Light green for ratings
     marginLeft: 5,
   },
   reviewContent: {
     fontSize: 14,
-    color: "#666",
+    color: COLORS.textSecondary,
   },
   viewBookingsButton: {
-    backgroundColor: "#2c5282",
+    backgroundColor: COLORS.primaryLight,
   },
   centeredView: {
     flex: 1,
@@ -494,7 +522,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalView: {
-    backgroundColor: "white",
+    backgroundColor: COLORS.white,
     borderRadius: 20,
     padding: 25,
     alignItems: "center",
@@ -513,13 +541,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 20,
-    color: "#333",
+    color: COLORS.text,
   },
   tabContainer: {
     flexDirection: "row",
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: COLORS.border,
   },
   tab: {
     flex: 1,
@@ -528,14 +556,14 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: "#0d1b21",
+    borderBottomColor: COLORS.primary,
   },
   tabText: {
     fontSize: 16,
-    color: "#666",
+    color: COLORS.textSecondary,
   },
   activeTabText: {
-    color: "#0d1b21",
+    color: COLORS.primary,
     fontWeight: "bold",
   },
   planContent: {
@@ -545,12 +573,12 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#0d1b21",
+    color: COLORS.primary,
     marginBottom: 10,
   },
   planPrice: {
     fontSize: 18,
-    color: "#4a4a4a",
+    color: COLORS.textSecondary,
     marginBottom: 20,
   },
   planFeatures: {
@@ -559,51 +587,13 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
+    color: COLORS.text,
     marginBottom: 10,
   },
   feature: {
     fontSize: 16,
-    color: "#4a4a4a",
+    color: COLORS.textSecondary,
     marginBottom: 5,
-  },
-  actionButton: {
-    backgroundColor: "#0d1b21",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  actionButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginLeft: 10,
-  },
-  ratingsButton: {
-    backgroundColor: "#FFA000", // Golden color to match the star theme
-  },
-  addPlaceButton: {
-    backgroundColor: "#0d1b21",
-  },
-  viewListingsButton: {
-    backgroundColor: "#1c3640",
-  },
-  viewBookingsButton: {
-    backgroundColor: "#2c5282",
-  },
-  forSaleBookingsButton: {
-    backgroundColor: "#1e40af", // Deep blue color to differentiate from other booking button
   },
 });
 

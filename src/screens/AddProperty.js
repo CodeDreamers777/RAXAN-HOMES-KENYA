@@ -21,7 +21,6 @@ import { useNavigation } from "@react-navigation/native";
 import MapView, { Marker, PROVIDER_OPENSTREETMAP } from "react-native-maps";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
-import Purchases from "react-native-purchases";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
@@ -48,7 +47,6 @@ const AddPropertyPage = () => {
   const [area, setArea] = useState("");
   const [numberOfUnits, setNumberOfUnits] = useState("");
   const [isAvailable, setIsAvailable] = useState("yes");
-  const [isFeatured, setIsFeatured] = useState("no");
   const [newAmenity, setNewAmenity] = useState("");
   const [amenityId, setAmenityId] = useState(1); // For generating unique IDs
 
@@ -66,7 +64,6 @@ const AddPropertyPage = () => {
   const [maxNights, setMaxNights] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [rentalDeposit, setRentalDeposit] = useState("");
-  const [isPurchasing, setIsPurchasing] = useState(false);
   const [isExpoGo, setIsExpoGo] = useState(false);
 
   useEffect(() => {
@@ -78,63 +75,12 @@ const AddPropertyPage = () => {
 
     fetchCSRFToken();
     getAccessToken();
-    initializeRevenueCat();
 
     // Check if running in Expo Go
     if (Constants.appOwnership === "expo") {
       setIsExpoGo(true);
     }
   }, []);
-
-  const initializeRevenueCat = async () => {
-    if (isExpoGo) return;
-
-    try {
-      if (Platform.OS === "android") {
-        await Purchases.configure({ apiKey: "your-android-api-key" });
-      } else if (Platform.OS === "ios") {
-        await Purchases.configure({ apiKey: "your-ios-api-key" });
-      }
-    } catch (err) {
-      console.warn("Error initializing RevenueCat:", err);
-    }
-  };
-
-  const handleFeaturedPurchase = async () => {
-    if (isExpoGo) {
-      Alert.alert(
-        "Expo Go Limitation",
-        "In-app purchases are not available in Expo Go. Please use a development build to test this feature.",
-      );
-      return;
-    }
-
-    setIsPurchasing(true);
-    try {
-      const purchaseResult = await Purchases.purchaseProduct(
-        FEATURED_PROPERTY_PRODUCT_ID,
-      );
-      if (
-        purchaseResult.customerInfo.entitlements.active[
-          FEATURED_PROPERTY_PRODUCT_ID
-        ]
-      ) {
-        console.log("Purchase successful");
-        setIsFeatured("yes");
-        Alert.alert("Success", "Your property is now featured!");
-      }
-    } catch (e) {
-      if (!e.userCancelled) {
-        console.error(e);
-        Alert.alert(
-          "Purchase Failed",
-          "Unable to complete the featured listing purchase.",
-        );
-      }
-    } finally {
-      setIsPurchasing(false);
-    }
-  };
 
   const fetchCSRFToken = async () => {
     try {
@@ -228,19 +174,6 @@ const AddPropertyPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (isFeatured === "yes" && !isPurchasing) {
-      if (isExpoGo) {
-        Alert.alert(
-          "Expo Go Limitation",
-          "Featured listings are not available in Expo Go. Your listing will be submitted as a regular listing.",
-        );
-        setIsFeatured("no");
-      } else {
-        await handleFeaturedPurchase();
-        return;
-      }
-    }
-
     if (!accessToken) {
       Alert.alert("Error", "No access token found. Please log in again.");
       return;
@@ -259,7 +192,6 @@ const AddPropertyPage = () => {
         price,
         numberOfUnits,
         isAvailable,
-        isFeatured,
         amenities,
       ];
     } else if (propertyCategory === "sale") {
@@ -273,7 +205,6 @@ const AddPropertyPage = () => {
         area,
         price,
         yearBuilt,
-        isFeatured,
         amenities,
       ];
     } else if (propertyCategory === "per_night") {
@@ -292,7 +223,6 @@ const AddPropertyPage = () => {
         minNights,
         maxNights,
         isAvailable,
-        isFeatured,
         amenities,
       ];
     } else {
@@ -347,7 +277,7 @@ const AddPropertyPage = () => {
           number_of_units: numberOfUnits || 0,
         }),
         is_available: isAvailable === "yes",
-        is_featured: isFeatured === "yes",
+        is_featured: false, // Always set to false since we removed the featured functionality
         amenities: amenityNames, // Stringify amenities
         images: uploadedImageUrls,
       };
@@ -358,7 +288,6 @@ const AddPropertyPage = () => {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "X-CSRFToken": csrfToken,
-
           "Content-Type": "application/json",
           Referer: API_BASE_URL,
         },
@@ -532,8 +461,7 @@ const AddPropertyPage = () => {
           <View style={styles.warningContainer}>
             <MaterialIcons name="warning" size={24} color="#FFA500" />
             <Text style={styles.warningText}>
-              You are running in Expo Go. Some features, including in-app
-              purchases, are limited.
+              You are running in Expo Go. Some features may be limited.
             </Text>
           </View>
         )}
@@ -710,34 +638,6 @@ const AddPropertyPage = () => {
             onChangeText={setArea}
             keyboardType="numeric"
           />
-        </View>
-
-        <View style={styles.featuredContainer}>
-          <Picker
-            selectedValue={isFeatured}
-            style={styles.picker}
-            onValueChange={(itemValue) => setIsFeatured(itemValue)}
-            enabled={!isExpoGo}
-          >
-            <Picker.Item label="None Featured Property" value="no" />
-            <Picker.Item label="Featured Property" value="yes" />
-          </Picker>
-
-          {isFeatured === "yes" && (
-            <View style={styles.infoBox}>
-              <MaterialIcons
-                name="info"
-                size={20}
-                color="#1976D2"
-                style={styles.infoIcon}
-              />
-              <Text style={styles.infoText}>
-                {isExpoGo
-                  ? "Featured properties are not available in Expo Go."
-                  : "Featured properties cost 999 KES per listing. You will be prompted to make the purchase before submitting."}
-              </Text>
-            </View>
-          )}
         </View>
 
         {propertyCategory === "sale" && (
@@ -959,14 +859,11 @@ const AddPropertyPage = () => {
         )}
 
         <TouchableOpacity
-          style={[
-            styles.submitButton,
-            (isLoading || isPurchasing) && styles.disabledButton,
-          ]}
+          style={[styles.submitButton, isLoading && styles.disabledButton]}
           onPress={handleSubmit}
-          disabled={isLoading || isPurchasing}
+          disabled={isLoading}
         >
-          {isLoading || isPurchasing ? (
+          {isLoading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={styles.buttonText}>Submit</Text>

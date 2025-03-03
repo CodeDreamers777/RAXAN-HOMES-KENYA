@@ -178,8 +178,19 @@ const PropertyScreen = ({ route, navigation }) => {
     }
   };
   const handleScheduleViewing = () => {
+    // Determine property type
+    let propertyType;
+    if ("price_per_night" in property) {
+      propertyType = "pernight";
+    } else if ("price_per_month" in property) {
+      propertyType = "rental";
+    } else {
+      propertyType = "sale";
+    }
+
     navigation.navigate("ScheduleViewing", {
-      propertyId: propertyId, // Make sure propertyId is defined in your component
+      propertyId: propertyId,
+      propertyType: propertyType, // Add property type to navigation params
     });
   };
 
@@ -428,30 +439,19 @@ const PropertyScreen = ({ route, navigation }) => {
 
     return (
       <View style={styles.actionButtonContainer}>
-        {isPerNight ? (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonPerNight]}
-            onPress={() =>
-              navigation.navigate("BookingScreen", { propertyId: propertyId })
-            }
-          >
-            <Text style={styles.actionButtonText}>Book Now</Text>
-          </TouchableOpacity>
-        ) : isRental ? (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonPerMonth]}
-            onPress={handleBookNow}
-          >
-            <Text style={styles.actionButtonText}>Book Now</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleScheduleViewing}
-          >
-            <Text style={styles.actionButtonText}>Book Viewing</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            isPerNight
+              ? styles.actionButtonPerNight
+              : isRental
+                ? styles.actionButtonPerMonth
+                : null,
+          ]}
+          onPress={handleScheduleViewing}
+        >
+          <Text style={styles.actionButtonText}>Book Viewing</Text>
+        </TouchableOpacity>
       </View>
     );
   };
