@@ -7,7 +7,7 @@ router = DefaultRouter()
 router.register(r"properties", views.PropertyViewSet, basename="property")
 router.register(r"reviews", views.ReviewViewSet)
 router.register(
-    r"property-viewings", views.PropertyViewingSerializer, basename="property-viewing"
+    r"property-viewings", views.PropertyViewingViewSet, basename="property-viewing"
 )
 
 urlpatterns = [
