@@ -515,15 +515,7 @@ class BookForSaleViewingSerializer(serializers.ModelSerializer):
 
 
 class PerNightPropertySerializer(serializers.ModelSerializer):
-    # Keep the same field name "images" for both read and write operations
-    images = serializers.SerializerMethodField()  # For reading (return value)
-    # You should use the same field name in the request as in your OG data
-    images_write = serializers.ListField(  # For writing (accepting URLs)
-        child=serializers.URLField(),
-        required=False,
-        write_only=True,
-        source="images",  # Map this to the same source name as the request
-    )
+    images = serializers.SerializerMethodField()
     is_featured = serializers.SerializerMethodField()
     host_username = serializers.CharField(source="host.user.username", read_only=True)
     amenities = serializers.ListField(
@@ -556,7 +548,6 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
             "is_available",
             "created_at",
             "images",
-            "images_write",  # Write-only field
             "amenities",
             "rating",
         ]
@@ -583,8 +574,11 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
         return None
 
     def create(self, validated_data):
-        # Extract image URLs and amenities data
-        image_urls = validated_data.pop("images", [])  # Use the same name as in request
+        # The images field isn't part of validated_data because it's not in the model fields
+        # So we need to get it from the initial data instead
+        image_urls = self.initial_data.get("images", [])
+        print(f"Found image URLs in initial_data: {image_urls}")
+
         amenities_data = validated_data.pop("amenities", [])
 
         # Create property instance
@@ -597,10 +591,37 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
             )
             property.amenities.add(amenity)
 
-        # Save images like in BasePropertySerializer
+        # Save images
         self._save_images(property, image_urls)
 
         return property
+
+    def update(self, instance, validated_data):
+        # Get images from initial data
+        image_urls = self.initial_data.get("images", [])
+        print(f"Found image URLs in initial_data for update: {image_urls}")
+
+        amenities_data = validated_data.pop("amenities", None)
+
+        # Update the instance
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Handle amenities if provided
+        if amenities_data is not None:
+            instance.amenities.clear()
+            for amenity_name in amenities_data:
+                amenity, _ = Amenity.objects.get_or_create(
+                    name=amenity_name.strip().lower()
+                )
+                instance.amenities.add(amenity)
+
+        # Save images
+        if image_urls:
+            self._save_images(instance, image_urls)
+
+        return instance
 
     def _save_images(self, instance, image_urls):
         """
