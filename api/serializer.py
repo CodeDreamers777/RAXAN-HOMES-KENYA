@@ -555,10 +555,7 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
 
     def get_images(self, obj):
         images = obj.images()
-        return [
-            {"id": image.id, "image": image.image.url if image.image else None}
-            for image in images
-        ]
+        return [{"id": image.id, "image": image.image} for image in images]
 
     def get_is_featured(self, obj):
         return obj.is_featured
@@ -574,8 +571,7 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
         return None
 
     def create(self, validated_data):
-        # The images field isn't part of validated_data because it's not in the model fields
-        # So we need to get it from the initial data instead
+        # Get images from initial_data since they're not part of the model fields
         image_urls = self.initial_data.get("images", [])
         print(f"Found image URLs in initial_data: {image_urls}")
 
@@ -596,33 +592,6 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
 
         return property
 
-    def update(self, instance, validated_data):
-        # Get images from initial data
-        image_urls = self.initial_data.get("images", [])
-        print(f"Found image URLs in initial_data for update: {image_urls}")
-
-        amenities_data = validated_data.pop("amenities", None)
-
-        # Update the instance
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        # Handle amenities if provided
-        if amenities_data is not None:
-            instance.amenities.clear()
-            for amenity_name in amenities_data:
-                amenity, _ = Amenity.objects.get_or_create(
-                    name=amenity_name.strip().lower()
-                )
-                instance.amenities.add(amenity)
-
-        # Save images
-        if image_urls:
-            self._save_images(instance, image_urls)
-
-        return instance
-
     def _save_images(self, instance, image_urls):
         """
         Saves provided image URLs to the PropertyImage model linked to the property.
@@ -640,11 +609,11 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
         for image_url in image_urls:
             PropertyImage.objects.create(
                 property=instance,
-                image=image_url,
+                image=image_url,  # Store the URL directly
                 content_type=content_type,
                 object_id=instance.id,
             )
-        print("Images saved successfully.")
+        print(f"Successfully saved {len(image_urls)} images.")
 
     def validate_min_nights(self, value):
         if value < 1:
