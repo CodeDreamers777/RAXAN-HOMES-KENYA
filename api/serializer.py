@@ -330,13 +330,33 @@ class PropertyForSaleSerializer(BasePropertySerializer):
 
 
 class WishlistItemSerializer(serializers.ModelSerializer):
-    property_name = serializers.CharField(source="property.name")
-    property_type = serializers.CharField(source="content_type.model")
+    property_name = serializers.SerializerMethodField()
+    property_type = serializers.SerializerMethodField()
     username = serializers.CharField(source="profile.user.username")
 
     class Meta:
         model = WishlistItem
         fields = ["id", "property_name", "property_type", "added_at", "username"]
+
+    def get_property_name(self, obj):
+        # Use get_property to handle the generic relation or handle if property doesn't exist
+        property_obj = self.get_property_object(obj)
+        return property_obj.name if property_obj else "Unknown"
+
+    def get_property_type(self, obj):
+        # Use the content_type model name if available
+        if obj.content_type:
+            return obj.content_type.model
+        return "Unknown"
+
+    def get_property_object(self, obj):
+        # Helper method to safely get the property object
+        if obj.content_type and obj.object_id:
+            try:
+                return obj.content_type.get_object_for_this_type(id=obj.object_id)
+            except:
+                return None
+        return None
 
 
 class BookingSerializer(serializers.ModelSerializer):
