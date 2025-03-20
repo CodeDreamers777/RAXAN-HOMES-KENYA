@@ -555,7 +555,7 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
 
     def get_images(self, obj):
         images = obj.images()
-        return [{"id": image.id, "image": image.image} for image in images]
+        return [image.image for image in images]
 
     def get_is_featured(self, obj):
         return obj.is_featured
