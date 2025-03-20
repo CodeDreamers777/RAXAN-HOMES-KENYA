@@ -160,9 +160,16 @@ const AddPropertyPage = () => {
         body: formData,
       });
 
-      const data = await response.json();
-      console.log(data);
-      return data.secure_url;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Cloudinary error: ${response.status} - ${errorText}`);
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+
+      // Clone the response before reading its JSON to avoid the "Already read" error
+      const responseData = await response.json();
+      console.log("Cloudinary upload success:", responseData.secure_url);
+      return responseData.secure_url;
     } catch (error) {
       console.error("Error uploading image to Cloudinary:", error);
       throw error;
@@ -246,13 +253,20 @@ const AddPropertyPage = () => {
       if (!uploadedImageUrls || uploadedImageUrls.length === 0) {
         throw new Error("Image upload failed. No URLs returned.");
       }
+      console.log(uploadedImageUrls);
 
       // Extract amenity names
       const amenityNames = amenities.map((amenity) => amenity.name);
+
       // Build payload based on the property category
       const payload = {
         property_category: propertyCategory,
-        property_type: propertyType,
+        ...(propertyCategory !== "per_night"
+          ? { property_type: propertyType }
+          : {}),
+        ...(propertyCategory === "per_night"
+          ? { property_style: propertyStyle }
+          : {}),
         name,
         description,
         location,
@@ -302,7 +316,10 @@ const AddPropertyPage = () => {
       } else {
         const errorData = await response.json();
         console.error("Error adding property:", errorData);
-        Alert.alert("Error", "Failed to add the property. Please try again.");
+        Alert.alert(
+          "Error",
+          `Failed to add the property: ${JSON.stringify(errorData)}`,
+        );
       }
     } catch (error) {
       console.error("Error during submission:", error);
@@ -442,7 +459,6 @@ const AddPropertyPage = () => {
             <Picker.Item label="Apartment" value="APT" />
             <Picker.Item label="House" value="HOUSE" />
             <Picker.Item label="Villa" value="VILLA" />
-            <Picker.Item label="Land" value="LAND" />
             <Picker.Item label="Office Space" value="OFFICE" />
             <Picker.Item label="Event Center & Venues" value="EVENT" />
             <Picker.Item label="Short Let Property" value="SHORT_LET" />

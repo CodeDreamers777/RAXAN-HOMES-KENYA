@@ -2,7 +2,7 @@
   "expo": {
     "name": "riyadhstay",
     "slug": "riyadhstay",
-    "version": "1.0.1",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,13 +13,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ios",
+      "bundleIdentifier": "com.crispus.raxanhomes",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to location when open.",
         "NSLocationAlwaysUsageDescription": "This app needs access to location when in the background."
-      },
-      "entitlements": {
-        "inAppPurchase": true
       },
       "config": {
         "googleMapsApiKey": "AIzaSyBTMBEfyQpyEVvKgzfHkV43Km2ZNfcKYyo"
@@ -31,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.crispusdev.riyadhstay",
-      "versionCode": 2,
+      "versionCode": 6,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

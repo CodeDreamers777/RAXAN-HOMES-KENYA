@@ -115,6 +115,7 @@ function ProfileScreen() {
       }
       const profileData = await response.json();
       setProfile(profileData);
+      console.log(profileData);
 
       // Save user type to AsyncStorage
       await AsyncStorage.setItem("userType", profileData.user_type);
@@ -178,6 +179,10 @@ function ProfileScreen() {
       setLoggingOut(false);
     }
   };
+  const imageUrl = profile?.profile_picture
+    ? `${API_BASE_URL}${profile.profile_picture}`
+    : null;
+  console.log("Image URL:", imageUrl);
 
   const renderHeader = () => (
     <LinearGradient

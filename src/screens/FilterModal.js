@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, memo } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,10 +8,71 @@ import {
   Modal,
   ScrollView,
   Dimensions,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 const { width } = Dimensions.get("window");
+
+// Constants for theme colors
+const COLORS = {
+  primary: "#2E7D32", // Forest green
+  primaryLight: "#4CAF50", // Regular green
+  primaryDark: "#1B5E20", // Dark green
+  secondary: "#E8F5E9", // Very light green
+  text: "#263238", // Dark text
+  textLight: "#546E7A", // Light text
+  background: "#FFFFFF", // White background
+  border: "#C8E6C9", // Light green border
+  accent: "#81C784", // Medium green for accents
+};
+
+// Memoized filter option component for better performance
+const FilterOption = memo(({ option, isActive, onPress, displayLabel }) => (
+  <TouchableOpacity
+    style={[styles.filterOption, isActive && styles.activeFilterOption]}
+    onPress={onPress}
+  >
+    <Text
+      style={isActive ? styles.activeFilterOptionText : styles.filterOptionText}
+    >
+      {displayLabel}
+    </Text>
+  </TouchableOpacity>
+));
+
+// Memoized range input component for better performance
+const RangeInput = memo(
+  ({ minRef, maxRef, values, onChange, placeholders }) => (
+    <View style={styles.rangeInputContainer}>
+      <TextInput
+        ref={minRef}
+        style={styles.rangeInput}
+        placeholder={placeholders[0]}
+        keyboardType="numeric"
+        value={String(values[0])}
+        onChangeText={(text) => {
+          const value = parseInt(text) || 0;
+          onChange(0, value);
+        }}
+        maxLength={7}
+      />
+      <Text style={styles.rangeText}>to</Text>
+      <TextInput
+        ref={maxRef}
+        style={styles.rangeInput}
+        placeholder={placeholders[1]}
+        keyboardType="numeric"
+        value={String(values[1])}
+        onChangeText={(text) => {
+          const value = parseInt(text) || values[1];
+          onChange(1, value);
+        }}
+        maxLength={7}
+      />
+    </View>
+  ),
+);
 
 const FilterModal = ({
   modalVisible,
@@ -20,16 +81,17 @@ const FilterModal = ({
   setFilters,
   applyFilters,
 }) => {
-  const minPriceRef = useRef(null);
-  const maxPriceRef = useRef(null);
-  const minYearRef = useRef(null);
-  const maxYearRef = useRef(null);
-  const minBedroomsRef = useRef(null);
-  const maxBedroomsRef = useRef(null);
-  const minBathroomsRef = useRef(null);
-  const maxBathroomsRef = useRef(null);
-  const minPerNightRef = useRef(null);
-  const maxPerNightRef = useRef(null);
+  // Refs for input fields
+  const inputRefs = {
+    minPrice: useRef(null),
+    maxPrice: useRef(null),
+    minYear: useRef(null),
+    maxYear: useRef(null),
+    minBedrooms: useRef(null),
+    maxBedrooms: useRef(null),
+    minBathrooms: useRef(null),
+    maxBathrooms: useRef(null),
+  };
 
   const updateFilter = (filterName, index, value) => {
     setFilters((prevFilters) => ({
@@ -40,6 +102,7 @@ const FilterModal = ({
     }));
   };
 
+  // Update year built filter when property type changes
   useEffect(() => {
     if (filters.type !== "sale") {
       setFilters((prevFilters) => ({
@@ -48,6 +111,28 @@ const FilterModal = ({
       }));
     }
   }, [filters.type]);
+
+  // Property status options mapping
+  const propertyStatusOptions = [
+    { value: "all", label: "All" },
+    { value: "rental", label: "For Rent" },
+    { value: "sale", label: "For Sale" },
+    { value: "per_night", label: "Per Night" },
+  ];
+
+  // Property type options
+  const propertyTypeOptions = [
+    "HOUSE",
+    "VILLA",
+    "APT",
+    "OFFICE",
+    "EVENT",
+    "SHORT_LET",
+  ];
+
+  // Format property type label
+  const formatPropertyType = (type) =>
+    type.charAt(0) + type.slice(1).toLowerCase().replace("_", " ");
 
   return (
     <Modal
@@ -59,92 +144,82 @@ const FilterModal = ({
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={toggleModal} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
             <Text style={styles.modalTitle}>Filters</Text>
-            <TouchableOpacity onPress={toggleModal} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#333" />
+            <TouchableOpacity
+              onPress={() => {
+                // Reset filters logic
+                setFilters({
+                  type: "all",
+                  priceRange: [0, 1000000],
+                  propertyType: null,
+                  yearBuilt: [1900, new Date().getFullYear()],
+                  bedrooms: [0, 10],
+                  bathrooms: [0, 10],
+                });
+              }}
+              style={styles.resetButton}
+            >
+              <Text style={styles.resetButtonText}>Reset</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Property Status</Text>
               <View style={styles.filterOptions}>
-                {["all", "rental", "sale", "per_night"].map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.filterOption,
-                      filters.type === type && styles.activeFilterOption,
-                    ]}
-                    onPress={() => setFilters({ ...filters, type })}
-                  >
-                    <Text
-                      style={
-                        filters.type === type
-                          ? styles.activeFilterOptionText
-                          : styles.filterOptionText
-                      }
-                    >
-                      {type === "all"
-                        ? "All"
-                        : type === "rental"
-                          ? "For Rent"
-                          : type === "sale"
-                            ? "For Sale"
-                            : "Per Night"}
-                    </Text>
-                  </TouchableOpacity>
+                {propertyStatusOptions.map((option) => (
+                  <FilterOption
+                    key={option.value}
+                    option={option.value}
+                    isActive={filters.type === option.value}
+                    onPress={() =>
+                      setFilters({ ...filters, type: option.value })
+                    }
+                    displayLabel={option.label}
+                  />
                 ))}
               </View>
             </View>
 
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Price Range</Text>
-              <View style={styles.rangeInputContainer}>
-                <TextInput
-                  ref={minPriceRef}
-                  style={styles.rangeInput}
-                  placeholder="Min"
-                  keyboardType="numeric"
-                  value={filters.priceRange[0].toString()}
-                  onChangeText={(text) => {
-                    const value = parseInt(text) || 0;
-                    updateFilter("priceRange", 0, value);
-                  }}
-                />
-                <Text style={styles.rangeText}>to</Text>
-                <TextInput
-                  ref={maxPriceRef}
-                  style={styles.rangeInput}
-                  placeholder="Max"
-                  keyboardType="numeric"
-                  value={filters.priceRange[1].toString()}
-                  onChangeText={(text) => {
-                    const value = parseInt(text) || 1000000;
-                    updateFilter("priceRange", 1, value);
-                  }}
-                />
+              <RangeInput
+                minRef={inputRefs.minPrice}
+                maxRef={inputRefs.maxPrice}
+                values={filters.priceRange}
+                onChange={(index, value) =>
+                  updateFilter("priceRange", index, value)
+                }
+                placeholders={["Min", "Max"]}
+              />
+              <View style={styles.priceSlider}>
+                <View style={styles.sliderTrack}>
+                  <View
+                    style={[
+                      styles.sliderFill,
+                      {
+                        width: `${Math.min(100, (filters.priceRange[1] / 1000000) * 100)}%`,
+                      },
+                    ]}
+                  />
+                </View>
               </View>
             </View>
 
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Property Type</Text>
               <View style={styles.filterOptions}>
-                {[
-                  "HOUSE",
-                  "VILLA",
-                  "APT",
-                  "LAND",
-                  "OFFICE",
-                  "EVENT",
-                  "SHORT_LET",
-                ].map((type) => (
-                  <TouchableOpacity
+                {propertyTypeOptions.map((type) => (
+                  <FilterOption
                     key={type}
-                    style={[
-                      styles.filterOption,
-                      filters.propertyType === type &&
-                        styles.activeFilterOption,
-                    ]}
+                    option={type}
+                    isActive={filters.propertyType === type}
                     onPress={() =>
                       setFilters({
                         ...filters,
@@ -152,17 +227,8 @@ const FilterModal = ({
                           filters.propertyType === type ? null : type,
                       })
                     }
-                  >
-                    <Text
-                      style={
-                        filters.propertyType === type
-                          ? styles.activeFilterOptionText
-                          : styles.filterOptionText
-                      }
-                    >
-                      {type.charAt(0) + type.slice(1).toLowerCase()}
-                    </Text>
-                  </TouchableOpacity>
+                    displayLabel={formatPropertyType(type)}
+                  />
                 ))}
               </View>
             </View>
@@ -170,93 +236,50 @@ const FilterModal = ({
             {filters.type === "sale" && (
               <View style={styles.filterSection}>
                 <Text style={styles.filterLabel}>Year Built Range</Text>
-                <View style={styles.rangeInputContainer}>
-                  <TextInput
-                    ref={minYearRef}
-                    style={styles.rangeInput}
-                    placeholder="From"
-                    keyboardType="numeric"
-                    value={filters.yearBuilt[0].toString()}
-                    onChangeText={(text) => {
-                      const value = parseInt(text) || 1900;
-                      updateFilter("yearBuilt", 0, value);
-                    }}
-                  />
-                  <Text style={styles.rangeText}>to</Text>
-                  <TextInput
-                    ref={maxYearRef}
-                    style={styles.rangeInput}
-                    placeholder="To"
-                    keyboardType="numeric"
-                    value={filters.yearBuilt[1].toString()}
-                    onChangeText={(text) => {
-                      const value = parseInt(text) || new Date().getFullYear();
-                      updateFilter("yearBuilt", 1, value);
-                    }}
-                  />
-                </View>
+                <RangeInput
+                  minRef={inputRefs.minYear}
+                  maxRef={inputRefs.maxYear}
+                  values={filters.yearBuilt}
+                  onChange={(index, value) =>
+                    updateFilter("yearBuilt", index, value)
+                  }
+                  placeholders={["From", "To"]}
+                />
               </View>
             )}
 
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Bedrooms</Text>
-              <View style={styles.rangeInputContainer}>
-                <TextInput
-                  ref={minBedroomsRef}
-                  style={styles.rangeInput}
-                  placeholder="Min"
-                  keyboardType="numeric"
-                  value={filters.bedrooms[0].toString()}
-                  onChangeText={(text) => {
-                    const value = parseInt(text) || 0;
-                    updateFilter("bedrooms", 0, value);
-                  }}
-                />
-                <Text style={styles.rangeText}>to</Text>
-                <TextInput
-                  ref={maxBedroomsRef}
-                  style={styles.rangeInput}
-                  placeholder="Max"
-                  keyboardType="numeric"
-                  value={filters.bedrooms[1].toString()}
-                  onChangeText={(text) => {
-                    const value = parseInt(text) || 10;
-                    updateFilter("bedrooms", 1, value);
-                  }}
-                />
-              </View>
+              <RangeInput
+                minRef={inputRefs.minBedrooms}
+                maxRef={inputRefs.maxBedrooms}
+                values={filters.bedrooms}
+                onChange={(index, value) =>
+                  updateFilter("bedrooms", index, value)
+                }
+                placeholders={["Min", "Max"]}
+              />
             </View>
 
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Bathrooms</Text>
-              <View style={styles.rangeInputContainer}>
-                <TextInput
-                  ref={minBathroomsRef}
-                  style={styles.rangeInput}
-                  placeholder="Min"
-                  keyboardType="numeric"
-                  value={filters.bathrooms[0].toString()}
-                  onChangeText={(text) => {
-                    const value = parseInt(text) || 0;
-                    updateFilter("bathrooms", 0, value);
-                  }}
-                />
-                <Text style={styles.rangeText}>to</Text>
-                <TextInput
-                  ref={maxBathroomsRef}
-                  style={styles.rangeInput}
-                  placeholder="Max"
-                  keyboardType="numeric"
-                  value={filters.bathrooms[1].toString()}
-                  onChangeText={(text) => {
-                    const value = parseInt(text) || 10;
-                    updateFilter("bathrooms", 1, value);
-                  }}
-                />
-              </View>
+              <RangeInput
+                minRef={inputRefs.minBathrooms}
+                maxRef={inputRefs.maxBathrooms}
+                values={filters.bathrooms}
+                onChange={(index, value) =>
+                  updateFilter("bathrooms", index, value)
+                }
+                placeholders={["Min", "Max"]}
+              />
             </View>
           </ScrollView>
-          <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
+
+          <TouchableOpacity
+            style={styles.applyButton}
+            onPress={applyFilters}
+            activeOpacity={0.8}
+          >
             <Text style={styles.applyButtonText}>Apply Filters</Text>
           </TouchableOpacity>
         </View>
@@ -269,65 +292,93 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
   },
   modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
-    maxHeight: "90%",
+    paddingTop: 16,
+    paddingBottom: Platform.OS === "ios" ? 36 : 24,
+    maxHeight: "92%",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  scrollContent: {
+    paddingBottom: 12,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
+    paddingTop: 8,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 22,
+    fontWeight: "700",
+    color: COLORS.text,
+    textAlign: "center",
+    flex: 1,
   },
-  closeButton: {
-    padding: 5,
+  backButton: {
+    padding: 6,
+    borderRadius: 20,
+  },
+  resetButton: {
+    padding: 6,
+  },
+  resetButtonText: {
+    color: COLORS.primary,
+    fontWeight: "600",
+    fontSize: 15,
   },
   filterSection: {
-    marginBottom: 25,
+    marginBottom: 28,
   },
   filterLabel: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "600",
-    marginBottom: 12,
-    color: "#333",
+    marginBottom: 14,
+    color: COLORS.text,
   },
   filterOptions: {
     flexDirection: "row",
     flexWrap: "wrap",
   },
   filterOption: {
-    backgroundColor: "#f0f0f0",
-    paddingHorizontal: 15,
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 25,
+    borderRadius: 30,
     marginRight: 10,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: COLORS.border,
   },
   activeFilterOption: {
-    backgroundColor: "#4a90e2",
-    borderColor: "#4a90e2",
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primaryDark,
   },
   filterOptionText: {
-    color: "#333",
+    color: COLORS.text,
     fontWeight: "500",
+    fontSize: 14,
   },
   activeFilterOptionText: {
     color: "#fff",
     fontWeight: "600",
+    fontSize: 14,
   },
   rangeInputContainer: {
     flexDirection: "row",
@@ -336,36 +387,60 @@ const styles = StyleSheet.create({
   },
   rangeInput: {
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    fontSize: 16,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
     flex: 1,
     backgroundColor: "#f9f9f9",
+    color: COLORS.text,
   },
   rangeText: {
-    marginHorizontal: 10,
-    fontSize: 16,
-    color: "#666",
+    marginHorizontal: 12,
+    fontSize: 15,
+    color: COLORS.textLight,
+    fontWeight: "500",
+  },
+  priceSlider: {
+    marginTop: 16,
+    paddingHorizontal: 4,
+  },
+  sliderTrack: {
+    height: 6,
+    backgroundColor: COLORS.secondary,
+    borderRadius: 3,
+    width: "100%",
+  },
+  sliderFill: {
+    height: 6,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 3,
   },
   applyButton: {
-    backgroundColor: "#4a90e2",
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginTop: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   applyButtonText: {
     color: "#fff",
     fontWeight: "bold",
     textAlign: "center",
-    fontSize: 18,
+    fontSize: 17,
+    letterSpacing: 0.3,
   },
 });
 
-export default FilterModal;
+export default memo(FilterModal);

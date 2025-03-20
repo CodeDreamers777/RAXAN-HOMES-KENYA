@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, Image } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Dimensions,
+  Platform,
+  StatusBar,
+} from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// Import the custom icons
-import binocularsIcon from "./assets/binoculars.png";
-import wishlistIcon from "./assets/wishlist.png";
-import inboxIcon from "./assets/mail-inbox-app.png";
-import profileIcon from "./assets/user.png";
+import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Import screens and components
 import HomePage from "./src/screens/HomePage";
@@ -28,7 +34,7 @@ import WishlistScreen from "./src/screens/Wishlist";
 import BookingConfirmation from "./src/screens/BookingConfirmation";
 import BookingsScreen from "./src/screens/BookingsScreen";
 import BookingDetailScreen from "./src/screens/BookingDetailScreen";
-import InboxScreen from "./src/screens/InboxScreen"; // Import the new InboxScreen
+import InboxScreen from "./src/screens/InboxScreen";
 import ConversationDetailScreen from "./src/screens/ConversationDetailScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import WebViewScreen from "./src/screens/Webview";
@@ -43,37 +49,251 @@ import {
 import ReviewScreen from "./src/screens/ReviewScreen";
 import PerNightBookings from "./src/screens/PerNightBookings";
 
+// Constants for theme colors
+const PRIMARY_COLOR = "#2E7D32"; // Dark green
+const SECONDARY_COLOR = "#4CAF50"; // Medium green
+const ACCENT_COLOR = "#8BC34A"; // Light green
+const INACTIVE_COLOR = "#9E9E9E";
+const BACKGROUND_COLOR = "#FFFFFF";
+
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const { width } = Dimensions.get("window");
+
+// Custom Tab Bar Button Component
+const TabBarButton = ({
+  icon,
+  label,
+  isFocused,
+  onPress,
+  tabWidth,
+  badgeCount = 0,
+}) => {
+  // Animation values
+  const scaleAnimation = useRef(new Animated.Value(1)).current;
+  const labelOpacity = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+  const translateY = useRef(new Animated.Value(isFocused ? -4 : 0)).current;
+  const dotOpacity = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+  const dotScale = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+
+  useEffect(() => {
+    // Animate when tab focus changes
+    Animated.parallel([
+      Animated.spring(scaleAnimation, {
+        toValue: isFocused ? 1.1 : 1,
+        friction: 7,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.timing(labelOpacity, {
+        toValue: isFocused ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: isFocused ? -4 : 0,
+        friction: 7,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(dotOpacity, {
+        toValue: isFocused ? 1 : 0,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.spring(dotScale, {
+        toValue: isFocused ? 1 : 0,
+        friction: 7,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isFocused]);
+
+  const handlePress = () => {
+    // Trigger haptic feedback on press
+    if (Platform.OS === "ios") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={handlePress}
+      style={[styles.tabButton, { width: tabWidth }]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isFocused }}
+      accessibilityLabel={`${label} tab`}
+    >
+      <Animated.View
+        style={[styles.tabButtonContent, { transform: [{ translateY }] }]}
+      >
+        <Animated.View
+          style={[
+            styles.iconContainer,
+            { transform: [{ scale: scaleAnimation }] },
+          ]}
+        >
+          <Ionicons
+            name={icon}
+            size={24}
+            color={isFocused ? PRIMARY_COLOR : INACTIVE_COLOR}
+          />
+
+          {badgeCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {badgeCount > 99 ? "99+" : badgeCount}
+              </Text>
+            </View>
+          )}
+        </Animated.View>
+
+        <Animated.Text
+          style={[
+            styles.tabLabel,
+            {
+              opacity: labelOpacity,
+              color: isFocused ? PRIMARY_COLOR : INACTIVE_COLOR,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Animated.Text>
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.tabIndicator,
+          {
+            opacity: dotOpacity,
+            transform: [{ scale: dotScale }],
+          },
+        ]}
+      />
+    </TouchableOpacity>
+  );
+};
+
+// Custom Tab Bar Component
+const CustomTabBar = ({ state, descriptors, navigation }) => {
+  const insets = useSafeAreaInsets();
+  const tabWidth = width / state.routes.length;
+
+  // Animation for the floating effect
+  const translateY = useRef(new Animated.Value(100)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Get badge counts from notification system/context
+  // This is a placeholder, you'd implement actual notification counting
+  const getBadgeCount = (routeName) => {
+    if (routeName === "Inbox") return 5;
+    return 0;
+  };
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(translateY, {
+        toValue: 0,
+        tension: 30,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.tabBarContainer,
+        {
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          transform: [{ translateY }],
+          opacity: fadeAnim,
+        },
+      ]}
+    >
+      {/* Light blur effect for iOS */}
+      {Platform.OS === "ios" && <View style={styles.blurView} />}
+
+      <View style={styles.tabBarContent}>
+        {state.routes.map((route, index) => {
+          const { options } = descriptors[route.key];
+          const isFocused = state.index === index;
+
+          // Define icons for each tab
+          let iconName;
+          let label;
+
+          if (route.name === "Explore") {
+            iconName = isFocused ? "search" : "search-outline";
+            label = "Explore";
+          } else if (route.name === "Wishlist") {
+            iconName = isFocused ? "heart" : "heart-outline";
+            label = "Wishlist";
+          } else if (route.name === "Inbox") {
+            iconName = isFocused ? "chatbubble" : "chatbubble-outline";
+            label = "Inbox";
+          } else if (route.name === "Profile") {
+            iconName = isFocused ? "person" : "person-outline";
+            label = "Profile";
+          }
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: "tabPress",
+              target: route.key,
+              canPreventDefault: true,
+            });
+
+            if (!isFocused && !event.defaultPrevented) {
+              // Optional: Add transition animation when switching tabs
+              navigation.navigate(route.name);
+            }
+          };
+
+          const onLongPress = () => {
+            navigation.emit({
+              type: "tabLongPress",
+              target: route.key,
+            });
+            // Optional: Add haptic feedback for long press
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          };
+
+          return (
+            <TabBarButton
+              key={index}
+              icon={iconName}
+              label={label}
+              isFocused={isFocused}
+              onPress={onPress}
+              onLongPress={onLongPress}
+              tabWidth={tabWidth}
+              badgeCount={getBadgeCount(route.name)}
+            />
+          );
+        })}
+      </View>
+    </Animated.View>
+  );
+};
 
 function TabNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
-          let iconSource;
-
-          if (route.name === "Explore") {
-            iconSource = binocularsIcon;
-          } else if (route.name === "Wishlist") {
-            iconSource = wishlistIcon;
-          } else if (route.name === "Inbox") {
-            iconSource = inboxIcon;
-          } else if (route.name === "Profile") {
-            iconSource = profileIcon;
-          }
-
-          return (
-            <Image
-              source={iconSource}
-              style={{ width: size, height: size, tintColor: color }}
-            />
-          );
-        },
-      })}
-      tabBarOptions={{
-        activeTintColor: "#4CAF50",
-        inactiveTintColor: "gray",
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
       }}
     >
       <Tab.Screen name="Explore" component={HomePage} />
@@ -126,7 +346,21 @@ function App() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={accessToken ? "Home" : "Login"}>
+      <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
+      <Stack.Navigator
+        initialRouteName={accessToken ? "Home" : "Login"}
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: PRIMARY_COLOR,
+            elevation: 0, // for Android
+            shadowOpacity: 0, // for iOS
+          },
+          headerTintColor: "#fff",
+          headerTitleStyle: {
+            fontWeight: "600",
+          },
+        }}
+      >
         <Stack.Screen
           name="Login"
           component={LoginScreen}
@@ -253,5 +487,97 @@ function App() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "transparent",
+    zIndex: 999,
+  },
+  blurView: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Platform.OS === "ios" ? "rgba(255,255,255,0.85)" : null,
+  },
+  tabBarContent: {
+    flexDirection: "row",
+    backgroundColor:
+      Platform.OS === "ios" ? "rgba(255,255,255,0.8)" : BACKGROUND_COLOR,
+    marginHorizontal: 16,
+    borderRadius: 28,
+    height: 68, // Reduced height slightly
+    alignItems: "center",
+    justifyContent: "space-around",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 12,
+    borderWidth: Platform.OS === "ios" ? 0.5 : 1,
+    borderColor: "rgba(240,240,240,0.8)",
+  },
+  tabButton: {
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  tabButtonContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    height: "100%", // Ensure it takes full height
+    flexDirection: "column", // Ensure vertical layout
+  },
+  iconContainer: {
+    width: 30, // Reduced from 50
+    height: 30, // Reduced from 50
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+    marginBottom: 2, // Add small space between icon and text
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 1, // Reduced from 2
+    textAlign: "center",
+    maxWidth: 75,
+    lineHeight: 12, // Add line height to control text spacing
+  },
+  tabIndicator: {
+    width: 24,
+    height: 3,
+    backgroundColor: PRIMARY_COLOR,
+    position: "absolute",
+    bottom: 8, // Adjusted from 10
+    borderRadius: 1.5,
+    alignSelf: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: -5, // Adjusted from 0
+    right: -5, // Adjusted from 0
+    backgroundColor: "#FF3B30",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: BACKGROUND_COLOR,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+});
 
 export default App;
