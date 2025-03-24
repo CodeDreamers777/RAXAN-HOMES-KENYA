@@ -517,7 +517,7 @@ class BookForSaleViewingSerializer(serializers.ModelSerializer):
 class PerNightPropertySerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
     is_featured = serializers.SerializerMethodField()
-    host_username = serializers.CharField(source="host.user.username", read_only=True)
+    host = serializers.SerializerMethodField()
     amenities = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
     )
@@ -536,7 +536,7 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
             "bedrooms",
             "bathrooms",
             "area",
-            "host_username",
+            "host",
             "price_per_night",
             "is_featured",
             "number_of_units",
@@ -556,6 +556,9 @@ class PerNightPropertySerializer(serializers.ModelSerializer):
     def get_images(self, obj):
         images = obj.images()
         return [image.image for image in images]
+
+    def get_host(self, obj):
+        return {"id": obj.host.id, "username": obj.host.username}
 
     def get_is_featured(self, obj):
         return obj.is_featured
