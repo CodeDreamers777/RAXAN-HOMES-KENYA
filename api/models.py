@@ -253,15 +253,6 @@ class WishlistItem(models.Model):
         return f"{self.profile.user.username}'s wishlist item: {self.property}"
 
 
-@receiver(pre_delete, sender=RentalProperty)
-@receiver(pre_delete, sender=PropertyForSale)
-def remove_from_wishlists(sender, instance, **kwargs):
-    content_type = ContentType.objects.get_for_model(sender)
-    WishlistItem.objects.filter(
-        content_type=content_type, object_id=instance.id
-    ).delete()
-
-
 class Message(models.Model):
     sender = models.ForeignKey(
         Profile, on_delete=models.CASCADE, related_name="sent_messages"
@@ -426,3 +417,13 @@ class PropertyViewing(models.Model):
 
     def __str__(self):
         return f"Viewing of {self.property.name} by {self.client.user.username} on {self.viewing_date}"
+
+
+@receiver(pre_delete, sender=RentalProperty)
+@receiver(pre_delete, sender=PropertyForSale)
+@receiver(pre_delete, sender=PerNightProperty)  # Add this line
+def remove_from_wishlists(sender, instance, **kwargs):
+    content_type = ContentType.objects.get_for_model(sender)
+    WishlistItem.objects.filter(
+        content_type=content_type, object_id=instance.id
+    ).delete()
