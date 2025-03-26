@@ -107,17 +107,7 @@ WSGI_APPLICATION = "riyadhstay.wsgi.application"
 ASGI_APPLICATION = "riyadhstay.routing.application"
 
 # Channel Layer Configuration
-CHANNEL_LAYERS = {
-    "default": {
-        # Use Redis if possible
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("localhost", 6379)],
-        },
-        # If Redis is not available, use in-memory
-        # "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 
 # Database

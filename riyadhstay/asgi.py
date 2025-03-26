@@ -3,12 +3,14 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from django.urls import re_path
-from api.utils.consumers import MessageConsumer
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "riyadhstay.settings")
 
-# Get the Django WSGI application
+# Get the Django ASGI application
 django_application = get_asgi_application()
+
+# Import consumer after Django setup
+from api.utils.consumers import MessageConsumer
 
 # Create the combined application
 application = ProtocolTypeRouter(
