@@ -103,6 +103,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "riyadhstay.wsgi.application"
+ASGI_APPLICATION = "riyadhstay.routing.application"
 
 
 # Database
