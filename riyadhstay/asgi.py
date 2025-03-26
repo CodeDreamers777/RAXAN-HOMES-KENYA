@@ -3,6 +3,7 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from django.urls import re_path
+from channels.layers import get_channel_layer
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "riyadhstay.settings")
 
@@ -25,3 +26,6 @@ application = ProtocolTypeRouter(
         ),
     }
 )
+
+# Ensure channel layer is initialized
+channel_layer = get_channel_layer()
