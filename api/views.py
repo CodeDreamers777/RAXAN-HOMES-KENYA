@@ -410,14 +410,19 @@ class ProfileAPIView(APIView):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class LoginView(APIView):
+    # List of test emails that will receive a fixed OTP
+    TEST_EMAILS = [
+        "crispusgikonyo458@gmail.com",
+        "raxanhomes@gmail.com",
+        # Add more test emails as needed
+    ]
+
     def post(self, request):
         if request.user.is_authenticated:
             return Response({"success": True, "message": "User already logged in"})
-
         try:
             email = request.data.get("email").lower()
             password = request.data.get("password")
-
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
@@ -431,10 +436,16 @@ class LoginView(APIView):
                 else:
                     reactivation_message = ""
 
-                # Generate and send OTP
-                otp = generate_otp()
-                profile = user.profile
+                # Check if email is in test emails list
+                if email in self.TEST_EMAILS:
+                    # For test emails, use fixed OTP
+                    otp = "0000"
+                else:
+                    # Generate OTP for non-test emails
+                    otp = generate_otp()
 
+                # Rest of the login logic remains the same
+                profile = user.profile
                 # Store OTP in profile
                 profile.otp_secret = otp
                 profile.otp_created_at = timezone.now()
@@ -455,7 +466,6 @@ class LoginView(APIView):
                         recipient_name=user.get_full_name() or user.username,
                         context=context,
                     )
-
                     return Response(
                         {
                             "success": True,
@@ -464,7 +474,6 @@ class LoginView(APIView):
                             "email": email,
                         }
                     )
-
                 except ValueError as e:
                     return Response(
                         {"error": str(e)},
@@ -472,7 +481,6 @@ class LoginView(APIView):
                     )
             else:
                 return Response({"success": False, "message": "Invalid credentials"})
-
         except Exception as e:
             return Response(
                 {"success": False, "error": str(e)},
