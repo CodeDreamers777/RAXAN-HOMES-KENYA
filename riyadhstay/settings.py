@@ -60,10 +60,10 @@ INSTALLED_APPS = [
     "cloudinary_storage",  # should come before django.contrib.staticfiles
     "django.contrib.staticfiles",
     "cloudinary",
+    "channels",  # Move this above rest_framework
     "rest_framework",
     "api",
     "corsheaders",
-    "channels",
 ]
 
 MIDDLEWARE = [
