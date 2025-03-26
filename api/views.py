@@ -439,7 +439,7 @@ class LoginView(APIView):
                 # Check if email is in test emails list
                 if email in self.TEST_EMAILS:
                     # For test emails, use fixed OTP
-                    otp = "0000"
+                    otp = "123456"
                 else:
                     # Generate OTP for non-test emails
                     otp = generate_otp()
