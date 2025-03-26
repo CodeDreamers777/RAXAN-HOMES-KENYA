@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "riyadhstay",
-    "slug": "riyadhstay",
-    "version": "1.0.5",
+    "name": "Raxan Homes",
+    "slug": "RaxanHomes",
+    "version": "1.0.6",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/raxan-logo2.jpeg",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/logo.png",
+      "image": "./assets/raxan-logo2.jpeg",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.crispusdev.riyadhstay",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

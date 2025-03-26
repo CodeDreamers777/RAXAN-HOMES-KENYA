@@ -325,6 +325,7 @@ const PropertyScreen = ({ route, navigation }) => {
 
   // Handle chat with host
   const handleChatWithHost = () => {
+    console.log(property);
     if (property && property.host) {
       navigation.navigate("ConversationDetail", {
         otherUserId: property.host.id,

@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  TextInput,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -24,9 +25,12 @@ const ConversationDetailScreen = ({ route, navigation }) => {
   const [isSending, setIsSending] = useState(false);
   const [userType, setUserType] = useState(null);
   const [isOptionsVisible, setIsOptionsVisible] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [currentUserId, setCurrentUserId] = useState(null);
   const flatListRef = useRef(null);
   const lastMessageTimestampRef = useRef(null);
   const animatedHeight = useRef(new Animated.Value(0)).current;
+  const inputRef = useRef(null);
 
   const clientOptions = [
     "What is the rental price or sale price?",
@@ -45,11 +49,22 @@ const ConversationDetailScreen = ({ route, navigation }) => {
   ];
 
   useEffect(() => {
-    const getUserType = async () => {
+    const getUserInfo = async () => {
       const type = await AsyncStorage.getItem("userType");
       setUserType(type);
+
+      // Get current user ID from storage
+      try {
+        const userData = await AsyncStorage.getItem("userData");
+        if (userData) {
+          const parsedUserData = JSON.parse(userData);
+          setCurrentUserId(parsedUserData.id || parsedUserData.user_id);
+        }
+      } catch (error) {
+        console.error("Error getting user ID:", error);
+      }
     };
-    getUserType();
+    getUserInfo();
   }, []);
 
   useEffect(() => {
@@ -149,10 +164,11 @@ const ConversationDetailScreen = ({ route, navigation }) => {
 
       const sentMessageResponse = await response.json();
       if (sentMessageResponse && sentMessageResponse.content) {
+        // Use the actual user ID instead of "self"
         const sentMessage = {
           id: Date.now(),
           content: sentMessageResponse.content,
-          sender: { id: "self" },
+          sender: { id: currentUserId }, // Use actual user ID
           timestamp: new Date().toISOString(),
         };
         setMessages((prevMessages) => [...prevMessages, sentMessage]);
@@ -168,22 +184,38 @@ const ConversationDetailScreen = ({ route, navigation }) => {
       console.error("Error sending message:", error);
     } finally {
       setIsSending(false);
-      setIsOptionsVisible(false); // Hide options after sending
+      setMessageText(""); // Clear the input field after sending
     }
+  };
+
+  const handleSendPress = () => {
+    if (messageText.trim()) {
+      sendMessage(messageText.trim());
+    }
+  };
+
+  const handleSuggestionPress = (suggestion) => {
+    sendMessage(suggestion);
+    // Don't hide options after sending a suggestion to allow for follow-up suggestions
+  };
+
+  const isCurrentUserMessage = (senderId) => {
+    // Check if the message is from the current user
+    return senderId !== otherUserId;
   };
 
   const renderMessageItem = ({ item }) => (
     <LinearGradient
       colors={
-        item.sender.id === otherUserId
-          ? ["#E8F5E9", "#C8E6C9"]
-          : ["#E3F2FD", "#BBDEFB"]
+        isCurrentUserMessage(item.sender.id)
+          ? ["#E3F2FD", "#BBDEFB"] // Current user's message (right side)
+          : ["#E8F5E9", "#C8E6C9"] // Other user's message (left side)
       }
       style={[
         styles.messageItem,
-        item.sender.id === otherUserId
-          ? styles.receivedMessage
-          : styles.sentMessage,
+        isCurrentUserMessage(item.sender.id)
+          ? styles.sentMessage
+          : styles.receivedMessage,
       ]}
     >
       <Text style={styles.messageContent}>{item.content}</Text>
@@ -231,13 +263,15 @@ const ConversationDetailScreen = ({ route, navigation }) => {
           }
           onLayout={() => flatListRef.current.scrollToEnd({ animated: true })}
         />
+
+        {/* Quick Suggestions Section */}
         <View style={styles.optionsContainer}>
           <TouchableOpacity
             onPress={toggleOptions}
             style={styles.optionsToggle}
           >
             <Text style={styles.optionsToggleText}>
-              {isOptionsVisible ? "Hide Options" : "Show Options"}
+              {isOptionsVisible ? "Hide Suggestions" : "Show Suggestions"}
             </Text>
             <Ionicons
               name={isOptionsVisible ? "chevron-up" : "chevron-down"}
@@ -251,7 +285,7 @@ const ConversationDetailScreen = ({ route, navigation }) => {
               {
                 maxHeight: animatedHeight.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0, 300], // Adjust this value based on your needs
+                  outputRange: [0, 300],
                 }),
                 opacity: animatedHeight,
               },
@@ -262,7 +296,7 @@ const ConversationDetailScreen = ({ route, navigation }) => {
                 <TouchableOpacity
                   key={index}
                   style={styles.optionButton}
-                  onPress={() => sendMessage(option)}
+                  onPress={() => handleSuggestionPress(option)}
                   disabled={isSending}
                 >
                   <Text style={styles.optionText}>{option}</Text>
@@ -270,6 +304,36 @@ const ConversationDetailScreen = ({ route, navigation }) => {
               ),
             )}
           </Animated.View>
+        </View>
+
+        {/* Message Input Section */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            ref={inputRef}
+            style={styles.textInput}
+            value={messageText}
+            onChangeText={setMessageText}
+            placeholder="Type a message..."
+            placeholderTextColor="#999"
+            multiline
+            returnKeyType="send"
+            onSubmitEditing={handleSendPress}
+            blurOnSubmit={false}
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              !messageText.trim() && styles.sendButtonDisabled,
+            ]}
+            onPress={handleSendPress}
+            disabled={!messageText.trim() || isSending}
+          >
+            <Ionicons
+              name="send"
+              size={24}
+              color={messageText.trim() ? "white" : "#A5D6A7"}
+            />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
     </KeyboardAvoidingView>
@@ -324,7 +388,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 15,
+    paddingVertical: 10,
   },
   optionsToggleText: {
     fontSize: 16,
@@ -355,6 +419,35 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    backgroundColor: "white",
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    maxHeight: 100,
+    fontSize: 16,
+  },
+  sendButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 25,
+    width: 45,
+    height: 45,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 10,
+  },
+  sendButtonDisabled: {
+    backgroundColor: "#E8F5E9",
   },
 });
 

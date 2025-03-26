@@ -150,6 +150,24 @@ const InboxScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // Get current user ID
+  useEffect(() => {
+    const getCurrentUserId = async () => {
+      try {
+        const userData = await AsyncStorage.getItem("userData");
+        if (userData) {
+          const parsedUserData = JSON.parse(userData);
+          setCurrentUserId(parsedUserData.id || parsedUserData.user_id);
+        }
+      } catch (error) {
+        console.error("Error getting current user ID:", error);
+      }
+    };
+
+    getCurrentUserId();
+  }, []);
 
   // Fetch conversations from API
   const fetchConversations = useCallback(async () => {
@@ -165,6 +183,15 @@ const InboxScreen = ({ navigation }) => {
       const { value: accessToken } = JSON.parse(accessTokenData);
       const csrfToken = await AsyncStorage.getItem("csrfToken");
 
+      // If we don't have the current user ID yet, get it
+      if (!currentUserId) {
+        const userData = await AsyncStorage.getItem("userData");
+        if (userData) {
+          const parsedUserData = JSON.parse(userData);
+          setCurrentUserId(parsedUserData.id || parsedUserData.user_id);
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/v1/conversations/`, {
         method: "GET",
         headers: {
@@ -179,6 +206,7 @@ const InboxScreen = ({ navigation }) => {
       }
 
       const data = await response.json();
+      console.log(data);
 
       // Group conversations by unique conversation partners
       const groupedConversations = groupConversationsByPartner(data);
@@ -196,62 +224,73 @@ const InboxScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [currentUserId]);
 
   // Group conversations by unique conversation partners
-  const groupConversationsByPartner = useCallback((data) => {
-    return data.reduce((acc, message) => {
-      // Determine conversation partner
-      let conversationPartner;
+  const groupConversationsByPartner = useCallback(
+    (data) => {
+      return data.reduce((acc, message) => {
+        // Skip if we don't have current user ID
+        if (!currentUserId) {
+          console.warn("Current user ID not available yet");
+          return acc;
+        }
 
-      // Handle self-messages or determine the other party
-      if (message.sender.id === message.receiver.id) {
-        conversationPartner = message.receiver;
-      } else {
-        // For regular conversations, find the other party
-        const firstMessage = Object.values(acc)[0];
-        conversationPartner =
-          message.sender.id === firstMessage?.sender.id
-            ? message.receiver
-            : message.sender;
-      }
+        // Determine conversation partner (the other person, not the current user)
+        let conversationPartner;
 
-      if (!conversationPartner) {
-        console.error(
-          "Conversation partner is undefined for message:",
-          message,
-        );
+        if (message.sender.id === currentUserId) {
+          // If current user is the sender, the partner is the receiver
+          conversationPartner = message.receiver;
+        } else {
+          // If current user is the receiver, the partner is the sender
+          conversationPartner = message.sender;
+        }
+
+        if (!conversationPartner) {
+          console.error(
+            "Conversation partner is undefined for message:",
+            message,
+          );
+          return acc;
+        }
+
+        const conversationId = conversationPartner.id;
+
+        // Keep the most recent message for each conversation
+        if (
+          !acc[conversationId] ||
+          new Date(message.timestamp) > new Date(acc[conversationId].timestamp)
+        ) {
+          acc[conversationId] = {
+            ...message,
+            conversationPartner,
+          };
+        }
+
         return acc;
-      }
-
-      const conversationId = conversationPartner.id;
-
-      // Keep the most recent message for each conversation
-      if (
-        !acc[conversationId] ||
-        new Date(message.timestamp) > new Date(acc[conversationId].timestamp)
-      ) {
-        acc[conversationId] = {
-          ...message,
-          conversationPartner,
-        };
-      }
-
-      return acc;
-    }, {});
-  }, []);
+      }, {});
+    },
+    [currentUserId],
+  );
 
   // Initial data loading
   useEffect(() => {
-    fetchConversations();
-
-    // Set up navigation listener to refresh when screen comes into focus
-    const unsubscribe = navigation.addListener("focus", () => {
+    if (currentUserId) {
       fetchConversations();
+    }
+  }, [currentUserId, fetchConversations]);
+
+  // Set up navigation listener to refresh when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (currentUserId) {
+        fetchConversations();
+      }
     });
 
     return unsubscribe;
-  }, [navigation, fetchConversations]);
+  }, [navigation, fetchConversations, currentUserId]);
 
   // Handle pull-to-refresh
   const onRefresh = useCallback(() => {
