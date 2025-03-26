@@ -11,6 +11,8 @@ from rest_framework import generics, permissions
 from django.utils import timezone
 from django.contrib.auth import update_session_auth_hash
 from rest_framework import serializers
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 
 from .serializer import ForgotPasswordSerializer, SignupSerializer
@@ -1221,7 +1223,23 @@ class SendMessageView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        # Create the message
+        message = serializer.save()
+
+        # Send real-time notification
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{message.receiver.user.id}_messages",
+            {
+                "type": "receive_message",
+                "message": {
+                    "id": message.id,
+                    "content": message.content,
+                    "sender_username": message.sender.user.username,
+                    "timestamp": message.timestamp.isoformat(),
+                },
+            },
+        )
 
 
 class MarkMessagesAsReadView(APIView):

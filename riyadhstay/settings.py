@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "api",
     "corsheaders",
+    "channels",
 ]
 
 MIDDLEWARE = [
@@ -114,6 +115,15 @@ DATABASES = {
     }
 }
 
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("localhost", 6379)],
+        },
+    },
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
