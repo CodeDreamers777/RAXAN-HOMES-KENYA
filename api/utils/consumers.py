@@ -1,51 +1,59 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from django.contrib.auth.models import User
-from api.models import Message
+from rest_framework_simplejwt.tokens import AccessToken
+from django.contrib.auth import get_user_model
 
 
 class MessageConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        # Print debug info
-        print(f"WebSocket connection attempt for user: {self.scope['user']}")
+        # Extract token from query string
+        token_str = self.scope["query_string"].decode("utf-8").split("=")[-1]
 
-        # Ensure user is authenticated
-        if not self.scope["user"].is_authenticated:
-            print("Unauthenticated WebSocket connection attempt")
+        try:
+            # Validate the token
+            validated_token = AccessToken(token_str)
+            user_id = validated_token["user_id"]
+
+            # Get the user
+            User = get_user_model()
+            user = await self.get_user(user_id)
+
+            if user:
+                # Add user to the scope
+                self.scope["user"] = user
+
+                # Generate a group name based on user ID
+                self.group_name = f"user_{user_id}_messages"
+
+                # Join the group
+                await self.channel_layer.group_add(self.group_name, self.channel_name)
+
+                # Accept the connection
+                await self.accept()
+                print(f"WebSocket connected for user {user_id}")
+            else:
+                await self.close()
+        except Exception as e:
+            print(f"Authentication failed: {e}")
             await self.close()
-            return
 
-        self.user_id = self.scope["user"].id
-        self.group_name = f"user_{self.user_id}_messages"
-
-        # Join user-specific group
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
-
-        await self.accept()
-        print(f"WebSocket connected for user {self.user_id}")
+    @database_sync_to_async
+    def get_user(self, user_id):
+        User = get_user_model()
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None
 
     async def disconnect(self, close_code):
         # Leave group when WebSocket disconnects
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        print(f"WebSocket disconnected for user {self.user_id}")
 
     async def receive(self, text_data):
-        # Handle incoming WebSocket messages
+        # Handle incoming messages
         try:
             data = json.loads(text_data)
             print(f"Received data: {data}")
         except json.JSONDecodeError:
             print("Invalid JSON received")
-
-    async def receive_message(self, event):
-        # Send message to WebSocket
-        message = event["message"]
-        await self.send(
-            text_data=json.dumps({"type": "new_message", "message": message})
-        )
-
-    @database_sync_to_async
-    def get_unread_count(self, user_id):
-        # Assuming you have a method to count unread messages
-        return Message.objects.filter(receiver__user__id=user_id, is_read=False).count()

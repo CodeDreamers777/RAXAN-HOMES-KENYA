@@ -103,7 +103,21 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "riyadhstay.wsgi.application"
+# ASGI Configuration
 ASGI_APPLICATION = "riyadhstay.routing.application"
+
+# Channel Layer Configuration
+CHANNEL_LAYERS = {
+    "default": {
+        # Use Redis if possible
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("localhost", 6379)],
+        },
+        # If Redis is not available, use in-memory
+        # "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 
 # Database
@@ -116,15 +130,6 @@ DATABASES = {
     }
 }
 
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("localhost", 6379)],
-        },
-    },
-}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
