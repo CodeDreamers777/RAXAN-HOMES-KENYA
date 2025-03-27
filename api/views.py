@@ -534,9 +534,16 @@ class VerifyLoginOTPView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Determine if this is the first login
+            is_new_user = user.last_login is None
+
             # OTP is valid - log user in and generate tokens
             login(request, user)
             refresh = RefreshToken.for_user(user)
+
+            # Update last_login
+            user.last_login = timezone.now()
+            user.save()
 
             # Clear OTP data
             self._clear_otp(profile)
@@ -547,6 +554,8 @@ class VerifyLoginOTPView(APIView):
                     "message": "Login successful",
                     "access": str(refresh.access_token),
                     "refresh": str(refresh),
+                    "last_login": user.last_login,
+                    "is_new_user": is_new_user,
                 }
             )
 
