@@ -328,7 +328,17 @@ function LoginScreen({ navigation }) {
           // Navigate to OTP verification screen
           navigation.navigate("OtpVerification", { email: data.email });
         } else if (data.success) {
-          // Handle direct login
+          // Save last_login and is_new_user to AsyncStorage
+          await AsyncStorage.setItem(
+            "last_login",
+            data.last_login ? data.last_login.toString() : "",
+          );
+          await AsyncStorage.setItem(
+            "is_new_user",
+            JSON.stringify(data.is_new_user),
+          );
+
+          // Continue with existing login flow
           await setTokenWithExpiry(data.access);
           await fetchProfileData(data.access);
           navigation.reset({

@@ -1,4 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+"use client";
+
+import React from "react";
+
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -16,6 +20,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { checkIfNewUser } from "./src/utils/onboarding";
 
 // Import screens and components
 import HomePage from "./src/screens/HomePage";
@@ -68,6 +73,7 @@ const TabBarButton = ({
   onPress,
   tabWidth,
   badgeCount = 0,
+  forwardedRef,
 }) => {
   // Animation values
   const scaleAnimation = useRef(new Animated.Value(1)).current;
@@ -120,6 +126,7 @@ const TabBarButton = ({
 
   return (
     <TouchableOpacity
+      ref={forwardedRef}
       activeOpacity={0.7}
       onPress={handlePress}
       style={[styles.tabButton, { width: tabWidth }]}
@@ -178,8 +185,21 @@ const TabBarButton = ({
   );
 };
 
-// Custom Tab Bar Component
-const CustomTabBar = ({ state, descriptors, navigation }) => {
+// Forward ref for TabBarButton
+const TabBarButtonWithRef = React.forwardRef((props, ref) => (
+  <TabBarButton {...props} forwardedRef={ref} />
+));
+
+// Custom Tab Bar Component with MessageContext integration
+const CustomTabBar = ({
+  state,
+  descriptors,
+  navigation,
+  exploreTabRef,
+  wishlistTabRef,
+  inboxTabRef,
+  profileTabRef,
+}) => {
   const insets = useSafeAreaInsets();
   const tabWidth = width / state.routes.length;
 
@@ -187,10 +207,9 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   const translateY = useRef(new Animated.Value(100)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Get badge counts from notification system/context
-  // This is a placeholder, you'd implement actual notification counting
+  // Simplified badge count function
   const getBadgeCount = (routeName) => {
-    if (routeName === "Inbox") return 5;
+    // Remove any dynamic badge counting
     return 0;
   };
 
@@ -269,9 +288,17 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           };
 
+          // Determine which ref to use based on the tab name
+          let tabRef = null;
+          if (route.name === "Explore") tabRef = exploreTabRef;
+          else if (route.name === "Wishlist") tabRef = wishlistTabRef;
+          else if (route.name === "Inbox") tabRef = inboxTabRef;
+          else if (route.name === "Profile") tabRef = profileTabRef;
+
           return (
-            <TabBarButton
+            <TabBarButtonWithRef
               key={index}
+              ref={tabRef}
               icon={iconName}
               label={label}
               isFocused={isFocused}
@@ -287,16 +314,38 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   );
 };
 
-function TabNavigator() {
+function TabNavigator({
+  exploreTabRef,
+  wishlistTabRef,
+  inboxTabRef,
+  profileTabRef,
+}) {
   return (
     <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
+      tabBar={(props) => (
+        <CustomTabBar
+          {...props}
+          exploreTabRef={exploreTabRef}
+          wishlistTabRef={wishlistTabRef}
+          inboxTabRef={inboxTabRef}
+          profileTabRef={profileTabRef}
+        />
+      )}
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
       }}
     >
-      <Tab.Screen name="Explore" component={HomePage} />
+      <Tab.Screen
+        name="Explore"
+        component={HomePage}
+        initialParams={{
+          exploreTabRef,
+          wishlistTabRef,
+          inboxTabRef,
+          profileTabRef,
+        }}
+      />
       <Tab.Screen name="Wishlist" component={WishlistScreen} />
       <Tab.Screen name="Inbox" component={InboxScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
@@ -323,21 +372,32 @@ const getToken = async () => {
 function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [accessToken, setAccessToken] = useState(null);
+  const navigationRef = useRef(null);
+
+  // Create refs for tab buttons
+  const exploreTabRef = useRef(null);
+  const wishlistTabRef = useRef(null);
+  const inboxTabRef = useRef(null);
+  const profileTabRef = useRef(null);
 
   useEffect(() => {
-    checkAccessToken();
-  }, []);
+    const initializeApp = async () => {
+      try {
+        // Check access token
+        const token = await getToken();
+        setAccessToken(token);
 
-  const checkAccessToken = async () => {
-    try {
-      const token = await getToken();
-      setAccessToken(token);
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Error checking access token:", error);
-      setIsLoading(false);
-    }
-  };
+        // Check if user is new for onboarding
+        await checkIfNewUser();
+      } catch (error) {
+        console.error("Error initializing app:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []);
 
   if (isLoading) {
     // You might want to show a loading screen here
@@ -345,7 +405,7 @@ function App() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
       <Stack.Navigator
         initialRouteName={accessToken ? "Home" : "Login"}
@@ -371,11 +431,17 @@ function App() {
           component={SignUpScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen
-          name="Home"
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="Home" options={{ headerShown: false }}>
+          {(props) => (
+            <TabNavigator
+              {...props}
+              exploreTabRef={exploreTabRef}
+              wishlistTabRef={wishlistTabRef}
+              inboxTabRef={inboxTabRef}
+              profileTabRef={profileTabRef}
+            />
+          )}
+        </Stack.Screen>
         <Stack.Screen
           name="PropertyPage"
           component={PropertyPage}
@@ -484,6 +550,8 @@ function App() {
           options={{ title: "Per Night Bookings" }}
         />
       </Stack.Navigator>
+
+      {/* Add the in-app notification component */}
     </NavigationContainer>
   );
 }

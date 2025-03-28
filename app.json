@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "Raxan Homes",
-    "slug": "RaxanHomes",
-    "version": "1.0.6",
+    "slug": "riyadhstay",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/raxan-logo2.jpeg",
     "userInterfaceStyle": "light",
@@ -16,7 +16,8 @@
       "bundleIdentifier": "com.crispus.raxanhomes",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to location when open.",
-        "NSLocationAlwaysUsageDescription": "This app needs access to location when in the background."
+        "NSLocationAlwaysUsageDescription": "This app needs access to location when in the background.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location both when using the app and in the background."
       },
       "config": {
         "googleMapsApiKey": "AIzaSyBTMBEfyQpyEVvKgzfHkV43Km2ZNfcKYyo"
@@ -28,7 +29,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.crispusdev.riyadhstay",
-      "versionCode": 7,
+      "versionCode": 8,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

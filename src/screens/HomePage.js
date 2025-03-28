@@ -1,11 +1,18 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+"use client";
+
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   StyleSheet,
   Text,
   View,
   SafeAreaView,
   TextInput,
-  FlatList,
   Image,
   TouchableOpacity,
   RefreshControl,
@@ -17,6 +24,10 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FilterModal from "./FilterModal";
 import { FlashList } from "@shopify/flash-list";
+import {
+  OnboardingProvider,
+  useOnboarding,
+} from "../components/OnboardingTour";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 const { width } = Dimensions.get("window");
@@ -51,8 +62,17 @@ const RatingStars = React.memo(({ rating }) => {
 
 // Extracted as a separate component for better performance
 const PropertyCard = React.memo(
-  ({ item, onPress, onWishlistToggle, wishlist, formatPrice }) => (
+  ({
+    item,
+    onPress,
+    onWishlistToggle,
+    wishlist,
+    formatPrice,
+    forwardedRef,
+    wishlistButtonRef,
+  }) => (
     <TouchableOpacity
+      ref={forwardedRef}
       style={[
         styles.propertyCard,
         item.is_featured && styles.featuredPropertyCard,
@@ -81,6 +101,7 @@ const PropertyCard = React.memo(
         defaultSource={require("../../assets/room1.jpg")}
       />
       <TouchableOpacity
+        ref={wishlistButtonRef}
         style={styles.wishlistButton}
         onPress={() => onWishlistToggle(item)}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -131,7 +152,24 @@ const PropertyCard = React.memo(
   ),
 );
 
-function HomePage({ navigation }) {
+// Forward ref for PropertyCard
+const PropertyCardWithRef = React.forwardRef((props, ref) => (
+  <PropertyCard {...props} forwardedRef={ref} />
+));
+
+// Home page content component
+const HomePageContent = ({
+  navigation,
+  searchRef,
+  filterOptionsRef,
+  filterButtonRef,
+  propertyCardRef,
+  wishlistButtonRef,
+  exploreTabRef,
+  wishlistTabRef,
+  inboxTabRef,
+  profileTabRef,
+}) => {
   const [properties, setProperties] = useState({
     properties_for_sale: [],
     rental_properties: [],
@@ -150,6 +188,9 @@ function HomePage({ navigation }) {
     bathrooms: [0, 100],
   });
   const [wishlist, setWishlist] = useState(new Set());
+
+  // Get onboarding context
+  const { restartTour } = useOnboarding();
 
   const formatPrice = useCallback((price) => {
     return price
@@ -445,6 +486,35 @@ function HomePage({ navigation }) {
     [navigation],
   );
 
+  // Handle restart tour button press
+  const handleRestartTour = () => {
+    restartTour();
+  };
+
+  // Log when refs are attached
+  useEffect(() => {
+    console.log("HomePageContent refs:");
+    console.log("- searchRef:", !!searchRef.current);
+    console.log("- filterOptionsRef:", !!filterOptionsRef.current);
+    console.log("- filterButtonRef:", !!filterButtonRef.current);
+    console.log("- propertyCardRef:", !!propertyCardRef.current);
+    console.log("- wishlistButtonRef:", !!wishlistButtonRef.current);
+    console.log("- exploreTabRef:", !!exploreTabRef?.current);
+    console.log("- wishlistTabRef:", !!wishlistTabRef?.current);
+    console.log("- inboxTabRef:", !!inboxTabRef?.current);
+    console.log("- profileTabRef:", !!profileTabRef?.current);
+  }, [
+    searchRef.current,
+    filterOptionsRef.current,
+    filterButtonRef.current,
+    propertyCardRef.current,
+    wishlistButtonRef.current,
+    exploreTabRef?.current,
+    wishlistTabRef?.current,
+    inboxTabRef?.current,
+    profileTabRef?.current,
+  ]);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -456,7 +526,7 @@ function HomePage({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.searchContainer}>
+      <View style={styles.searchContainer} ref={searchRef}>
         <Ionicons
           name="search"
           size={24}
@@ -477,7 +547,7 @@ function HomePage({ navigation }) {
         ) : null}
       </View>
 
-      <View style={styles.filterOptionsContainer}>
+      <View style={styles.filterOptionsContainer} ref={filterOptionsRef}>
         <TouchableOpacity
           style={[
             styles.filterOption,
@@ -545,9 +615,22 @@ function HomePage({ navigation }) {
       </View>
 
       <View style={styles.filterButtonContainer}>
-        <TouchableOpacity style={styles.filterButton} onPress={toggleModal}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={toggleModal}
+          ref={filterButtonRef}
+        >
           <Ionicons name="options-outline" size={18} color="#fff" />
           <Text style={styles.filterButtonText}>More Filters</Text>
+        </TouchableOpacity>
+
+        {/* Restart Tour Button */}
+        <TouchableOpacity
+          style={styles.restartTourButton}
+          onPress={handleRestartTour}
+        >
+          <Ionicons name="help-circle-outline" size={18} color="#fff" />
+          <Text style={styles.filterButtonText}>Restart Tour</Text>
         </TouchableOpacity>
       </View>
 
@@ -562,13 +645,15 @@ function HomePage({ navigation }) {
       ) : (
         <FlashList
           data={getFilteredProperties}
-          renderItem={({ item }) => (
-            <PropertyCard
+          renderItem={({ item, index }) => (
+            <PropertyCardWithRef
+              ref={index === 0 ? propertyCardRef : null}
               item={item}
               onPress={navigateToProperty}
               onWishlistToggle={handleWishlistToggle}
               wishlist={wishlist}
               formatPrice={formatPrice}
+              wishlistButtonRef={index === 0 ? wishlistButtonRef : null}
             />
           )}
           keyExtractor={(item) => item.id.toString()}
@@ -594,6 +679,193 @@ function HomePage({ navigation }) {
         applyFilters={applyFilters}
       />
     </SafeAreaView>
+  );
+};
+
+// Update the HomePage component to ensure refs are attached before the tour starts
+function HomePage({ navigation }) {
+  // Create refs for tour targets
+  const searchRef = useRef(null);
+  const filterOptionsRef = useRef(null);
+  const filterButtonRef = useRef(null);
+  const propertyCardRef = useRef(null);
+  const wishlistButtonRef = useRef(null);
+
+  // Refs for navigation tabs
+  const exploreTabRef = useRef(null);
+  const wishlistTabRef = useRef(null);
+  const inboxTabRef = useRef(null);
+  const profileTabRef = useRef(null);
+
+  // Track if refs are ready
+  const [refsReady, setRefsReady] = useState(false);
+
+  // Check if refs are attached
+  useEffect(() => {
+    const checkRefs = () => {
+      console.log("Checking refs:");
+      console.log("- searchRef:", !!searchRef.current);
+      console.log("- filterOptionsRef:", !!filterOptionsRef.current);
+      console.log("- filterButtonRef:", !!filterButtonRef.current);
+      console.log("- propertyCardRef:", !!propertyCardRef.current);
+      console.log("- wishlistButtonRef:", !!wishlistButtonRef.current);
+      console.log("- exploreTabRef:", !!exploreTabRef.current);
+      console.log("- wishlistTabRef:", !!wishlistTabRef.current);
+      console.log("- inboxTabRef:", !!inboxTabRef.current);
+      console.log("- profileTabRef:", !!profileTabRef.current);
+
+      if (
+        searchRef.current &&
+        filterOptionsRef.current &&
+        filterButtonRef.current
+      ) {
+        console.log("Main refs are ready!");
+        setRefsReady(true);
+      } else {
+        // Check again after a short delay
+        setTimeout(checkRefs, 1000); // Increased from 500ms to 1000ms
+      }
+    };
+
+    // Start checking refs after component mounts
+    setTimeout(checkRefs, 1000); // Increased from 500ms to 1000ms
+  }, []);
+
+  // Define tour steps with refs
+  const tourSteps = useMemo(() => {
+    return [
+      {
+        title: "Raxan Homes Guide",
+        description:
+          "Let's take a quick tour to help you get started with our app. Swipe left or right to navigate through the tour, or tap anywhere to continue.",
+        icon: "home",
+        // No targetRef for the welcome step
+      },
+      {
+        title: "Search Properties",
+        description:
+          "Use the search bar to find properties by name, location, or description. Type what you're looking for and we'll show you matching results.",
+        icon: "search",
+        targetRef: searchRef,
+      },
+      {
+        title: "Filter Options",
+        description:
+          "Quickly filter properties by type - view all properties, or focus on properties for sale, rental, or per-night stays.",
+        icon: "filter",
+        targetRef: filterOptionsRef,
+      },
+      {
+        title: "Advanced Filters",
+        description:
+          "Need more specific results? Tap 'More Filters' to set price ranges, number of bedrooms, bathrooms, and more.",
+        icon: "options",
+        targetRef: filterButtonRef,
+      },
+      {
+        title: "Property Cards",
+        description:
+          "Browse through property cards to see images, prices, and ratings.",
+        icon: "card",
+        targetRef: propertyCardRef,
+      },
+      {
+        title: "Wishlist",
+        description:
+          "Like a property? Tap the heart icon to add it to your wishlist for easy access later.",
+        icon: "heart",
+        targetRef: wishlistButtonRef,
+      },
+      {
+        title: "Explore Tab",
+        description:
+          "This is where you are now! Browse all available properties and find your perfect home.",
+        icon: "search",
+        targetRef: exploreTabRef,
+      },
+      {
+        title: "Wishlist Tab",
+        description:
+          "Access all your saved properties in one place. Tap to view your wishlist.",
+        icon: "heart",
+        targetRef: wishlistTabRef,
+      },
+      {
+        title: "Inbox Tab",
+        description:
+          "Communicate with property owners and manage your inquiries here.",
+        icon: "chatbubble",
+        targetRef: inboxTabRef,
+      },
+      {
+        title: "Profile Tab",
+        description:
+          "View and edit your profile, manage your listings, and adjust your account settings.",
+        icon: "person",
+        targetRef: profileTabRef,
+      },
+      {
+        title: "You're All Set!",
+        description:
+          "You're ready to start exploring properties! If you need to see this tour again, just tap the 'Restart Tour' button.",
+        icon: "checkmark-circle",
+      },
+    ];
+  }, []);
+
+  // Force restart the tour for testing
+  useEffect(() => {
+    const forceRestartTour = async () => {
+      try {
+        console.log("Force restarting tour for testing");
+        await AsyncStorage.setItem("is_new_user", "true");
+      } catch (error) {
+        console.error("Error setting new user status:", error);
+      }
+    };
+
+    forceRestartTour();
+  }, []);
+
+  // Log when refs change
+  useEffect(() => {
+    console.log("Refs updated in HomePage:");
+    console.log("- searchRef:", !!searchRef.current);
+    console.log("- filterOptionsRef:", !!filterOptionsRef.current);
+    console.log("- filterButtonRef:", !!filterButtonRef.current);
+    console.log("- propertyCardRef:", !!propertyCardRef.current);
+    console.log("- wishlistButtonRef:", !!wishlistButtonRef.current);
+    console.log("- exploreTabRef:", !!exploreTabRef.current);
+    console.log("- wishlistTabRef:", !!wishlistTabRef.current);
+    console.log("- inboxTabRef:", !!inboxTabRef.current);
+    console.log("- profileTabRef:", !!profileTabRef.current);
+  }, [
+    searchRef.current,
+    filterOptionsRef.current,
+    filterButtonRef.current,
+    propertyCardRef.current,
+    wishlistButtonRef.current,
+    exploreTabRef?.current,
+    wishlistTabRef?.current,
+    inboxTabRef?.current,
+    profileTabRef?.current,
+  ]);
+
+  return (
+    <OnboardingProvider steps={tourSteps} screenName="Explore">
+      <HomePageContent
+        navigation={navigation}
+        searchRef={searchRef}
+        filterOptionsRef={filterOptionsRef}
+        filterButtonRef={filterButtonRef}
+        propertyCardRef={propertyCardRef}
+        wishlistButtonRef={wishlistButtonRef}
+        exploreTabRef={exploreTabRef}
+        wishlistTabRef={wishlistTabRef}
+        inboxTabRef={inboxTabRef}
+        profileTabRef={profileTabRef}
+      />
+    </OnboardingProvider>
   );
 }
 
@@ -636,12 +908,26 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   filterButtonContainer: {
-    alignItems: "flex-end",
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     marginBottom: 8,
   },
   filterButton: {
     backgroundColor: "#228B22",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  restartTourButton: {
+    backgroundColor: "#4CAF50",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
