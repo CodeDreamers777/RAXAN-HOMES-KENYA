@@ -1232,23 +1232,7 @@ class SendMessageView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        # Create the message
-        message = serializer.save()
-
-        # Send real-time notification
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"user_{message.receiver.user.id}_messages",
-            {
-                "type": "receive_message",
-                "message": {
-                    "id": message.id,
-                    "content": message.content,
-                    "sender_username": message.sender.user.username,
-                    "timestamp": message.timestamp.isoformat(),
-                },
-            },
-        )
+        serializer.save()
 
 
 class MarkMessagesAsReadView(APIView):
