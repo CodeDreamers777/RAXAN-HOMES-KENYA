@@ -4330,10 +4330,10 @@ expo-auth-session@~5.5.2:
     expo-web-browser "~13.0.0"
     invariant "^2.2.4"
 
-expo-blur@^14.0.3:
-  version "14.0.3"
-  resolved "https://registry.yarnpkg.com/expo-blur/-/expo-blur-14.0.3.tgz#656d6b2442bfbbfb2a6608c6bc1151b29bce6698"
-  integrity sha512-BL3xnqBJbYm3Hg9t/HjNjdeY7N/q8eK5tsLYxswWG1yElISWZmMvrXYekl7XaVCPfyFyz8vQeaxd7q74ZY3Wrw==
+expo-blur@~13.0.3:
+  version "13.0.3"
+  resolved "https://registry.yarnpkg.com/expo-blur/-/expo-blur-13.0.3.tgz#f150f396ce8d0aac95587bc84806abf63ba2e2ba"
+  integrity sha512-z5W9ZGlG6ZiRLuoJZG1AHRvjK8j+2+nc/mtvEtyAa8T/8iTNpUnX4eC8xXDoTL/H4y2pc3cHvytDjCXJG26pcQ==
 
 expo-constants@~16.0.0:
   version "16.0.2"
