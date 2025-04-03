@@ -13,6 +13,7 @@ from django.contrib.auth import update_session_auth_hash
 from rest_framework import serializers
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 from .serializer import ForgotPasswordSerializer, SignupSerializer
@@ -670,6 +671,7 @@ class SignupView(APIView):
 @method_decorator(csrf_exempt, name="dispatch")
 class PropertyViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
         rental_properties = RentalProperty.objects.filter(is_available=True)
