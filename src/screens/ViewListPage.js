@@ -17,6 +17,20 @@ import { Picker } from "@react-native-picker/picker";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
+// Simplified color palette based on #2C3E50
+const COLORS = {
+  primary: "#2C3E50",
+  primaryLight: "#34495E",
+  primaryDark: "#1A2530",
+  accent: "#3498DB",
+  background: "#F5F7FA",
+  cardBg: "#FFFFFF",
+  text: "#2C3E50",
+  textLight: "#7F8C8D",
+  border: "#E0E0E0",
+  buttonText: "#FFFFFF",
+};
+
 const ViewingListPage = () => {
   const [viewings, setViewings] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -108,7 +122,6 @@ const ViewingListPage = () => {
       );
 
       const responseData = await response.json();
-      console.log(responseData);
 
       if (!response.ok) {
         throw new Error(responseData.error || "Failed to update viewing");
@@ -157,17 +170,30 @@ const ViewingListPage = () => {
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
-      <Text style={styles.propertyName}>{item.property_name}</Text>
-      <Text style={styles.date}>
-        Date: {format(new Date(item.viewing_date), "PPP p")}
-      </Text>
-      <Text style={styles.status}>Status: {item.status}</Text>
-      {item.notes && <Text style={styles.notes}>Notes: {item.notes}</Text>}
+      <View style={styles.cardHeader}>
+        <Text style={styles.propertyName}>{item.property_name}</Text>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>{item.status}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardContent}>
+        <Text style={styles.dateText}>
+          {format(new Date(item.viewing_date), "PPP p")}
+        </Text>
+
+        {item.notes && (
+          <View style={styles.notesContainer}>
+            <Text style={styles.notesLabel}>Notes:</Text>
+            <Text style={styles.notesText}>{item.notes}</Text>
+          </View>
+        )}
+      </View>
 
       {(item.status === "PENDING" || userType === "SELLER") && (
-        <View style={styles.buttonContainer}>
+        <View style={styles.cardActions}>
           <TouchableOpacity
-            style={[styles.button, styles.updateButton]}
+            style={styles.actionButton}
             onPress={() => {
               setSelectedViewing(item);
               setNewDate(new Date(item.viewing_date));
@@ -176,12 +202,12 @@ const ViewingListPage = () => {
               setModalVisible(true);
             }}
           >
-            <Text style={styles.buttonText}>Update</Text>
+            <Text style={styles.actionButtonText}>Update</Text>
           </TouchableOpacity>
 
           {item.status === "PENDING" && (
             <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
+              style={[styles.actionButton, styles.cancelButton]}
               onPress={() =>
                 Alert.alert(
                   "Cancel Viewing",
@@ -196,7 +222,7 @@ const ViewingListPage = () => {
                 )
               }
             >
-              <Text style={styles.buttonText}>Cancel</Text>
+              <Text style={styles.actionButtonText}>Cancel</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -211,11 +237,20 @@ const ViewingListPage = () => {
         renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No viewings scheduled</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No viewings scheduled</Text>
+            <Text style={styles.emptySubtext}>Pull down to refresh</Text>
+          </View>
         }
+        contentContainerStyle={styles.listContent}
       />
 
       <Modal
@@ -224,72 +259,83 @@ const ViewingListPage = () => {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Update Viewing</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Update Viewing</Text>
+            </View>
 
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text>Select Date: {format(newDate, "PPP p")}</Text>
-            </TouchableOpacity>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={newDate}
-                mode="datetime"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(Platform.OS === "ios");
-                  if (selectedDate) {
-                    setNewDate(selectedDate);
-                  }
-                }}
-                minimumDate={new Date()}
-              />
-            )}
-
-            {userType === "SELLER" && (
-              <View style={styles.pickerContainer}>
-                <Text style={styles.pickerLabel}>Status:</Text>
-                <Picker
-                  selectedValue={newStatus}
-                  onValueChange={(itemValue) => setNewStatus(itemValue)}
-                  style={styles.picker}
-                >
-                  {statusOptions.map((option) => (
-                    <Picker.Item
-                      key={option.value}
-                      label={option.label}
-                      value={option.value}
-                    />
-                  ))}
-                </Picker>
-              </View>
-            )}
-
-            <TextInput
-              style={styles.notesInput}
-              placeholder="Add notes"
-              value={newNotes}
-              onChangeText={setNewNotes}
-              multiline
-            />
-
-            <View style={styles.modalButtons}>
+            <View style={styles.modalContent}>
               <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
+                style={styles.dateSelector}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={styles.fieldLabel}>Date & Time</Text>
+                <Text style={styles.dateValue}>{format(newDate, "PPP p")}</Text>
+              </TouchableOpacity>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={newDate}
+                  mode="datetime"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(Platform.OS === "ios");
+                    if (selectedDate) {
+                      setNewDate(selectedDate);
+                    }
+                  }}
+                  minimumDate={new Date()}
+                />
+              )}
+
+              {userType === "SELLER" && (
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.fieldLabel}>Status</Text>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={newStatus}
+                      onValueChange={(itemValue) => setNewStatus(itemValue)}
+                      style={styles.picker}
+                    >
+                      {statusOptions.map((option) => (
+                        <Picker.Item
+                          key={option.value}
+                          label={option.label}
+                          value={option.value}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Notes</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Add notes about this viewing"
+                  placeholderTextColor={COLORS.textLight}
+                  value={newNotes}
+                  onChangeText={setNewNotes}
+                  multiline
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelModalButton]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.buttonText}>Cancel</Text>
+                <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.button, styles.updateButton]}
+                style={[styles.modalButton, styles.saveModalButton]}
                 onPress={handleUpdateViewing}
               >
-                <Text style={styles.buttonText}>Update</Text>
+                <Text style={styles.modalButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -302,116 +348,209 @@ const ViewingListPage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingTop: 45,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+  listContent: {
+    padding: 12,
+    paddingBottom: 20,
   },
   card: {
-    backgroundColor: "white",
-    margin: 10,
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 8,
+    marginBottom: 16,
+    overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  propertyName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  date: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 5,
-  },
-  status: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 5,
-  },
-  notes: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 5,
-  },
-  buttonContainer: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: COLORS.primary,
   },
-  button: {
-    padding: 10,
-    borderRadius: 5,
+  propertyName: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "600",
     flex: 1,
-    marginHorizontal: 5,
   },
-  updateButton: {
-    backgroundColor: "#4CAF50",
+  statusContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 4,
+  },
+  statusText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  cardContent: {
+    padding: 16,
+  },
+  dateText: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  notesContainer: {
+    marginTop: 8,
+  },
+  notesLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  notesText: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    lineHeight: 20,
+  },
+  cardActions: {
+    flexDirection: "row",
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
+    paddingVertical: 10,
+    marginHorizontal: 6,
+    alignItems: "center",
   },
   cancelButton: {
-    backgroundColor: "#f44336",
+    backgroundColor: COLORS.primaryLight,
   },
-  buttonText: {
-    color: "white",
-    textAlign: "center",
-    fontSize: 16,
+  actionButtonText: {
+    color: COLORS.buttonText,
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 80,
+    paddingHorizontal: 20,
   },
   emptyText: {
-    textAlign: "center",
-    marginTop: 50,
-    fontSize: 16,
-    color: "#666",
+    fontSize: 18,
+    color: COLORS.text,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.textLight,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    backgroundColor: "white",
-    margin: 20,
-    padding: 20,
+    width: "90%",
+    backgroundColor: COLORS.cardBg,
     borderRadius: 10,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    backgroundColor: COLORS.primary,
+    padding: 16,
+    alignItems: "center",
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "600",
   },
-  dateButton: {
-    padding: 15,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 5,
+  modalContent: {
+    padding: 16,
+  },
+  fieldContainer: {
     marginBottom: 20,
   },
-  notesInput: {
+  fieldLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  dateSelector: {
+    backgroundColor: COLORS.background,
+    borderRadius: 6,
+    padding: 14,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 20,
+    borderColor: COLORS.border,
+  },
+  dateValue: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginTop: 6,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 6,
+    backgroundColor: COLORS.background,
+  },
+  picker: {
+    height: 50,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 6,
+    backgroundColor: COLORS.background,
+    padding: 12,
+    fontSize: 16,
+    color: COLORS.text,
     minHeight: 100,
     textAlignVertical: "top",
   },
-  modalButtons: {
+  modalActions: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    padding: 16,
   },
-  pickerContainer: {
-    marginBottom: 20,
+  modalButton: {
+    flex: 1,
+    borderRadius: 6,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginHorizontal: 6,
   },
-  pickerLabel: {
+  cancelModalButton: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  saveModalButton: {
+    backgroundColor: COLORS.primary,
+  },
+  modalButtonText: {
+    color: COLORS.buttonText,
     fontSize: 16,
-    marginBottom: 5,
-  },
-  picker: {
-    backgroundColor: "#f0f0f0",
-    borderRadius: 5,
+    fontWeight: "600",
   },
 });
 

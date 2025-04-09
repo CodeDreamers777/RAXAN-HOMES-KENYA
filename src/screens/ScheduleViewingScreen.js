@@ -11,23 +11,26 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  StatusBar,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Ionicons } from "@expo/vector-icons";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
-// Green theme colors
+// New color scheme based on #2C3E50
 const COLORS = {
-  primary: "#2E7D32", // Dark green
-  primaryLight: "#4CAF50", // Medium green
-  secondary: "#A5D6A7", // Light green
-  background: "#F1F8E9", // Very light green/off-white
-  text: "#1B5E20", // Very dark green
-  textSecondary: "#33691E", // Dark olive green
-  border: "#81C784", // Medium light green
+  primary: "#2C3E50", // Deep blue-gray (main theme color)
+  primaryLight: "#34495E", // Slightly lighter blue-gray
+  secondary: "#3498DB", // Bright blue
+  background: "#ECF0F1", // Light gray background
+  text: "#2C3E50", // Deep blue-gray for text
+  textSecondary: "#7F8C8D", // Medium gray for secondary text
+  border: "#BDC3C7", // Light gray for borders
   white: "#FFFFFF",
-  error: "#D32F2F", // Red for errors
+  error: "#E74C3C", // Red for errors
+  accent: "#F39C12", // Gold accent (matching the stars from previous screen)
 };
 
 const ScheduleViewingScreen = ({ route, navigation }) => {
@@ -122,47 +125,79 @@ const ScheduleViewingScreen = ({ route, navigation }) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
       >
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+
+        {/* Header */}
+
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollViewContent}
         >
           <View style={styles.content}>
-            <Text style={styles.title}>Schedule Property Viewing</Text>
+            <View style={styles.card}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="calendar" size={28} color={COLORS.white} />
+              </View>
 
-            <Text style={styles.label}>Select Viewing Date:</Text>
-            <TouchableOpacity
-              style={styles.inputField}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text style={styles.dateButtonText}>
-                {selectedDate.toLocaleDateString()}
-              </Text>
-            </TouchableOpacity>
+              <Text style={styles.cardTitle}>Select Viewing Date</Text>
+              <TouchableOpacity
+                style={styles.inputField}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <View style={styles.dateInputContent}>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={20}
+                    color={COLORS.textSecondary}
+                  />
+                  <Text style={styles.dateButtonText}>
+                    {selectedDate.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display="default"
-                onChange={handleDateChange}
-                minimumDate={new Date()}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                />
+              )}
+
+              <Text style={styles.label}>Additional Notes</Text>
+              <TextInput
+                style={[styles.inputField, styles.notesInput]}
+                multiline
+                numberOfLines={4}
+                placeholder="Enter any notes or special requests for the viewing..."
+                placeholderTextColor={COLORS.textSecondary}
+                value={viewingNotes}
+                onChangeText={setViewingNotes}
+                textAlignVertical="top"
+                keyboardType="default"
+                returnKeyType="done"
+                blurOnSubmit={false}
               />
-            )}
+            </View>
 
-            <Text style={styles.label}>Add Notes (Optional):</Text>
-            <TextInput
-              style={[styles.inputField, styles.notesInput]}
-              multiline
-              numberOfLines={4}
-              placeholder="Enter any notes or special requests for the viewing..."
-              placeholderTextColor="#689F38"
-              value={viewingNotes}
-              onChangeText={setViewingNotes}
-              textAlignVertical="top"
-              keyboardType="default"
-              returnKeyType="done"
-              blurOnSubmit={false}
-            />
+            <View style={styles.infoCard}>
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color={COLORS.text}
+              />
+              <Text style={styles.infoText}>
+                Once scheduled, the property owner will be notified and may
+                contact you to confirm.
+              </Text>
+            </View>
 
             <View style={styles.buttonContainer}>
               <TouchableOpacity
@@ -175,7 +210,7 @@ const ScheduleViewingScreen = ({ route, navigation }) => {
                 style={styles.submitButton}
                 onPress={submitViewing}
               >
-                <Text style={styles.submitButtonText}>Confirm Viewing</Text>
+                <Text style={styles.submitButtonText}>Schedule Viewing</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -190,58 +225,123 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.white,
+  },
+  placeholder: {
+    width: 40, // Same width as back button for balanced layout
+  },
   scrollViewContent: {
     flexGrow: 1,
   },
   content: {
-    padding: 24,
+    padding: 16,
   },
-  title: {
-    fontSize: 24,
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    position: "relative",
+    paddingTop: 32,
+  },
+  iconContainer: {
+    position: "absolute",
+    top: -20,
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  cardTitle: {
+    fontSize: 20,
     fontWeight: "bold",
     color: COLORS.primary,
-    marginBottom: 24,
-    textAlign: "center",
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: COLORS.text,
     marginBottom: 8,
+    marginTop: 8,
   },
   inputField: {
     backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  },
+  dateInputContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   dateButtonText: {
     fontSize: 16,
     color: COLORS.text,
+    marginLeft: 8,
   },
   notesInput: {
     minHeight: 120,
     fontSize: 16,
     color: COLORS.text,
   },
+  infoCard: {
+    backgroundColor: "#EBF5FB", // Light blue
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 24,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  infoText: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 20,
+  },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
-    marginTop: 8,
+    marginBottom: 24,
   },
   cancelButton: {
     flex: 1,
     backgroundColor: COLORS.white,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -250,7 +350,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.primary,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -259,9 +359,9 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   cancelButtonText: {
-    color: COLORS.textSecondary,
+    color: COLORS.text,
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   submitButtonText: {
     color: COLORS.white,

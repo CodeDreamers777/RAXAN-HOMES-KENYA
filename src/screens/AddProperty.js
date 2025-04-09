@@ -366,6 +366,7 @@ const AddPropertyPage = () => {
     }
   };
   // Replace the existing amenities input with this new UI
+  // Replace the existing amenities input with this new UI
   const renderAmenitiesSection = () => (
     <View>
       <Text style={styles.sectionTitle}>Amenities</Text>
@@ -374,7 +375,7 @@ const AddPropertyPage = () => {
           <View key={amenity.id} style={styles.amenityItem}>
             <Text style={styles.amenityText}>{amenity.name}</Text>
             <TouchableOpacity onPress={() => removeAmenity(amenity.id)}>
-              <MaterialIcons name="close-circle" size={20} color="#FF0000" />
+              <MaterialIcons name="close" size={20} color="#E74C3C" />
             </TouchableOpacity>
           </View>
         ))}
@@ -387,7 +388,7 @@ const AddPropertyPage = () => {
             value={newAmenity}
             onChangeText={setNewAmenity}
             placeholder="Enter new amenity"
-            placeholderTextColor="#a0a0a0"
+            placeholderTextColor="#95A5A6"
           />
           <TouchableOpacity
             style={styles.addAmenityButton}
@@ -408,7 +409,7 @@ const AddPropertyPage = () => {
             <MaterialIcons
               name="home"
               size={24}
-              color="#4CAF50"
+              color="#3498DB"
               style={styles.icon}
             />
             <Picker
@@ -427,13 +428,13 @@ const AddPropertyPage = () => {
             <MaterialIcons
               name="apartment"
               size={24}
-              color="#4CAF50"
+              color="#3498DB"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
               placeholder="Number of Units"
-              placeholderTextColor="#a0a0a0"
+              placeholderTextColor="#95A5A6"
               value={numberOfUnits}
               onChangeText={setNumberOfUnits}
               keyboardType="numeric"
@@ -447,7 +448,7 @@ const AddPropertyPage = () => {
           <MaterialIcons
             name="home"
             size={24}
-            color="#4CAF50"
+            color="#3498DB"
             style={styles.icon}
           />
           <Picker
@@ -475,7 +476,7 @@ const AddPropertyPage = () => {
 
         {isExpoGo && (
           <View style={styles.warningContainer}>
-            <MaterialIcons name="warning" size={24} color="#FFA500" />
+            <MaterialIcons name="warning" size={24} color="#F39C12" />
             <Text style={styles.warningText}>
               You are running in Expo Go. Some features may be limited.
             </Text>
@@ -486,7 +487,7 @@ const AddPropertyPage = () => {
           <MaterialIcons
             name="category"
             size={24}
-            color="#4CAF50"
+            color="#3498DB"
             style={styles.icon}
           />
           <Picker
@@ -511,13 +512,13 @@ const AddPropertyPage = () => {
           <MaterialIcons
             name="title"
             size={24}
-            color="#4CAF50"
+            color="#3498DB"
             style={styles.icon}
           />
           <TextInput
             style={styles.input}
             placeholder="Property Name"
-            placeholderTextColor="#a0a0a0"
+            placeholderTextColor="#95A5A6"
             value={name}
             onChangeText={setName}
           />
@@ -527,13 +528,13 @@ const AddPropertyPage = () => {
           <MaterialIcons
             name="description"
             size={24}
-            color="#4CAF50"
+            color="#3498DB"
             style={styles.icon}
           />
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Description"
-            placeholderTextColor="#a0a0a0"
+            placeholderTextColor="#95A5A6"
             value={description}
             onChangeText={setDescription}
             multiline
@@ -544,7 +545,7 @@ const AddPropertyPage = () => {
           <MaterialIcons
             name="attach-money"
             size={24}
-            color="#4CAF50"
+            color="#3498DB"
             style={styles.icon}
           />
           <TextInput
@@ -556,7 +557,7 @@ const AddPropertyPage = () => {
                   ? "Price per Night"
                   : "Sale Price"
             }
-            placeholderTextColor="#a0a0a0"
+            placeholderTextColor="#95A5A6"
             value={propertyCategory === "per_night" ? pricePerNight : price}
             onChangeText={
               propertyCategory === "per_night" ? setPricePerNight : setPrice
@@ -570,13 +571,13 @@ const AddPropertyPage = () => {
             <MaterialIcons
               name="attach-money"
               size={24}
-              color="#4CAF50"
+              color="#3498DB"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
               placeholder="Rental Deposit"
-              placeholderTextColor="#a0a0a0"
+              placeholderTextColor="#95A5A6"
               value={rentalDeposit}
               onChangeText={setRentalDeposit}
               keyboardType="numeric"
@@ -588,18 +589,18 @@ const AddPropertyPage = () => {
           <MaterialIcons
             name="location-on"
             size={24}
-            color="#4CAF50"
+            color="#3498DB"
             style={styles.icon}
           />
           <TextInput
             style={styles.input}
             placeholder="Location"
-            placeholderTextColor="#a0a0a0"
+            placeholderTextColor="#95A5A6"
             value={location}
             onChangeText={setLocation}
           />
           <TouchableOpacity onPress={openMap} style={styles.mapButton}>
-            <MaterialIcons name="map" size={24} color="#4CAF50" />
+            <MaterialIcons name="map" size={24} color="#3498DB" />
           </TouchableOpacity>
         </View>
 
@@ -608,13 +609,13 @@ const AddPropertyPage = () => {
             <MaterialIcons
               name="hotel"
               size={24}
-              color="#4CAF50"
+              color="#3498DB"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
               placeholder="Bedrooms"
-              placeholderTextColor="#a0a0a0"
+              placeholderTextColor="#95A5A6"
               value={bedrooms}
               onChangeText={setBedrooms}
               keyboardType="numeric"
@@ -625,13 +626,13 @@ const AddPropertyPage = () => {
             <MaterialIcons
               name="bathtub"
               size={24}
-              color="#4CAF50"
+              color="#3498DB"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
               placeholder="Bathrooms"
-              placeholderTextColor="#a0a0a0"
+              placeholderTextColor="#95A5A6"
               value={bathrooms}
               onChangeText={setBathrooms}
               keyboardType="numeric"
@@ -643,13 +644,13 @@ const AddPropertyPage = () => {
           <MaterialIcons
             name="square-foot"
             size={24}
-            color="#4CAF50"
+            color="#3498DB"
             style={styles.icon}
           />
           <TextInput
             style={styles.input}
             placeholder="Area (sq ft)"
-            placeholderTextColor="#a0a0a0"
+            placeholderTextColor="#95A5A6"
             value={area}
             onChangeText={setArea}
             keyboardType="numeric"
@@ -661,7 +662,7 @@ const AddPropertyPage = () => {
             <MaterialIcons
               name="event"
               size={24}
-              color="#4CAF50"
+              color="#3498DB"
               style={styles.icon}
             />
             <Picker
@@ -690,13 +691,13 @@ const AddPropertyPage = () => {
               <MaterialIcons
                 name="apartment"
                 size={24}
-                color="#4CAF50"
+                color="#3498DB"
                 style={styles.icon}
               />
               <TextInput
                 style={styles.input}
                 placeholder="Number of Units"
-                placeholderTextColor="#a0a0a0"
+                placeholderTextColor="#95A5A6"
                 value={numberOfUnits}
                 onChangeText={setNumberOfUnits}
                 keyboardType="numeric"
@@ -707,7 +708,7 @@ const AddPropertyPage = () => {
               <MaterialIcons
                 name="check-circle"
                 size={24}
-                color="#4CAF50"
+                color="#3498DB"
                 style={styles.icon}
               />
               <Picker
@@ -729,13 +730,13 @@ const AddPropertyPage = () => {
                 <MaterialIcons
                   name="access-time"
                   size={24}
-                  color="#4CAF50"
+                  color="#3498DB"
                   style={styles.icon}
                 />
                 <TextInput
                   style={styles.input}
                   placeholder="Check-in Time (HH:MM)"
-                  placeholderTextColor="#a0a0a0"
+                  placeholderTextColor="#95A5A6"
                   value={checkInTime}
                   onChangeText={setCheckInTime}
                 />
@@ -745,13 +746,13 @@ const AddPropertyPage = () => {
                 <MaterialIcons
                   name="access-time"
                   size={24}
-                  color="#4CAF50"
+                  color="#3498DB"
                   style={styles.icon}
                 />
                 <TextInput
                   style={styles.input}
                   placeholder="Check-out Time (HH:MM)"
-                  placeholderTextColor="#a0a0a0"
+                  placeholderTextColor="#95A5A6"
                   value={checkOutTime}
                   onChangeText={setCheckOutTime}
                 />
@@ -763,13 +764,13 @@ const AddPropertyPage = () => {
                 <MaterialIcons
                   name="nights-stay"
                   size={24}
-                  color="#4CAF50"
+                  color="#3498DB"
                   style={styles.icon}
                 />
                 <TextInput
                   style={styles.input}
                   placeholder="Min Nights"
-                  placeholderTextColor="#a0a0a0"
+                  placeholderTextColor="#95A5A6"
                   value={minNights}
                   onChangeText={setMinNights}
                   keyboardType="numeric"
@@ -780,13 +781,13 @@ const AddPropertyPage = () => {
                 <MaterialIcons
                   name="nights-stay"
                   size={24}
-                  color="#4CAF50"
+                  color="#3498DB"
                   style={styles.icon}
                 />
                 <TextInput
                   style={styles.input}
                   placeholder="Max Nights"
-                  placeholderTextColor="#a0a0a0"
+                  placeholderTextColor="#95A5A6"
                   value={maxNights}
                   onChangeText={setMaxNights}
                   keyboardType="numeric"
@@ -798,7 +799,7 @@ const AddPropertyPage = () => {
               <MaterialIcons
                 name="check-circle"
                 size={24}
-                color="#4CAF50"
+                color="#3498DB"
                 style={styles.icon}
               />
               <Picker
@@ -893,7 +894,7 @@ const AddPropertyPage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
   },
   content: {
     padding: 20,
@@ -903,28 +904,29 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 20,
     textAlign: "center",
-    color: "#4CAF50",
+    color: "#2C3E50",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
+    borderColor: "#ECF0F1",
+    borderRadius: 12,
+    backgroundColor: "#F8F9FA",
   },
   icon: {
-    padding: 10,
+    padding: 12,
   },
   input: {
     flex: 1,
-    color: "#333",
-    paddingVertical: 10,
-    paddingRight: 10,
+    color: "#2C3E50",
+    paddingVertical: 12,
+    paddingRight: 12,
     fontSize: 16,
   },
   textArea: {
-    height: 100,
+    height: 120,
     textAlignVertical: "top",
   },
   rowContainer: {
@@ -935,23 +937,34 @@ const styles = StyleSheet.create({
     width: "48%",
   },
   button: {
-    backgroundColor: "#4CAF50",
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: "#3498DB",
+    padding: 16,
+    borderRadius: 12,
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 20,
     flexDirection: "row",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButton: {
-    backgroundColor: "#2196F3",
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: "#2C3E50",
+    padding: 16,
+    borderRadius: 12,
     alignItems: "center",
     marginTop: 20,
+    marginBottom: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
   },
   disabledButton: {
-    backgroundColor: "#B0BEC5",
+    backgroundColor: "#95A5A6",
   },
   buttonText: {
     color: "#fff",
@@ -969,26 +982,33 @@ const styles = StyleSheet.create({
   imageWrapper: {
     position: "relative",
     margin: 5,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   image: {
     width: 100,
     height: 100,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   removeImageButton: {
     position: "absolute",
     top: 5,
     right: 5,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(44, 62, 80, 0.7)",
     borderRadius: 12,
     padding: 4,
   },
   picker: {
     flex: 1,
-    color: "#333",
+    color: "#2C3E50",
   },
   mapButton: {
-    padding: 10,
+    padding: 12,
   },
   mapContainer: {
     flex: 1,
@@ -997,14 +1017,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   confirmButton: {
-    backgroundColor: "#4CAF50",
-    padding: 15,
+    backgroundColor: "#2C3E50",
+    padding: 16,
     alignItems: "center",
     position: "absolute",
     bottom: 20,
     left: 20,
     right: 20,
-    borderRadius: 8,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 5,
   },
   confirmButtonText: {
     color: "#fff",
@@ -1012,52 +1037,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   errorContainer: {
-    backgroundColor: "#FFF5F5",
-    borderRadius: 8,
+    backgroundColor: "#FADBD8",
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#F5B7B1",
   },
   errorText: {
-    color: "#E53E3E",
+    color: "#E74C3C",
     fontSize: 14,
-  },
-  featuredContainer: {
-    marginBottom: 16,
-  },
-  infoBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E3F2FD",
-    padding: 10,
-    borderRadius: 4,
-    marginTop: 8,
-  },
-  infoIcon: {
-    marginRight: 8,
-  },
-  infoText: {
-    color: "#1976D2",
-    flex: 1,
   },
   warningContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFF3E0",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 15,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#FDEBD0",
   },
   warningText: {
     marginLeft: 10,
-    color: "#FF9800",
+    color: "#F39C12",
     flex: 1,
+    fontSize: 14,
   },
-  // Add new styles for amenities section
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
-    color: "#2D3748",
+    color: "#2C3E50",
     marginBottom: 12,
     marginTop: 20,
   },
@@ -1065,21 +1076,25 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "500",
-    color: "#4A5568",
+    color: "#34495E",
     marginBottom: 8,
   },
   amenitiesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     marginBottom: 20,
-    padding: 8,
+    padding: 10,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ECF0F1",
   },
   amenityItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#EDF2F7",
+    backgroundColor: "#EBF5FB",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -1090,11 +1105,13 @@ const styles = StyleSheet.create({
       height: 1,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowRadius: 2,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: "#D6EAF8",
   },
   amenityText: {
-    color: "#4A5568",
+    color: "#2C3E50",
     marginRight: 8,
     fontSize: 14,
     fontWeight: "500",
@@ -1109,7 +1126,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#ECF0F1",
     padding: 12,
     marginRight: 8,
     fontSize: 16,
@@ -1121,9 +1138,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    color: "#2C3E50",
   },
   addAmenityButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#3498DB",
     borderRadius: 12,
     padding: 12,
     shadowColor: "#000",

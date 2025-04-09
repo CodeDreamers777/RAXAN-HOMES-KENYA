@@ -21,23 +21,23 @@ import defaultUserProfileImage from "../../assets/user-profile.jpg";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 
-// Green theme colors
+// Updated color scheme to match the App.js theme
 const COLORS = {
-  primary: "#2E7D32", // Dark green
-  primaryDark: "#1B5E20", // Darker green for gradients
-  primaryLight: "#4CAF50", // Medium green
-  secondary: "#A5D6A7", // Light green
-  background: "#F1F8E9", // Very light green/off-white
-  text: "#1B5E20", // Very dark green
-  textSecondary: "#33691E", // Dark olive green
-  textLight: "#E8F5E9", // Very light green for text on dark backgrounds
-  border: "#81C784", // Medium light green
+  primary: "#2C3E50", // Deep blue-gray (primary color)
+  primaryDark: "#1F2E3C", // Darker blue-gray for gradients
+  primaryLight: "#3498DB", // Medium blue (secondary color)
+  secondary: "#1ABC9C", // Teal/aqua (accent color)
+  background: "#F5F7FA", // Light gray with blue undertone
+  text: "#2C3E50", // Deep blue-gray for text
+  textSecondary: "#34495E", // Slightly lighter blue-gray for secondary text
+  textLight: "#ECF0F1", // Very light gray for text on dark backgrounds
+  border: "#BDC3C7", // Medium light gray with blue undertone
   white: "#FFFFFF",
-  error: "#D32F2F", // Red for errors and logout
-  accent: "#66BB6A", // Medium green for accents
-  highlight: "#C8E6C9", // Very light green for highlights
-  buttonGradientStart: "#43A047", // Start of button gradient
-  buttonGradientEnd: "#2E7D32", // End of button gradient
+  error: "#E74C3C", // Red for errors and logout
+  accent: "#1ABC9C", // Teal/aqua accent color
+  highlight: "#E1F0FA", // Very light blue for highlights
+  buttonGradientStart: "#3498DB", // Start of button gradient (medium blue)
+  buttonGradientEnd: "#2C3E50", // End of button gradient (deep blue-gray)
 };
 
 const fetchCSRFToken = async () => {
@@ -396,7 +396,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   actionButton: {
-    backgroundColor: COLORS.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -408,7 +407,7 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 3.84,
     elevation: 5,
   },
@@ -428,7 +427,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryLight,
   },
   ratingsButton: {
-    backgroundColor: "#8BC34A", // Lighter green for ratings button
+    backgroundColor: COLORS.secondary, // Teal/aqua accent color
   },
   settingsButton: {
     flexDirection: "row",
@@ -437,7 +436,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     padding: 15,
     borderRadius: 10,
-    shadowColor: "#000",
+    shadowColor: COLORS.primary,
     shadowOffset: {
       width: 0,
       height: 1,
@@ -482,7 +481,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginHorizontal: 20,
     marginBottom: 15,
-    shadowColor: "#000",
+    shadowColor: COLORS.primary,
     shadowOffset: {
       width: 0,
       height: 1,
@@ -510,7 +509,7 @@ const styles = StyleSheet.create({
   },
   reviewRating: {
     fontSize: 14,
-    color: "#8BC34A", // Light green for ratings
+    color: COLORS.secondary, // Teal/aqua for ratings
     marginLeft: 5,
   },
   reviewContent: {

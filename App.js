@@ -26,11 +26,7 @@ import { checkIfNewUser } from "./src/utils/onboarding";
 import HomePage from "./src/screens/HomePage";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import PropertyPage from "./src/screens/PropertyPage";
-import {
-  LoginScreen,
-  SignUpScreen,
-  OtpVerificationScreen,
-} from "./src/screens/AuthScreens";
+import { Login, SignUp, OtpVerification } from "./src/screens/AuthScreens";
 import AddPropertyPage from "./src/screens/AddProperty";
 import ViewMyListings from "./src/screens/ViewMyListings";
 import UpdateProperty from "./src/screens/UpdateProperty";
@@ -49,17 +45,17 @@ import ViewingListPage from "./src/screens/ViewListPage";
 import BookingScreen from "./src/screens/BookingPerNight";
 import {
   ForgotPasswordScreen,
-  OTPVerificationScreen,
+  ForgotOTPVerificationScreen,
 } from "./src/screens/ForgotPasswordScreen";
 import ReviewScreen from "./src/screens/ReviewScreen";
 import PerNightBookings from "./src/screens/PerNightBookings";
 
-// Constants for theme colors
-const PRIMARY_COLOR = "#2E7D32"; // Dark green
-const SECONDARY_COLOR = "#4CAF50"; // Medium green
-const ACCENT_COLOR = "#8BC34A"; // Light green
-const INACTIVE_COLOR = "#9E9E9E";
-const BACKGROUND_COLOR = "#FFFFFF";
+// Updated theme colors for a modern look
+const PRIMARY_COLOR = "#2C3E50"; // Deep blue-gray
+const SECONDARY_COLOR = "#3498DB"; // Medium blue
+const ACCENT_COLOR = "#1ABC9C"; // Teal/aqua
+const INACTIVE_COLOR = "#95A5A6"; // Light gray with blue undertone
+const BACKGROUND_COLOR = "#FFFFFF"; // White
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -146,7 +142,7 @@ const TabBarButton = ({
           <Ionicons
             name={icon}
             size={24}
-            color={isFocused ? PRIMARY_COLOR : INACTIVE_COLOR}
+            color={isFocused ? ACCENT_COLOR : INACTIVE_COLOR}
           />
 
           {badgeCount > 0 && (
@@ -178,6 +174,7 @@ const TabBarButton = ({
           {
             opacity: dotOpacity,
             transform: [{ scale: dotScale }],
+            backgroundColor: ACCENT_COLOR,
           },
         ]}
       />
@@ -423,12 +420,12 @@ function App() {
       >
         <Stack.Screen
           name="Login"
-          component={LoginScreen}
+          component={Login}
           options={{ headerShown: false }}
         />
         <Stack.Screen
           name="SignUp"
-          component={SignUpScreen}
+          component={SignUp}
           options={{ headerShown: false }}
         />
         <Stack.Screen name="Home" options={{ headerShown: false }}>
@@ -510,14 +507,15 @@ function App() {
           options={{ title: "Forgot Password" }}
         />
         <Stack.Screen
-          name="OTPVerification"
-          component={OTPVerificationScreen}
+          name="OtpVerification"
+          component={OtpVerification}
           options={{ title: "OTP Verification" }}
         />
+
         <Stack.Screen
-          name="OtpVerification"
-          component={OtpVerificationScreen}
-          options={{ title: "OTP Verification" }}
+          name="ForgotOTPVerification"
+          component={ForgotOTPVerificationScreen}
+          options={{ title: "Forgot OTP Verification" }}
         />
         <Stack.Screen
           name="Review"
@@ -567,27 +565,27 @@ const styles = StyleSheet.create({
   },
   blurView: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Platform.OS === "ios" ? "rgba(255,255,255,0.85)" : null,
+    backgroundColor: Platform.OS === "ios" ? "rgba(248,250,252,0.85)" : null, // Lighter background for iOS blur
   },
   tabBarContent: {
     flexDirection: "row",
     backgroundColor:
-      Platform.OS === "ios" ? "rgba(255,255,255,0.8)" : BACKGROUND_COLOR,
+      Platform.OS === "ios" ? "rgba(248,250,252,0.8)" : BACKGROUND_COLOR,
     marginHorizontal: 16,
     borderRadius: 28,
     height: 68, // Reduced height slightly
     alignItems: "center",
     justifyContent: "space-around",
-    shadowColor: "#000",
+    shadowColor: "#2C3E50",
     shadowOffset: {
       width: 0,
       height: 8,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 12,
     borderWidth: Platform.OS === "ios" ? 0.5 : 1,
-    borderColor: "rgba(240,240,240,0.8)",
+    borderColor: "rgba(240,245,248,0.8)",
   },
   tabButton: {
     height: "100%",
@@ -621,7 +619,7 @@ const styles = StyleSheet.create({
   tabIndicator: {
     width: 24,
     height: 3,
-    backgroundColor: PRIMARY_COLOR,
+    backgroundColor: ACCENT_COLOR, // Changed to accent color
     position: "absolute",
     bottom: 8, // Adjusted from 10
     borderRadius: 1.5,
@@ -631,7 +629,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -5, // Adjusted from 0
     right: -5, // Adjusted from 0
-    backgroundColor: "#FF3B30",
+    backgroundColor: "#E74C3C", // Red for notification, complements the blue scheme
     borderRadius: 10,
     minWidth: 18,
     height: 18,

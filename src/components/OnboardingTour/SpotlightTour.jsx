@@ -22,7 +22,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
-const PRIMARY_COLOR = "#2E7D32"; // Dark green
+const PRIMARY_COLOR = "#2C3E50"; // Dark green
 const SECONDARY_COLOR = "#4CAF50"; // Medium green
 
 const SpotlightTour = ({

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   StatusBar,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -18,6 +19,19 @@ const ViewRatingsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { ratings } = route.params;
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Handle refresh function
+  const onRefresh = () => {
+    setRefreshing(true);
+    // Here you would typically fetch fresh data
+    // For example: fetchRatings().then(() => setRefreshing(false));
+
+    // Simulating a network request with a timeout
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1500);
+  };
 
   const renderRatingStars = (rating) => {
     return (
@@ -27,7 +41,7 @@ const ViewRatingsScreen = () => {
             key={star}
             name={star <= rating ? "star" : "star-outline"}
             size={16}
-            color="#FFA000"
+            color="#F39C12" // Changed from #FFA000 to a more complementary gold
           />
         ))}
       </View>
@@ -70,7 +84,7 @@ const ViewRatingsScreen = () => {
 
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="star-outline" size={64} color="#ccc" />
+      <Ionicons name="star-outline" size={64} color="#7F8C8D" />
       <Text style={styles.emptyText}>No ratings yet</Text>
     </View>
   );
@@ -84,32 +98,64 @@ const ViewRatingsScreen = () => {
             <Text style={styles.statNumber}>{ratings.length}</Text>
             <Text style={styles.statLabel}>Total Reviews</Text>
           </View>
+          <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>
-              {ratings.length > 0
-                ? (
-                    ratings.reduce((acc, curr) => acc + curr.rating, 0) /
-                    ratings.length
-                  ).toFixed(1)
-                : "0.0"}
-            </Text>
+            <View style={styles.averageRatingContainer}>
+              <Text style={styles.statNumber}>
+                {ratings.length > 0
+                  ? (
+                      ratings.reduce((acc, curr) => acc + curr.rating, 0) /
+                      ratings.length
+                    ).toFixed(1)
+                  : "0.0"}
+              </Text>
+              <Ionicons
+                name="star"
+                size={16}
+                color="#F39C12"
+                style={styles.averageStar}
+              />
+            </View>
             <Text style={styles.statLabel}>Average Rating</Text>
           </View>
         </View>
       </View>
+      {ratings.length > 0 && (
+        <View style={styles.filterContainer}>
+          <TouchableOpacity style={styles.filterButton}>
+            <Text style={styles.filterButtonText}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, styles.filterButtonInactive]}
+          >
+            <Text style={styles.filterButtonTextInactive}>5 Stars</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, styles.filterButtonInactive]}
+          >
+            <Text style={styles.filterButtonTextInactive}>Recent</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#2C3E50" />
       <View style={styles.toolbar}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color="#ECF0F1" />
         </TouchableOpacity>
+        <Text style={styles.toolbarTitle}>Ratings & Reviews</Text>
+        {ratings.length > 0 && (
+          <TouchableOpacity style={styles.sortButton}>
+            <Ionicons name="options-outline" size={22} color="#ECF0F1" />
+          </TouchableOpacity>
+        )}
       </View>
       <FlatList
         data={ratings}
@@ -119,7 +165,23 @@ const ViewRatingsScreen = () => {
         ListEmptyComponent={renderEmptyComponent}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#2C3E50"]}
+            tintColor="#2C3E50"
+            title="Refreshing..."
+            titleColor="#2C3E50"
+          />
+        }
       />
+      {ratings.length > 0 && (
+        <TouchableOpacity style={styles.addReviewButton}>
+          <Ionicons name="add" size={24} color="#FFF" />
+          <Text style={styles.addReviewButtonText}>Add Review</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 };
@@ -127,22 +189,33 @@ const ViewRatingsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#ECF0F1", // Light background that complements the dark blue theme
   },
   toolbar: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: "#2C3E50", // New primary color
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "#34495E", // Slightly lighter shade for border
   },
   backButton: {
     padding: 8,
   },
+  toolbarTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#ECF0F1",
+    flex: 1,
+    textAlign: "center",
+  },
+  sortButton: {
+    padding: 8,
+  },
   headerContainer: {
-    backgroundColor: "#fff",
-    paddingBottom: 20,
+    backgroundColor: "#FFF",
+    paddingBottom: 16,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     shadowColor: "#000",
@@ -161,34 +234,77 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#333",
+    color: "#2C3E50", // Matching the theme color
     marginBottom: 16,
   },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    backgroundColor: "#f8f9fa",
+    alignItems: "center",
+    backgroundColor: "#F5F7FA",
     borderRadius: 12,
     padding: 16,
   },
   statItem: {
     alignItems: "center",
+    flex: 1,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: "#BDC3C7",
   },
   statNumber: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#0d1b21",
+    color: "#2C3E50",
   },
   statLabel: {
     fontSize: 14,
-    color: "#666",
+    color: "#7F8C8D",
     marginTop: 4,
+  },
+  averageRatingContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
+  averageStar: {
+    marginBottom: 5,
+    marginLeft: 2,
+  },
+  filterContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  filterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "#2C3E50",
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  filterButtonInactive: {
+    backgroundColor: "#ECF0F1",
+    borderWidth: 1,
+    borderColor: "#BDC3C7",
+  },
+  filterButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  filterButtonTextInactive: {
+    color: "#7F8C8D",
+    fontSize: 14,
+    fontWeight: "500",
   },
   listContainer: {
     padding: 16,
+    paddingBottom: 80, // Extra padding for the floating button
   },
   ratingCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -200,6 +316,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: "#2C3E50",
   },
   ratingHeader: {
     marginBottom: 12,
@@ -214,11 +332,13 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
+    borderWidth: 2,
+    borderColor: "#ECF0F1",
   },
   reviewerName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "#2C3E50",
   },
   ratingInfo: {
     flexDirection: "row",
@@ -231,28 +351,55 @@ const styles = StyleSheet.create({
   },
   ratingDate: {
     fontSize: 14,
-    color: "#666",
+    color: "#7F8C8D",
   },
   ratingContent: {
-    paddingTop: 8,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    borderTopColor: "#EEF2F5",
   },
   ratingText: {
     fontSize: 16,
-    color: "#444",
+    color: "#34495E",
     lineHeight: 24,
   },
   emptyContainer: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 48,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    marginTop: 16,
+    padding: 24,
   },
   emptyText: {
     fontSize: 18,
-    color: "#666",
+    color: "#7F8C8D",
     marginTop: 16,
+  },
+  addReviewButton: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    backgroundColor: "#2C3E50",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  addReviewButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    marginLeft: 8,
   },
 });
 

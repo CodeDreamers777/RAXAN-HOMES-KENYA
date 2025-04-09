@@ -16,14 +16,22 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 
-// Constants
+// Constants - Updated color scheme based on #2C3E50
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
-const PRIMARY_COLOR = "#2E7D32"; // Dark green
-const SECONDARY_COLOR = "#4CAF50"; // Medium green
-const ACCENT_COLOR = "#8BC34A"; // Light green
-const BACKGROUND_COLOR = "#F5F5F5";
-const TEXT_PRIMARY = "#212121";
-const TEXT_SECONDARY = "#757575";
+const COLORS = {
+  primary: "#2C3E50", // Deep blue-grey (main brand color)
+  primaryLight: "#3D5A73", // Lighter blue-grey
+  primaryDark: "#1A2530", // Darker blue-grey
+  secondary: "#ECF0F1", // Very light grey with slight blue tint
+  accent: "#E74C3C", // Red accent for removal/alerts
+  highlight: "#3498DB", // Bright blue for highlights/CTAs
+  text: "#2C3E50", // Dark text (same as primary)
+  textLight: "#7F8C8D", // Light grey text for secondary information
+  background: "#F5F7FA", // Light background with slight blue tint
+  card: "#FFFFFF", // White card background
+  border: "#D6DBDF", // Light border color
+  unread: "#EBF5FB", // Light blue background for unread messages
+};
 
 // Helper function to format timestamp
 const formatTimestamp = (timestamp) => {
@@ -122,23 +130,34 @@ const EmptyInbox = React.memo(({ refreshing, onRefresh }) => {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          colors={[PRIMARY_COLOR]}
+          colors={[COLORS.highlight]}
           progressBackgroundColor="#ffffff"
-          tintColor={PRIMARY_COLOR}
+          tintColor={COLORS.highlight}
         />
       }
     >
       <Animated.View style={{ opacity: fadeAnim, alignItems: "center" }}>
-        <Ionicons
-          name="chatbubble-ellipses-outline"
-          size={80}
-          color={SECONDARY_COLOR}
-        />
+        <View style={styles.emptyIconContainer}>
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={80}
+            color={COLORS.primaryLight}
+          />
+        </View>
         <Text style={styles.emptyTitle}>No Conversations Yet</Text>
         <Text style={styles.emptyText}>
           When you start chatting with property owners or tenants, your
           conversations will appear here.
         </Text>
+        <TouchableOpacity style={styles.newMessageButton} activeOpacity={0.8}>
+          <Text style={styles.newMessageButtonText}>Start a Conversation</Text>
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={18}
+            color="#FFF"
+            style={styles.buttonIcon}
+          />
+        </TouchableOpacity>
         <Text style={styles.pullToRefreshText}>Pull down to refresh</Text>
       </Animated.View>
     </ScrollView>
@@ -328,8 +347,9 @@ const InboxScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
-        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+        <StatusBar backgroundColor={COLORS.primary} barStyle="light-content" />
+        <ActivityIndicator size="large" color={COLORS.highlight} />
+        <Text style={styles.loadingText}>Loading messages...</Text>
       </View>
     );
   }
@@ -338,8 +358,8 @@ const InboxScreen = ({ navigation }) => {
   if (error && !refreshing) {
     return (
       <View style={styles.errorContainer}>
-        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
-        <Ionicons name="alert-circle-outline" size={60} color="#D32F2F" />
+        <StatusBar backgroundColor={COLORS.primary} barStyle="light-content" />
+        <Ionicons name="alert-circle-outline" size={60} color={COLORS.accent} />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity
           style={styles.retryButton}
@@ -353,11 +373,14 @@ const InboxScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
+      <StatusBar backgroundColor={COLORS.primary} barStyle="light-content" />
 
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Messages</Text>
+        <TouchableOpacity style={styles.headerButton}>
+          <Ionicons name="create-outline" size={24} color="#FFF" />
+        </TouchableOpacity>
       </View>
 
       {/* Conversation List */}
@@ -372,9 +395,9 @@ const InboxScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[PRIMARY_COLOR]}
+              colors={[COLORS.highlight]}
               progressBackgroundColor="#ffffff"
-              tintColor={PRIMARY_COLOR}
+              tintColor={COLORS.highlight}
             />
           }
           contentContainerStyle={styles.listContainer}
@@ -385,6 +408,13 @@ const InboxScreen = ({ navigation }) => {
           removeClippedSubviews={Platform.OS === "android"}
         />
       )}
+
+      {/* Floating Action Button - only show if there are conversations */}
+      {conversations.length > 0 && (
+        <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
+          <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFF" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -392,13 +422,16 @@ const InboxScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BACKGROUND_COLOR,
+    backgroundColor: COLORS.background,
   },
   header: {
-    backgroundColor: PRIMARY_COLOR,
+    backgroundColor: COLORS.primary,
     paddingTop: Platform.OS === "ios" ? 50 : 16,
     paddingBottom: 16,
     paddingHorizontal: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -410,34 +443,44 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#fff",
   },
+  headerButton: {
+    padding: 8,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: BACKGROUND_COLOR,
+    backgroundColor: COLORS.background,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: COLORS.textLight,
+    fontWeight: "500",
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: BACKGROUND_COLOR,
+    backgroundColor: COLORS.background,
   },
   errorText: {
     fontSize: 16,
-    color: "#D32F2F",
+    color: COLORS.accent,
     textAlign: "center",
     marginVertical: 16,
   },
   retryButton: {
-    backgroundColor: PRIMARY_COLOR,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    backgroundColor: COLORS.highlight,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
   },
   retryButtonText: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 16,
   },
   listContainer: {
     paddingBottom: 80, // Space for the floating action button
@@ -449,36 +492,63 @@ const styles = StyleSheet.create({
     padding: 20,
     minHeight: 500,
   },
+  emptyIconContainer: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: COLORS.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   emptyTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: TEXT_PRIMARY,
-    marginTop: 16,
-    marginBottom: 8,
+    color: COLORS.text,
+    marginBottom: 12,
   },
   emptyText: {
     fontSize: 16,
-    color: TEXT_SECONDARY,
+    color: COLORS.textLight,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 24,
     lineHeight: 22,
     maxWidth: 300,
   },
+  newMessageButton: {
+    backgroundColor: COLORS.highlight,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  newMessageButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+    marginRight: 8,
+  },
+  buttonIcon: {
+    marginLeft: 4,
+  },
   pullToRefreshText: {
     fontSize: 14,
-    color: SECONDARY_COLOR,
+    color: COLORS.textLight,
     marginTop: 16,
   },
   conversationItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.card,
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    borderBottomColor: COLORS.border,
   },
   unreadConversation: {
-    backgroundColor: "#F0F7F0", // Light green background for unread messages
+    backgroundColor: COLORS.unread, // Light blue background for unread messages
   },
   avatarContainer: {
     position: "relative",
@@ -488,7 +558,9 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#E0E0E0", // Placeholder color while loading
+    backgroundColor: COLORS.secondary, // Placeholder color while loading
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   unreadIndicator: {
     position: "absolute",
@@ -497,9 +569,9 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: SECONDARY_COLOR,
+    backgroundColor: COLORS.highlight,
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: COLORS.card,
   },
   textContainer: {
     flex: 1,
@@ -514,31 +586,31 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 16,
     fontWeight: "600",
-    color: TEXT_PRIMARY,
+    color: COLORS.text,
     flex: 1,
     marginRight: 8,
   },
   timestamp: {
     fontSize: 12,
-    color: TEXT_SECONDARY,
+    color: COLORS.textLight,
   },
   lastMessage: {
     fontSize: 14,
-    color: TEXT_SECONDARY,
+    color: COLORS.textLight,
     lineHeight: 20,
   },
   unreadMessage: {
-    color: TEXT_PRIMARY,
+    color: COLORS.text,
     fontWeight: "500",
   },
-  newMessageButton: {
+  fab: {
     position: "absolute",
     right: 20,
     bottom: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: PRIMARY_COLOR,
+    backgroundColor: COLORS.highlight,
     justifyContent: "center",
     alignItems: "center",
     elevation: 5,

@@ -15,19 +15,21 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Constants for theme colors - matching the filter modal green theme
+// Updated color scheme based on #2C3E50
 const COLORS = {
-  primary: "#2E7D32", // Forest green
-  primaryLight: "#4CAF50", // Regular green
-  primaryDark: "#1B5E20", // Dark green
-  secondary: "#E8F5E9", // Very light green
-  text: "#263238", // Dark text
-  textLight: "#546E7A", // Light text for secondary information
-  background: "#F5F8F5", // Light greenish background
+  primary: "#2C3E50", // Deep blue-grey (main brand color)
+  primaryLight: "#3D5A73", // Lighter blue-grey
+  primaryDark: "#1A2530", // Darker blue-grey
+  secondary: "#ECF0F1", // Very light grey with slight blue tint
+  accent: "#E74C3C", // Red accent for removal/alerts
+  highlight: "#3498DB", // Bright blue for highlights/CTAs
+  text: "#2C3E50", // Dark text (same as primary)
+  textLight: "#7F8C8D", // Light grey text for secondary information
+  background: "#F5F7FA", // Light background with slight blue tint
   card: "#FFFFFF", // White card background
-  border: "#C8E6C9", // Light green border
-  accent: "#FF5252", // Red accent for removal
+  border: "#D6DBDF", // Light border color
   skeleton: "#E0E0E0", // Skeleton loading color
+  success: "#2ECC71", // Green for success states
 };
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
@@ -69,7 +71,7 @@ const WishlistItem = memo(({ item, onRemove, onPress }) => {
         <View style={styles.propertyImage}>
           <Ionicons name="image-outline" size={36} color={COLORS.textLight} />
         </View>
-        <View style={styles.typeTag}>
+        <View style={[styles.typeTag, getTypeTagStyle(type)]}>
           <Ionicons name={icon} size={14} color="#fff" style={styles.tagIcon} />
           <Text style={styles.typeTagText}>{type}</Text>
         </View>
@@ -140,7 +142,21 @@ const WishlistItem = memo(({ item, onRemove, onPress }) => {
   );
 });
 
-// Memoized empty state component
+// Helper function to get different tag styles based on property type
+const getTypeTagStyle = (type) => {
+  switch (type) {
+    case "Rental":
+      return { backgroundColor: COLORS.primary };
+    case "Per Night":
+      return { backgroundColor: COLORS.highlight };
+    case "For Sale":
+      return { backgroundColor: COLORS.primaryLight };
+    default:
+      return { backgroundColor: COLORS.primary };
+  }
+};
+
+// Memoized empty state component with updated styles
 const EmptyWishlistView = memo(({ refreshing, onRefresh }) => (
   <ScrollView
     contentContainerStyle={styles.emptyContainer}
@@ -148,21 +164,26 @@ const EmptyWishlistView = memo(({ refreshing, onRefresh }) => (
       <RefreshControl
         refreshing={refreshing}
         onRefresh={onRefresh}
-        colors={[COLORS.primary]}
-        tintColor={COLORS.primary}
+        colors={[COLORS.highlight]}
+        tintColor={COLORS.highlight}
       />
     }
   >
-    <Ionicons
-      name="heart-outline"
-      size={80}
-      color={COLORS.primaryLight}
-      style={styles.emptyIcon}
-    />
+    <View style={styles.emptyIconContainer}>
+      <Ionicons
+        name="heart-outline"
+        size={80}
+        color={COLORS.textLight}
+        style={styles.emptyIcon}
+      />
+    </View>
     <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
     <Text style={styles.emptyMessage}>
       Properties you save will appear here
     </Text>
+    <TouchableOpacity style={styles.browseButton} onPress={onRefresh}>
+      <Text style={styles.browseButtonText}>Browse Properties</Text>
+    </TouchableOpacity>
     <Text style={styles.pullToRefreshText}>Pull down to refresh</Text>
   </ScrollView>
 ));
@@ -342,7 +363,7 @@ const WishlistScreen = ({ navigation }) => {
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={COLORS.highlight} />
         <Text style={styles.loadingText}>Loading your wishlist...</Text>
       </View>
     );
@@ -353,7 +374,9 @@ const WishlistScreen = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Wishlist</Text>
         {wishlistItems.length > 0 && (
-          <Text style={styles.itemCount}>{wishlistItems.length} items</Text>
+          <View style={styles.countBadge}>
+            <Text style={styles.itemCount}>{wishlistItems.length}</Text>
+          </View>
         )}
       </View>
 
@@ -378,9 +401,9 @@ const WishlistScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[COLORS.primary]}
+              colors={[COLORS.highlight]}
               progressBackgroundColor="#ffffff"
-              tintColor={COLORS.primary}
+              tintColor={COLORS.highlight}
               title="Refreshing..."
               titleColor={COLORS.primary}
             />
@@ -412,15 +435,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.card,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: "700",
     color: COLORS.text,
   },
+  countBadge: {
+    backgroundColor: COLORS.highlight,
+    height: 28,
+    width: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   itemCount: {
     fontSize: 14,
-    color: COLORS.primaryLight,
+    color: "#FFFFFF",
     fontWeight: "600",
   },
   loadingContainer: {
@@ -446,8 +480,17 @@ const styles = StyleSheet.create({
     padding: 20,
     minHeight: 500,
   },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   emptyIcon: {
-    marginBottom: 16,
+    marginBottom: 0,
   },
   emptyTitle: {
     fontSize: 20,
@@ -459,11 +502,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.textLight,
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 24,
+  },
+  browseButton: {
+    backgroundColor: COLORS.highlight,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  browseButtonText: {
+    color: "#FFF",
+    fontWeight: "600",
+    fontSize: 16,
   },
   pullToRefreshText: {
     fontSize: 14,
-    color: COLORS.primaryLight,
+    color: COLORS.textLight,
     textAlign: "center",
     marginTop: 16,
   },
@@ -473,11 +528,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: COLORS.border,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: COLORS.primaryDark,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
+        shadowOpacity: 0.1,
         shadowRadius: 6,
       },
       android: {
@@ -501,7 +558,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 8,
     left: 8,
-    backgroundColor: COLORS.primary,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -541,7 +597,7 @@ const styles = StyleSheet.create({
   propertyPrice: {
     fontSize: 16,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: COLORS.highlight,
     marginBottom: 8,
   },
   featuresRow: {

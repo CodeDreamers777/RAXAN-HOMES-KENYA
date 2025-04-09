@@ -133,7 +133,7 @@ function ForgotPasswordScreen({ navigation }) {
 }
 
 // OTPVerificationScreen Component
-function OTPVerificationScreen({ route, navigation }) {
+function ForgotOTPVerificationScreen({ route, navigation }) {
   const { email } = route.params;
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -501,4 +501,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export { ForgotPasswordScreen, OTPVerificationScreen };
+export { ForgotPasswordScreen, ForgotOTPVerificationScreen };

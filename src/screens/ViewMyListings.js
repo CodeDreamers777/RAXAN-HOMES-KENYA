@@ -10,13 +10,30 @@ import {
   TouchableOpacity,
   Dimensions,
   Modal,
+  StatusBar,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 const { width } = Dimensions.get("window");
+
+// New color scheme
+const COLORS = {
+  primary: "#2C3E50", // Dark blue/slate
+  secondary: "#3498DB", // Bright blue
+  accent: "#E74C3C", // Red for delete actions
+  background: "#F5F7FA", // Light background
+  card: "#FFFFFF", // White card
+  text: {
+    primary: "#2C3E50", // Main text
+    secondary: "#7F8C8D", // Secondary text
+    light: "#FFFFFF", // Light text
+  },
+  border: "#ECF0F1", // Light border
+};
 
 function ViewMyListings() {
   const [loading, setLoading] = useState(true);
@@ -107,6 +124,19 @@ function ViewMyListings() {
     }
   };
 
+  const getPropertyTypeLabel = (type) => {
+    switch (type) {
+      case "rental":
+        return "Rental";
+      case "sale":
+        return "For Sale";
+      case "per_night":
+        return "Per Night";
+      default:
+        return "";
+    }
+  };
+
   const renderPropertyItem = ({ item }) => (
     <View style={styles.propertyItem}>
       <TouchableOpacity
@@ -114,47 +144,94 @@ function ViewMyListings() {
           navigation.navigate("UpdateProperty", { propertyId: item.id })
         }
       >
-        <Image
-          source={{
-            uri: item.images[0],
-          }}
-          style={styles.propertyImage}
-          onError={(e) => console.log("Image load error:", e.nativeEvent.error)}
-        />
+        <View style={styles.imageContainer}>
+          <Image
+            source={{
+              uri: item.images[0],
+            }}
+            style={styles.propertyImage}
+            onError={(e) =>
+              console.log("Image load error:", e.nativeEvent.error)
+            }
+          />
+          <View style={styles.propertyBadge}>
+            <Text style={styles.propertyBadgeText}>
+              {getPropertyTypeLabel(item.type)}
+            </Text>
+          </View>
+        </View>
       </TouchableOpacity>
       <View style={styles.propertyInfo}>
-        <Text style={styles.propertyTitle}>{item.name}</Text>
+        <Text
+          style={styles.propertyTitle}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.name}
+        </Text>
         <Text style={styles.propertyPrice}>
           {item.price_per_month
             ? `$${item.price_per_month}/month`
             : item.price_per_night
-              ? `$${item.price_per_night}/Per Night`
+              ? `$${item.price_per_night}/night`
               : `$${item.price}`}
         </Text>
         <View style={styles.propertyMeta}>
-          <Text style={styles.propertyMetaText}>
-            <Ionicons name="bed-outline" size={16} color="#666" />{" "}
-            {item.bedrooms}
-          </Text>
-          <Text style={styles.propertyMetaText}>
-            <Ionicons name="water-outline" size={16} color="#666" />{" "}
-            {item.bathrooms}
-          </Text>
-          <Text style={styles.propertyMetaText}>
-            <Ionicons name="square-outline" size={16} color="#666" />{" "}
-            {item.size} sqft
-          </Text>
+          <View style={styles.metaItem}>
+            <Ionicons
+              name="bed-outline"
+              size={16}
+              color={COLORS.text.secondary}
+            />
+            <Text style={styles.propertyMetaText}>{item.bedrooms}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Ionicons
+              name="water-outline"
+              size={16}
+              color={COLORS.text.secondary}
+            />
+            <Text style={styles.propertyMetaText}>{item.bathrooms}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Ionicons
+              name="square-outline"
+              size={16}
+              color={COLORS.text.secondary}
+            />
+            <Text style={styles.propertyMetaText}>{item.size} sqft</Text>
+          </View>
+        </View>
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() =>
+              navigation.navigate("UpdateProperty", { propertyId: item.id })
+            }
+          >
+            <Ionicons
+              name="create-outline"
+              size={16}
+              color={COLORS.text.light}
+            />
+            <Text style={styles.buttonText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => {
+              setPropertyToDelete(item);
+              setDeleteModalVisible(true);
+            }}
+          >
+            <Ionicons
+              name="trash-outline"
+              size={16}
+              color={COLORS.text.light}
+            />
+            <Text style={styles.buttonText}>Delete</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      <TouchableOpacity
-        style={styles.deleteIcon}
-        onPress={() => {
-          setPropertyToDelete(item);
-          setDeleteModalVisible(true);
-        }}
-      >
-        <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
-      </TouchableOpacity>
     </View>
   );
 
@@ -165,14 +242,27 @@ function ViewMyListings() {
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={COLORS.background}
+        />
+        <ActivityIndicator size="large" color={COLORS.secondary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Your Listed Properties</Text>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <View style={styles.header}>
+        <Text style={styles.sectionTitle}>Your Properties</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => navigation.navigate("AddProperty")}
+        >
+          <Ionicons name="add" size={24} color={COLORS.text.light} />
+        </TouchableOpacity>
+      </View>
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === "all" && styles.activeTab]}
@@ -236,37 +326,57 @@ function ViewMyListings() {
           contentContainerStyle={styles.listContainer}
         />
       ) : (
-        <Text style={styles.noListingsText}>
-          You have no listed properties in this category.
-        </Text>
+        <View style={styles.emptyStateContainer}>
+          <Ionicons
+            name="home-outline"
+            size={64}
+            color={COLORS.text.secondary}
+          />
+          <Text style={styles.noListingsText}>
+            You have no properties in this category
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyStateButton}
+            onPress={() => navigation.navigate("AddProperty")}
+          >
+            <Text style={styles.emptyStateButtonText}>Add Property</Text>
+          </TouchableOpacity>
+        </View>
       )}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={deleteModalVisible}
         onRequestClose={() => setDeleteModalVisible(false)}
       >
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
+            <Ionicons
+              name="warning-outline"
+              size={56}
+              color={COLORS.accent}
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Delete Property</Text>
             <Text style={styles.modalText}>
               Are you sure you want to delete this property? This action cannot
               be undone.
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.button, styles.buttonCancel]}
+                style={[styles.modalButton, styles.buttonCancel]}
                 onPress={() => setDeleteModalVisible(false)}
               >
-                <Text style={styles.textStyle}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.buttonDelete]}
+                style={[styles.modalButton, styles.buttonDelete]}
                 onPress={() => {
                   setDeleteModalVisible(false);
                   deleteProperty(propertyToDelete.id);
                 }}
               >
-                <Text style={styles.textStyle}>Delete</Text>
+                <Text style={styles.deleteButtonText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -279,51 +389,72 @@ function ViewMyListings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
-    padding: 20,
+    backgroundColor: COLORS.background,
   },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
   sectionTitle: {
     fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 20,
-    color: "#333",
+    color: COLORS.text.primary,
+  },
+  addButton: {
+    backgroundColor: COLORS.secondary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 3,
   },
   tabContainer: {
     flexDirection: "row",
-    marginBottom: 20,
+    backgroundColor: COLORS.card,
+    marginHorizontal: 20,
+    marginVertical: 10,
+    borderRadius: 10,
+    padding: 5,
+    elevation: 2,
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "#e0e0e0",
+    borderRadius: 8,
   },
   activeTab: {
-    borderBottomColor: "#4CAF50",
+    backgroundColor: COLORS.primary,
   },
   tabText: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: 14,
+    color: COLORS.text.primary,
+    fontWeight: "500",
   },
   activeTabText: {
-    color: "#4CAF50",
+    color: COLORS.text.light,
     fontWeight: "bold",
   },
   listContainer: {
-    paddingBottom: 20,
+    padding: 20,
+    paddingTop: 10,
   },
   propertyItem: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.card,
     borderRadius: 15,
     marginBottom: 20,
-    shadowColor: "#000",
+    shadowColor: COLORS.primary,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -333,10 +464,27 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: "hidden",
   },
+  imageContainer: {
+    position: "relative",
+  },
   propertyImage: {
     width: "100%",
-    height: 200,
+    height: 180,
     resizeMode: "cover",
+  },
+  propertyBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  propertyBadgeText: {
+    color: COLORS.text.light,
+    fontSize: 12,
+    fontWeight: "bold",
   },
   propertyInfo: {
     padding: 15,
@@ -344,48 +492,94 @@ const styles = StyleSheet.create({
   propertyTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
+    color: COLORS.text.primary,
     marginBottom: 5,
   },
   propertyPrice: {
     fontSize: 16,
-    color: "#4CAF50",
+    color: COLORS.secondary,
     fontWeight: "bold",
     marginBottom: 10,
   },
   propertyMeta: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    marginBottom: 15,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 20,
   },
   propertyMetaText: {
     fontSize: 14,
-    color: "#666",
+    color: COLORS.text.secondary,
+    marginLeft: 5,
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  editButton: {
+    flex: 1,
+    backgroundColor: COLORS.secondary,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  deleteButton: {
+    flex: 1,
+    backgroundColor: COLORS.accent,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  buttonText: {
+    color: COLORS.text.light,
+    fontWeight: "bold",
+    marginLeft: 5,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
   },
   noListingsText: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: 18,
+    color: COLORS.text.secondary,
     textAlign: "center",
     marginTop: 20,
+    marginBottom: 30,
   },
-  deleteIcon: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 20,
-    padding: 5,
+  emptyStateButton: {
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+  },
+  emptyStateButtonText: {
+    color: COLORS.text.light,
+    fontSize: 16,
+    fontWeight: "bold",
   },
   centeredView: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   modalView: {
-    margin: 20,
-    backgroundColor: "white",
+    width: width * 0.85,
+    backgroundColor: COLORS.card,
     borderRadius: 20,
-    padding: 35,
+    padding: 30,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: {
@@ -396,32 +590,51 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  modalText: {
+  modalIcon: {
     marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: COLORS.text.primary,
+  },
+  modalText: {
+    marginBottom: 25,
     textAlign: "center",
     fontSize: 16,
+    color: COLORS.text.secondary,
+    lineHeight: 22,
   },
   modalButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
   },
-  button: {
-    borderRadius: 20,
-    padding: 10,
-    elevation: 2,
-    minWidth: 100,
+  modalButton: {
+    borderRadius: 10,
+    padding: 12,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonCancel: {
-    backgroundColor: "#DDDDDD",
+    backgroundColor: "#E0E0E0",
+    marginRight: 10,
   },
   buttonDelete: {
-    backgroundColor: "#FF6B6B",
+    backgroundColor: COLORS.accent,
+    marginLeft: 10,
   },
-  textStyle: {
-    color: "white",
+  cancelButtonText: {
+    color: COLORS.text.primary,
     fontWeight: "bold",
-    textAlign: "center",
+    fontSize: 16,
+  },
+  deleteButtonText: {
+    color: COLORS.text.light,
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });
 

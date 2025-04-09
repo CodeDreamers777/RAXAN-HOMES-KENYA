@@ -283,7 +283,7 @@ function UpdateProperty({ route, navigation }) {
         <Ionicons
           name={iconName}
           size={24}
-          color="#4CAF50"
+          color={COLORS.secondary}
           style={styles.icon}
         />
         <TextInput
@@ -291,6 +291,7 @@ function UpdateProperty({ route, navigation }) {
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
+          placeholderTextColor={COLORS.text.placeholder}
           {...inputProps}
         />
       </View>
@@ -299,31 +300,39 @@ function UpdateProperty({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color={COLORS.secondary} />
       </View>
     );
   }
 
   if (showMap) {
     return (
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: property.latitude || DEFAULT_LATITUDE,
-          longitude: property.longitude || DEFAULT_LONGITUDE,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        }}
-        onPress={handleMapPress}
-      >
-        <Marker
-          coordinate={{
+      <View style={styles.mapContainer}>
+        <MapView
+          style={styles.map}
+          initialRegion={{
             latitude: property.latitude || DEFAULT_LATITUDE,
             longitude: property.longitude || DEFAULT_LONGITUDE,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
           }}
-        />
-      </MapView>
+          onPress={handleMapPress}
+        >
+          <Marker
+            coordinate={{
+              latitude: property.latitude || DEFAULT_LATITUDE,
+              longitude: property.longitude || DEFAULT_LONGITUDE,
+            }}
+          />
+        </MapView>
+        <TouchableOpacity
+          style={styles.mapCloseButton}
+          onPress={() => setShowMap(false)}
+        >
+          <Ionicons name="close" size={24} color={COLORS.text.light} />
+        </TouchableOpacity>
+      </View>
     );
   }
 
@@ -343,482 +352,515 @@ function UpdateProperty({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Update Property</Text>
+      <View style={styles.formContainer}>
+        {renderLabeledInput(
+          "Property Name",
+          "home-outline",
+          property.name,
+          (text) => setProperty({ ...property, name: text }),
+          "Enter property name",
+        )}
 
-      {renderLabeledInput(
-        "Property Name",
-        "home-outline",
-        property.name,
-        (text) => setProperty({ ...property, name: text }),
-        "Enter property name",
-      )}
-
-      <View style={styles.labeledInputContainer}>
-        <Text style={styles.inputLabel}>Description</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="document-text-outline"
-            size={24}
-            color="#4CAF50"
-            style={styles.icon}
-          />
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            value={property.description}
-            onChangeText={(text) =>
-              setProperty({ ...property, description: text })
-            }
-            placeholder="Enter property description"
-            multiline
-            numberOfLines={4}
-          />
+        <View style={styles.labeledInputContainer}>
+          <Text style={styles.inputLabel}>Description</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="document-text-outline"
+              size={24}
+              color={COLORS.secondary}
+              style={styles.icon}
+            />
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              value={property.description}
+              onChangeText={(text) =>
+                setProperty({ ...property, description: text })
+              }
+              placeholder="Enter property description"
+              placeholderTextColor={COLORS.text.placeholder}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
         </View>
-      </View>
 
-      <View style={styles.rowContainer}>
-        <View style={styles.halfColumn}>
-          {renderLabeledInput(
-            "Bedrooms",
-            "bed-outline",
-            property.bedrooms?.toString(),
-            (text) =>
-              setProperty({ ...property, bedrooms: parseInt(text) || 0 }),
-            "Bedrooms",
-            { keyboardType: "numeric" },
-          )}
-        </View>
-        <View style={styles.halfColumn}>
-          {renderLabeledInput(
-            "Bathrooms",
-            "water-outline",
-            property.bathrooms?.toString(),
-            (text) =>
-              setProperty({ ...property, bathrooms: parseInt(text) || 0 }),
-            "Bathrooms",
-            { keyboardType: "numeric" },
-          )}
-        </View>
-      </View>
-
-      {renderLabeledInput(
-        "Area (sqft)",
-        "resize-outline",
-        property.area,
-        (text) => setProperty({ ...property, area: text }),
-        "Enter property area",
-        { keyboardType: "numeric" },
-      )}
-
-      {isPerNight ? (
-        <>
-          {renderLabeledInput(
-            "Price per Night",
-            "cash-outline",
-            property.price_per_night,
-            (text) => setProperty({ ...property, price_per_night: text }),
-            "Enter nightly rate",
-            { keyboardType: "numeric" },
-          )}
-
-          {renderLabeledInput(
-            "Number of Units",
-            "people-outline",
-            property.number_of_units?.toString(),
-            (text) =>
-              setProperty({
-                ...property,
-                number_of_units: parseInt(text) || 0,
-              }),
-            "Enter number of units",
-            { keyboardType: "numeric" },
-          )}
-
-          {renderLabeledInput(
-            "Check-in Time",
-            "time-outline",
-            property.check_in_time,
-            (text) => setProperty({ ...property, check_in_time: text }),
-            "Enter check-in time (HH:MM)",
-          )}
-
-          {renderLabeledInput(
-            "Check-out Time",
-            "time-outline",
-            property.check_out_time,
-            (text) => setProperty({ ...property, check_out_time: text }),
-            "Enter check-out time (HH:MM)",
-          )}
-
-          <View style={styles.row}>
+        <View style={styles.rowContainer}>
+          <View style={styles.halfColumn}>
             {renderLabeledInput(
-              "Minimum Nights",
-              "calendar-outline",
-              property.min_nights?.toString(),
+              "Bedrooms",
+              "bed-outline",
+              property.bedrooms?.toString(),
               (text) =>
-                setProperty({
-                  ...property,
-                  min_nights: parseInt(text) || 0,
-                }),
-              "Minimum stay",
+                setProperty({ ...property, bedrooms: parseInt(text) || 0 }),
+              "Bedrooms",
+              { keyboardType: "numeric" },
+            )}
+          </View>
+          <View style={styles.halfColumn}>
+            {renderLabeledInput(
+              "Bathrooms",
+              "water-outline",
+              property.bathrooms?.toString(),
+              (text) =>
+                setProperty({ ...property, bathrooms: parseInt(text) || 0 }),
+              "Bathrooms",
+              { keyboardType: "numeric" },
+            )}
+          </View>
+        </View>
+
+        {renderLabeledInput(
+          "Area (sqft)",
+          "resize-outline",
+          property.area,
+          (text) => setProperty({ ...property, area: text }),
+          "Enter property area",
+          { keyboardType: "numeric" },
+        )}
+
+        {isPerNight ? (
+          <>
+            {renderLabeledInput(
+              "Price per Night",
+              "cash-outline",
+              property.price_per_night,
+              (text) => setProperty({ ...property, price_per_night: text }),
+              "Enter nightly rate",
               { keyboardType: "numeric" },
             )}
 
             {renderLabeledInput(
-              "Maximum Nights",
-              "calendar-outline",
-              property.max_nights?.toString(),
+              "Number of Units",
+              "people-outline",
+              property.number_of_units?.toString(),
               (text) =>
                 setProperty({
                   ...property,
-                  max_nights: parseInt(text) || 0,
+                  number_of_units: parseInt(text) || 0,
                 }),
-              "Maximum stay",
+              "Enter number of units",
               { keyboardType: "numeric" },
             )}
-          </View>
 
-          <View style={styles.labeledInputContainer}>
-            <Text style={styles.inputLabel}>Availability</Text>
-            <View style={styles.switchContainer}>
-              <Text style={styles.switchLabel}>Is Available</Text>
-              <Switch
-                value={property.is_available}
-                onValueChange={(value) =>
-                  setProperty({ ...property, is_available: value })
-                }
-              />
+            <View style={styles.rowContainer}>
+              <View style={styles.halfColumn}>
+                {renderLabeledInput(
+                  "Check-in Time",
+                  "time-outline",
+                  property.check_in_time,
+                  (text) => setProperty({ ...property, check_in_time: text }),
+                  "HH:MM",
+                )}
+              </View>
+              <View style={styles.halfColumn}>
+                {renderLabeledInput(
+                  "Check-out Time",
+                  "time-outline",
+                  property.check_out_time,
+                  (text) => setProperty({ ...property, check_out_time: text }),
+                  "HH:MM",
+                )}
+              </View>
             </View>
-          </View>
-        </>
-      ) : isRental ? (
-        <>
-          {renderLabeledInput(
-            "Price per Month",
-            "cash-outline",
-            property.price_per_month,
-            (text) => setProperty({ ...property, price_per_month: text }),
-            "Enter monthly rent",
-            { keyboardType: "numeric" },
-          )}
 
-          {renderLabeledInput(
-            "Deposit Amount",
-            "cash-outline",
-            property.deposit,
-            (text) => setProperty({ ...property, deposit: text }),
-            "Enter deposit amount",
-            { keyboardType: "numeric" },
-          )}
-
-          {renderLabeledInput(
-            "Number of Units",
-            "people-outline",
-            property.number_of_units?.toString(),
-            (text) =>
-              setProperty({
-                ...property,
-                number_of_units: parseInt(text) || 0,
-              }),
-            "Enter number of units",
-            { keyboardType: "numeric" },
-          )}
-
-          <View style={styles.labeledInputContainer}>
-            <Text style={styles.inputLabel}>Availability</Text>
-            <View style={styles.switchContainer}>
-              <Text style={styles.switchLabel}>Is Available</Text>
-              <Switch
-                value={property.is_available}
-                onValueChange={(value) =>
-                  setProperty({ ...property, is_available: value })
-                }
-              />
+            <View style={styles.rowContainer}>
+              <View style={styles.halfColumn}>
+                {renderLabeledInput(
+                  "Minimum Nights",
+                  "calendar-outline",
+                  property.min_nights?.toString(),
+                  (text) =>
+                    setProperty({
+                      ...property,
+                      min_nights: parseInt(text) || 0,
+                    }),
+                  "Min stay",
+                  { keyboardType: "numeric" },
+                )}
+              </View>
+              <View style={styles.halfColumn}>
+                {renderLabeledInput(
+                  "Maximum Nights",
+                  "calendar-outline",
+                  property.max_nights?.toString(),
+                  (text) =>
+                    setProperty({
+                      ...property,
+                      max_nights: parseInt(text) || 0,
+                    }),
+                  "Max stay",
+                  { keyboardType: "numeric" },
+                )}
+              </View>
             </View>
-          </View>
-        </>
-      ) : (
-        <>
-          {renderLabeledInput(
-            "Price",
-            "cash-outline",
-            property.price,
-            (text) => setProperty({ ...property, price: text }),
-            "Enter property price",
-            { keyboardType: "numeric" },
-          )}
 
-          {renderLabeledInput(
-            "Year Built",
-            "calendar-outline",
-            property.year_built?.toString(),
-            (text) =>
-              setProperty({ ...property, year_built: parseInt(text) || 0 }),
-            "Enter year of construction",
-            { keyboardType: "numeric" },
-          )}
-
-          <View style={styles.labeledInputContainer}>
-            <Text style={styles.inputLabel}>Property Status</Text>
-            <View style={styles.switchContainer}>
-              <Text style={styles.switchLabel}>Is Sold</Text>
-              <Switch
-                value={property.is_sold}
-                onValueChange={(value) =>
-                  setProperty({ ...property, is_sold: value })
-                }
-              />
+            <View style={styles.labeledInputContainer}>
+              <Text style={styles.inputLabel}>Availability</Text>
+              <View style={styles.switchContainer}>
+                <Text style={styles.switchLabel}>Is Available</Text>
+                <Switch
+                  value={property.is_available}
+                  onValueChange={(value) =>
+                    setProperty({ ...property, is_available: value })
+                  }
+                  trackColor={{ false: COLORS.border, true: COLORS.secondary }}
+                  thumbColor={
+                    property.is_available ? COLORS.primary : "#f4f3f4"
+                  }
+                />
+              </View>
             </View>
-          </View>
-        </>
-      )}
+          </>
+        ) : isRental ? (
+          <>
+            {renderLabeledInput(
+              "Price per Month",
+              "cash-outline",
+              property.price_per_month,
+              (text) => setProperty({ ...property, price_per_month: text }),
+              "Enter monthly rent",
+              { keyboardType: "numeric" },
+            )}
 
-      <Text style={styles.sectionTitle}>Amenities</Text>
-      <View style={styles.amenitiesContainer}>
-        {property.amenities.map((amenity) => (
-          <View key={amenity.id} style={styles.amenityItem}>
-            <Text>{amenity.name}</Text>
-            <TouchableOpacity onPress={() => removeAmenity(amenity.id)}>
-              <Ionicons name="close-circle" size={20} color="#FF0000" />
+            {renderLabeledInput(
+              "Deposit Amount",
+              "cash-outline",
+              property.deposit,
+              (text) => setProperty({ ...property, deposit: text }),
+              "Enter deposit amount",
+              { keyboardType: "numeric" },
+            )}
+
+            {renderLabeledInput(
+              "Number of Units",
+              "people-outline",
+              property.number_of_units?.toString(),
+              (text) =>
+                setProperty({
+                  ...property,
+                  number_of_units: parseInt(text) || 0,
+                }),
+              "Enter number of units",
+              { keyboardType: "numeric" },
+            )}
+
+            <View style={styles.labeledInputContainer}>
+              <Text style={styles.inputLabel}>Availability</Text>
+              <View style={styles.switchContainer}>
+                <Text style={styles.switchLabel}>Is Available</Text>
+                <Switch
+                  value={property.is_available}
+                  onValueChange={(value) =>
+                    setProperty({ ...property, is_available: value })
+                  }
+                  trackColor={{ false: COLORS.border, true: COLORS.secondary }}
+                  thumbColor={
+                    property.is_available ? COLORS.primary : "#f4f3f4"
+                  }
+                />
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            {renderLabeledInput(
+              "Price",
+              "cash-outline",
+              property.price,
+              (text) => setProperty({ ...property, price: text }),
+              "Enter property price",
+              { keyboardType: "numeric" },
+            )}
+
+            {renderLabeledInput(
+              "Year Built",
+              "calendar-outline",
+              property.year_built?.toString(),
+              (text) =>
+                setProperty({ ...property, year_built: parseInt(text) || 0 }),
+              "Enter year of construction",
+              { keyboardType: "numeric" },
+            )}
+
+            <View style={styles.labeledInputContainer}>
+              <Text style={styles.inputLabel}>Property Status</Text>
+              <View style={styles.switchContainer}>
+                <Text style={styles.switchLabel}>Is Sold</Text>
+                <Switch
+                  value={property.is_sold}
+                  onValueChange={(value) =>
+                    setProperty({ ...property, is_sold: value })
+                  }
+                  trackColor={{ false: COLORS.border, true: COLORS.secondary }}
+                  thumbColor={property.is_sold ? COLORS.primary : "#f4f3f4"}
+                />
+              </View>
+            </View>
+          </>
+        )}
+
+        <Text style={styles.sectionTitle}>Amenities</Text>
+
+        <View style={styles.amenitiesContainer}>
+          {property.amenities.map((amenity) => (
+            <View key={amenity.id} style={styles.amenityItem}>
+              <Text style={styles.amenityText}>{amenity.name}</Text>
+              <TouchableOpacity
+                style={styles.removeAmenityButton}
+                onPress={() => removeAmenity(amenity.id)}
+              >
+                <Ionicons name="close-circle" size={18} color={COLORS.accent} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.labeledInputContainer}>
+          <Text style={styles.inputLabel}>Add Amenity</Text>
+          <View style={styles.addAmenityContainer}>
+            <TextInput
+              style={styles.addAmenityInput}
+              value={newAmenity}
+              onChangeText={setNewAmenity}
+              placeholder="Enter new amenity"
+              placeholderTextColor={COLORS.text.placeholder}
+            />
+            <TouchableOpacity
+              style={styles.addAmenityButton}
+              onPress={addAmenity}
+            >
+              <Ionicons name="add" size={22} color={COLORS.text.light} />
             </TouchableOpacity>
           </View>
-        ))}
-      </View>
-      <View style={styles.labeledInputContainer}>
-        <Text style={styles.inputLabel}>Add Amenity</Text>
-        <View style={styles.addAmenityContainer}>
-          <TextInput
-            style={styles.addAmenityInput}
-            value={newAmenity}
-            onChangeText={setNewAmenity}
-            placeholder="Enter new amenity"
-          />
+        </View>
+
+        <Text style={styles.sectionTitle}>Property Images</Text>
+        <View style={styles.imageContainer}>
+          {property.images.map((img) => (
+            <View key={img.id} style={styles.imageWrapper}>
+              <Image source={{ uri: getImageUri(img) }} style={styles.image} />
+              <TouchableOpacity
+                style={styles.removeImageButton}
+                onPress={() => removeImage(img.id)}
+              >
+                <Ionicons name="close-circle" size={24} color={COLORS.accent} />
+              </TouchableOpacity>
+            </View>
+          ))}
           <TouchableOpacity
-            style={styles.addAmenityButton}
-            onPress={addAmenity}
+            style={styles.addImageButton}
+            onPress={handleImagePick}
           >
-            <Ionicons name="add" size={24} color="#fff" />
+            <Ionicons name="add-circle" size={32} color={COLORS.secondary} />
+            <Text style={styles.addImageText}>Add Image</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, styles.updateButton]}
+            onPress={handleUpdate}
+            disabled={updating}
+          >
+            {updating ? (
+              <ActivityIndicator size="small" color={COLORS.text.light} />
+            ) : (
+              <>
+                <Ionicons
+                  name="save-outline"
+                  size={22}
+                  color={COLORS.text.light}
+                  style={styles.buttonIcon}
+                />
+                <Text style={styles.buttonText}>Update Property</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
-
-      <Text style={styles.sectionTitle}>Property Images</Text>
-      <View style={styles.imageContainer}>
-        {property.images.map((img) => (
-          <View key={img.id} style={styles.imageWrapper}>
-            <Image source={{ uri: getImageUri(img) }} style={styles.image} />
-            <TouchableOpacity
-              style={styles.removeImageButton}
-              onPress={() => removeImage(img.id)}
-            >
-              <Ionicons name="close-circle" size={24} color="#FF0000" />
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-
-      <TouchableOpacity style={styles.button} onPress={handleImagePick}>
-        <Ionicons
-          name="camera-outline"
-          size={24}
-          color="#fff"
-          style={styles.buttonIcon}
-        />
-        <Text style={styles.buttonText}>Add Image</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.button, styles.updateButton]}
-        onPress={handleUpdate}
-        disabled={updating}
-      >
-        <Ionicons
-          name="save-outline"
-          size={24}
-          color="#fff"
-          style={styles.buttonIcon}
-        />
-        <Text style={styles.buttonText}>
-          {updating ? "Updating..." : "Update Property"}
-        </Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
 
+// New color scheme
+const COLORS = {
+  primary: "#2C3E50", // Dark blue/slate
+  secondary: "#3498DB", // Bright blue
+  accent: "#E74C3C", // Red for delete actions
+  background: "#F5F7FA", // Light background
+  card: "#FFFFFF", // White card
+  text: {
+    primary: "#2C3E50", // Main text
+    secondary: "#7F8C8D", // Secondary text
+    light: "#FFFFFF", // Light text
+    placeholder: "#A0AEC0", // Placeholder text
+  },
+  border: "#ECF0F1", // Light border
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: COLORS.background,
+  },
+  formContainer: {
+    padding: 20,
+    paddingTop: 10,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 24,
-    color: "#2D3748",
+    fontSize: 24,
+    fontWeight: "bold",
+    color: COLORS.text.primary,
     textAlign: "center",
-    letterSpacing: 0.5,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
-    marginTop: 24,
-    marginBottom: 16,
-    color: "#2D3748",
-    letterSpacing: 0.5,
+    marginTop: 20,
+    marginBottom: 15,
+    color: COLORS.text.primary,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 8,
+    color: COLORS.text.secondary,
   },
   rowContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginHorizontal: -8, // Compensate for the padding in halfColumn
+    marginHorizontal: -8,
   },
   halfColumn: {
     flex: 1,
     paddingHorizontal: 8,
   },
   labeledInputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#000",
+    borderColor: COLORS.border,
+    shadowColor: COLORS.primary,
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    marginBottom: 4,
-  },
-  input: {
-    flex: 1,
-    padding: 12,
-    fontSize: 16,
-    color: "#2D3748",
-    fontWeight: "400",
-    minWidth: 50, // Add minimum width
-  },
-  focusedInput: {
-    borderColor: "#4CAF50",
-    borderWidth: 2,
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.05,
     shadowRadius: 3,
-    elevation: 3,
+    elevation: 2,
   },
   icon: {
     padding: 12,
-    color: "#4A5568",
   },
   input: {
     flex: 1,
     padding: 12,
     fontSize: 16,
-    color: "#2D3748",
-    fontWeight: "400",
+    color: COLORS.text.primary,
   },
   multilineInput: {
-    height: 120,
+    minHeight: 120,
     textAlignVertical: "top",
     paddingTop: 12,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  halfWidth: {
-    width: "48%",
   },
   switchContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.card,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     elevation: 2,
   },
   switchLabel: {
     fontSize: 16,
-    color: "#4A5568",
+    color: COLORS.text.secondary,
     fontWeight: "500",
   },
   amenitiesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     marginBottom: 20,
-    padding: 8,
   },
   amenityItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#EDF2F7",
+    backgroundColor: COLORS.primary,
     borderRadius: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     margin: 4,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
     elevation: 1,
   },
   amenityText: {
-    color: "#4A5568",
+    color: COLORS.text.light,
     marginRight: 8,
     fontSize: 14,
     fontWeight: "500",
   },
+  removeAmenityButton: {
+    marginLeft: 4,
+  },
   addAmenityContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
   },
   addAmenityInput: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: COLORS.border,
     padding: 12,
-    marginRight: 8,
+    marginRight: 10,
     fontSize: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
+    color: COLORS.text.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
   },
   addAmenityButton: {
-    backgroundColor: "#4CAF50",
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    backgroundColor: COLORS.secondary,
+    borderRadius: 10,
+    width: 46,
+    height: 46,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 3,
@@ -826,69 +868,105 @@ const styles = StyleSheet.create({
   imageContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
     marginBottom: 20,
   },
   imageWrapper: {
     width: "48%",
-    marginBottom: 16,
-    borderRadius: 12,
+    aspectRatio: 16 / 9,
+    marginHorizontal: "1%",
+    marginBottom: 12,
+    borderRadius: 10,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.15,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
   },
   image: {
     width: "100%",
-    aspectRatio: 16 / 9,
+    height: "100%",
   },
   removeImageButton: {
     position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     borderRadius: 15,
-    padding: 4,
+    padding: 2,
+  },
+  addImageButton: {
+    width: "48%",
+    aspectRatio: 16 / 9,
+    marginHorizontal: "1%",
+    marginBottom: 12,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(52, 152, 219, 0.05)",
+  },
+  addImageText: {
+    color: COLORS.secondary,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  buttonContainer: {
+    marginTop: 10,
+    marginBottom: 30,
   },
   button: {
     flexDirection: "row",
-    backgroundColor: "#4CAF50",
-    padding: 16,
-    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 10,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 3,
   },
+  locationButton: {
+    backgroundColor: COLORS.primary,
+  },
   updateButton: {
-    backgroundColor: "#2196F3",
+    backgroundColor: COLORS.secondary,
   },
   buttonIcon: {
-    marginRight: 12,
+    marginRight: 8,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: COLORS.text.light,
     fontSize: 16,
     fontWeight: "600",
-    letterSpacing: 0.5,
+  },
+  mapContainer: {
+    flex: 1,
+    position: "relative",
   },
   map: {
     width: "100%",
     height: "100%",
-    borderRadius: 12,
-    overflow: "hidden",
+  },
+  mapCloseButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    backgroundColor: COLORS.primary,
+    borderRadius: 30,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });
 

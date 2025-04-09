@@ -21,12 +21,18 @@ import * as Location from "expo-location";
 // Constants
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 const { width } = Dimensions.get("window");
-const PRIMARY_COLOR = "#2E7D32"; // Dark green
-const SECONDARY_COLOR = "#4CAF50"; // Medium green
-const ACCENT_COLOR = "#8BC34A"; // Light green
-const BACKGROUND_COLOR = "#F5F5F5";
-const TEXT_PRIMARY = "#212121";
-const TEXT_SECONDARY = "#757575";
+
+// Updated Color Scheme
+const PRIMARY_COLOR = "#2C3E50"; // Deep blue-gray (main color)
+const SECONDARY_COLOR = "#34495E"; // Slightly lighter blue-gray
+const ACCENT_COLOR = "#3498DB"; // Bright blue for accents and CTAs
+const ACCENT_COLOR_SECONDARY = "#1ABC9C"; // Turquoise for secondary actions
+const BACKGROUND_COLOR = "#F5F7FA"; // Light gray with blue tint
+const CARD_BACKGROUND = "#FFFFFF"; // White for cards
+const TEXT_PRIMARY = "#2C3E50"; // Dark blue for primary text
+const TEXT_SECONDARY = "#7F8C8D"; // Medium gray for secondary text
+const DIVIDER_COLOR = "#ECF0F1"; // Very light gray for dividers
+const ERROR_COLOR = "#E74C3C"; // Red for errors
 
 // Optimized RatingStars component using memo
 const RatingStars = React.memo(({ rating }) => {
@@ -40,18 +46,19 @@ const RatingStars = React.memo(({ rating }) => {
           key={`full-star-${index}`}
           name="star"
           size={16}
-          color="#FFD700"
+          color="#F39C12" // Gold color for stars
         />
       ))}
-      {hasHalfStar && <Ionicons name="star-half" size={16} color="#FFD700" />}
+      {hasHalfStar && <Ionicons name="star-half" size={16} color="#F39C12" />}
       {[...Array(5 - Math.ceil(rating))].map((_, index) => (
         <Ionicons
           key={`empty-star-${index}`}
           name="star-outline"
           size={16}
-          color="#FFD700"
+          color="#F39C12"
         />
       ))}
+      <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
     </View>
   );
 });
@@ -89,15 +96,18 @@ const ImageCarousel = React.memo(({ images }) => {
 
   if (!images || images.length === 0) {
     return (
-      <Image
-        source={require("../../assets/room1.jpg")}
-        style={styles.propertyImage}
-      />
+      <View style={styles.imageContainer}>
+        <Image
+          source={require("../../assets/room1.jpg")}
+          style={styles.propertyImage}
+        />
+        <View style={styles.imageOverlay} />
+      </View>
     );
   }
 
   return (
-    <View>
+    <View style={styles.imageContainer}>
       <ScrollView
         horizontal
         pagingEnabled
@@ -106,14 +116,19 @@ const ImageCarousel = React.memo(({ images }) => {
         scrollEventThrottle={16}
       >
         {images.map((image, index) => (
-          <Image
-            key={index}
-            source={{ uri: image }}
-            style={styles.propertyImage}
-            onError={(e) =>
-              console.log(`Image load error for ${image}:`, e.nativeEvent.error)
-            }
-          />
+          <View key={index} style={styles.imageWrapper}>
+            <Image
+              source={{ uri: image }}
+              style={styles.propertyImage}
+              onError={(e) =>
+                console.log(
+                  `Image load error for ${image}:`,
+                  e.nativeEvent.error,
+                )
+              }
+            />
+            <View style={styles.imageOverlay} />
+          </View>
         ))}
       </ScrollView>
       <View style={styles.pagination}>
@@ -134,7 +149,7 @@ const ImageCarousel = React.memo(({ images }) => {
 // Property Detail Item Component
 const DetailItem = React.memo(({ icon, text }) => (
   <View style={styles.detailItem}>
-    <Ionicons name={icon} size={22} color={PRIMARY_COLOR} />
+    <Ionicons name={icon} size={22} color={ACCENT_COLOR} />
     <Text style={styles.detailText}>{text}</Text>
   </View>
 ));
@@ -142,7 +157,9 @@ const DetailItem = React.memo(({ icon, text }) => (
 // Amenity Item Component
 const AmenityItem = React.memo(({ name }) => (
   <View style={styles.amenityItem}>
-    <Ionicons name="checkmark-circle" size={18} color={SECONDARY_COLOR} />
+    <View style={styles.amenityIconContainer}>
+      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+    </View>
     <Text style={styles.amenityText}>{name}</Text>
   </View>
 ));
@@ -325,7 +342,6 @@ const PropertyScreen = ({ route, navigation }) => {
 
   // Handle chat with host
   const handleChatWithHost = () => {
-    console.log(property);
     if (property && property.host) {
       navigation.navigate("ConversationDetail", {
         otherUserId: property.host.id,
@@ -367,7 +383,8 @@ const PropertyScreen = ({ route, navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+        <ActivityIndicator size="large" color={ACCENT_COLOR} />
+        <Text style={styles.loadingText}>Loading property details...</Text>
       </View>
     );
   }
@@ -376,12 +393,14 @@ const PropertyScreen = ({ route, navigation }) => {
   if (error) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Error: {error}</Text>
+        <Ionicons name="alert-circle" size={48} color={ERROR_COLOR} />
+        <Text style={styles.errorTitle}>Oops!</Text>
+        <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity
           style={styles.retryButton}
           onPress={fetchPropertyDetails}
         >
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
       </View>
     );
@@ -391,12 +410,14 @@ const PropertyScreen = ({ route, navigation }) => {
   if (!property) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>No property data available</Text>
+        <Ionicons name="home-outline" size={48} color={TEXT_SECONDARY} />
+        <Text style={styles.errorTitle}>Property Not Found</Text>
+        <Text style={styles.errorText}>The property data is unavailable</Text>
         <TouchableOpacity
           style={styles.retryButton}
           onPress={fetchPropertyDetails}
         >
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
       </View>
     );
@@ -445,15 +466,28 @@ const PropertyScreen = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+
         {/* Property Images */}
         <ImageCarousel images={property.images} />
 
         {/* Property Info Card */}
         <View style={styles.propertyInfoCard}>
-          {/* Title and Location */}
-          <Text style={styles.propertyTitle}>{property.name}</Text>
+          {/* Title and Rating */}
+          <View style={styles.titleRow}>
+            <Text style={styles.propertyTitle}>{property.name}</Text>
+            <RatingStars rating={property.rating || 0} />
+          </View>
+
+          {/* Location */}
           <View style={styles.locationContainer}>
-            <Ionicons name="location" size={18} color={PRIMARY_COLOR} />
+            <Ionicons name="location" size={18} color={ACCENT_COLOR} />
             <Text
               style={styles.propertyLocation}
               numberOfLines={1}
@@ -461,68 +495,80 @@ const PropertyScreen = ({ route, navigation }) => {
             >
               {property.location}
             </Text>
-            <TouchableOpacity style={styles.mapButton} onPress={handleSeeOnMap}>
-              <Text style={styles.mapButtonText}>View Map</Text>
-            </TouchableOpacity>
+            {Platform.OS !== "web" && (
+              <TouchableOpacity
+                style={styles.mapButton}
+                onPress={handleSeeOnMap}
+              >
+                <Ionicons name="map-outline" size={14} color="#FFFFFF" />
+                <Text style={styles.mapButtonText}>Map</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Price and Rating */}
-          <View style={styles.propertyDetails}>
+          {/* Price Section */}
+          <View style={styles.priceCard}>
             {isPerNight ? (
-              <View>
+              <View style={styles.priceContainer}>
+                <Text style={styles.priceLabel}>Price per night</Text>
                 <Text style={styles.propertyPrice}>
-                  {formatPrice(property.price_per_night)}/Night
+                  {formatPrice(property.price_per_night)}
                 </Text>
                 <Text style={styles.propertySubtitle}>
-                  {property.min_nights} night minimum stay
+                  {property.min_nights} night minimum
+                  {property.max_nights > 0
+                    ? ` • ${property.max_nights} max`
+                    : ""}
                 </Text>
-                {property.max_nights > 0 && (
-                  <Text style={styles.propertySubtitle}>
-                    {property.max_nights} night maximum stay
-                  </Text>
-                )}
               </View>
             ) : isRental ? (
-              <Text style={styles.propertyPrice}>
-                {formatPrice(property.price_per_month)}/Month
-              </Text>
+              <View style={styles.priceContainer}>
+                <Text style={styles.priceLabel}>Monthly rent</Text>
+                <Text style={styles.propertyPrice}>
+                  {formatPrice(property.price_per_month)}
+                </Text>
+              </View>
             ) : (
-              <Text style={styles.propertyPrice}>
-                {formatPrice(property.price)}
-              </Text>
+              <View style={styles.priceContainer}>
+                <Text style={styles.priceLabel}>Sale price</Text>
+                <Text style={styles.propertyPrice}>
+                  {formatPrice(property.price)}
+                </Text>
+              </View>
             )}
-            <RatingStars rating={property.rating || 0} />
           </View>
 
           {/* Check-in/Check-out for Per Night Properties */}
           {isPerNight && (
             <View style={styles.checkInOutContainer}>
               <View style={styles.checkInOutItem}>
-                <Ionicons name="time-outline" size={20} color={PRIMARY_COLOR} />
-                <Text style={styles.checkInOutText}>
-                  Check-in: {property.check_in_time}
-                </Text>
+                <Ionicons name="time-outline" size={20} color={ACCENT_COLOR} />
+                <View>
+                  <Text style={styles.checkInOutLabel}>Check-in</Text>
+                  <Text style={styles.checkInOutTime}>
+                    {property.check_in_time}
+                  </Text>
+                </View>
               </View>
+              <View style={styles.divider} />
               <View style={styles.checkInOutItem}>
-                <Ionicons name="time-outline" size={20} color={PRIMARY_COLOR} />
-                <Text style={styles.checkInOutText}>
-                  Check-out: {property.check_out_time}
-                </Text>
+                <Ionicons name="time-outline" size={20} color={ACCENT_COLOR} />
+                <View>
+                  <Text style={styles.checkInOutLabel}>Check-out</Text>
+                  <Text style={styles.checkInOutTime}>
+                    {property.check_out_time}
+                  </Text>
+                </View>
               </View>
             </View>
           )}
 
-          {/* Property Description */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.propertyDescription}>
-              {property.description}
-            </Text>
-          </View>
-
           {/* Property Details */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Property Details</Text>
+          <View style={styles.detailsSection}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="grid-outline" size={20} color={PRIMARY_COLOR} />
+              <Text style={styles.sectionTitle}>Property Features</Text>
+            </View>
             <View style={styles.detailsGrid}>
               <DetailItem
                 icon="bed-outline"
@@ -545,9 +591,31 @@ const PropertyScreen = ({ route, navigation }) => {
             </View>
           </View>
 
+          {/* Property Description */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color={PRIMARY_COLOR}
+              />
+              <Text style={styles.sectionTitle}>About this property</Text>
+            </View>
+            <Text style={styles.propertyDescription}>
+              {property.description}
+            </Text>
+          </View>
+
           {/* Amenities */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Amenities</Text>
+            <View style={styles.sectionHeader}>
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={PRIMARY_COLOR}
+              />
+              <Text style={styles.sectionTitle}>Amenities</Text>
+            </View>
             <View style={styles.amenitiesGrid}>
               {property.amenities.map((amenity) => (
                 <AmenityItem key={amenity.id} name={amenity.name} />
@@ -599,15 +667,15 @@ const PropertyScreen = ({ route, navigation }) => {
               }}
               title={property.name}
               description={property.location}
-              pinColor={PRIMARY_COLOR}
+              pinColor={ACCENT_COLOR}
             />
           </MapView>
           <TouchableOpacity
             style={styles.closeMapButton}
             onPress={() => setShowMap(false)}
           >
-            <Ionicons name="close-circle" size={24} color="#fff" />
-            <Text style={styles.closeMapButtonText}>Close</Text>
+            <Ionicons name="close" size={20} color="#fff" />
+            <Text style={styles.closeMapButtonText}>Close Map</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -628,6 +696,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: BACKGROUND_COLOR,
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: TEXT_SECONDARY,
   },
   errorContainer: {
     flex: 1,
@@ -636,26 +710,58 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: BACKGROUND_COLOR,
   },
+  errorTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: TEXT_PRIMARY,
+    marginVertical: 12,
+  },
   errorText: {
     fontSize: 16,
-    color: "#D32F2F",
+    color: TEXT_SECONDARY,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 24,
   },
   retryButton: {
-    backgroundColor: PRIMARY_COLOR,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    backgroundColor: ACCENT_COLOR,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
+    elevation: 2,
   },
   retryButtonText: {
     color: "#fff",
     fontWeight: "bold",
   },
+  imageContainer: {
+    position: "relative",
+    height: 300,
+  },
+  imageWrapper: {
+    width,
+    height: 300,
+    position: "relative",
+  },
   propertyImage: {
     width,
-    height: 280,
+    height: 300,
     resizeMode: "cover",
+  },
+  imageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.15)",
+  },
+  backButton: {
+    position: "absolute",
+    zIndex: 10,
+    top: Platform.OS === "ios" ? 50 : 30,
+    left: 16,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   pagination: {
     flexDirection: "row",
@@ -672,62 +778,92 @@ const styles = StyleSheet.create({
   },
   activePaginationDot: {
     backgroundColor: "#fff",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   propertyInfoCard: {
-    backgroundColor: "#fff",
+    backgroundColor: CARD_BACKGROUND,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     marginTop: -20,
-    padding: 20,
+    padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  propertyTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: TEXT_PRIMARY,
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 8,
+  },
+  propertyTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: PRIMARY_COLOR,
+    flex: 1,
+    marginRight: 8,
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(243, 156, 18, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  ratingText: {
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#F39C12",
   },
   locationContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
   },
   propertyLocation: {
-    fontSize: 14,
+    fontSize: 15,
     color: TEXT_SECONDARY,
     flex: 1,
-    marginLeft: 4,
+    marginLeft: 6,
     marginRight: 8,
   },
   mapButton: {
-    backgroundColor: PRIMARY_COLOR,
+    backgroundColor: ACCENT_COLOR,
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   mapButtonText: {
     color: "#fff",
-    fontWeight: "500",
+    fontWeight: "600",
     fontSize: 12,
+    marginLeft: 4,
   },
-  propertyDetails: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+  priceCard: {
+    backgroundColor: "rgba(52, 73, 94, 0.05)",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  priceContainer: {
+    alignItems: "flex-start",
+  },
+  priceLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: TEXT_SECONDARY,
+    marginBottom: 4,
   },
   propertyPrice: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "bold",
     color: PRIMARY_COLOR,
   },
@@ -736,41 +872,56 @@ const styles = StyleSheet.create({
     color: TEXT_SECONDARY,
     marginTop: 4,
   },
-  ratingContainer: {
-    flexDirection: "row",
-  },
   checkInOutContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    alignItems: "center",
+    backgroundColor: "rgba(52, 152, 219, 0.05)",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
   },
   checkInOutItem: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
-  checkInOutText: {
-    fontSize: 14,
+  checkInOutLabel: {
+    fontSize: 12,
     color: TEXT_SECONDARY,
-    marginLeft: 6,
+    marginLeft: 8,
+  },
+  checkInOutTime: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: TEXT_PRIMARY,
+    marginLeft: 8,
+  },
+  divider: {
+    width: 1,
+    height: 40,
+    backgroundColor: DIVIDER_COLOR,
+    marginHorizontal: 16,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
   },
   sectionContainer: {
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    marginBottom: 24,
+  },
+  detailsSection: {
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: TEXT_PRIMARY,
-    marginBottom: 12,
+    color: PRIMARY_COLOR,
+    marginLeft: 6,
   },
   propertyDescription: {
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 24,
     color: TEXT_SECONDARY,
   },
   detailsGrid: {
@@ -783,13 +934,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "48%",
     marginBottom: 12,
-    backgroundColor: "#F5F5F5",
-    padding: 10,
-    borderRadius: 8,
+    backgroundColor: "rgba(52, 152, 219, 0.05)",
+    padding: 12,
+    borderRadius: 10,
   },
   detailText: {
-    marginLeft: 8,
+    marginLeft: 10,
     fontSize: 14,
+    fontWeight: "500",
     color: TEXT_PRIMARY,
   },
   amenitiesGrid: {
@@ -800,34 +952,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     width: "50%",
-    marginBottom: 10,
+    marginBottom: 14,
+  },
+  amenityIconContainer: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: ACCENT_COLOR_SECONDARY,
+    alignItems: "center",
+    justifyContent: "center",
   },
   amenityText: {
-    marginLeft: 8,
+    marginLeft: 10,
     fontSize: 14,
     color: TEXT_SECONDARY,
   },
   actionButtonsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: 12,
   },
   chatButton: {
     backgroundColor: SECONDARY_COLOR,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
     flex: 1,
     marginRight: 8,
+    elevation: 1,
   },
   bookButton: {
-    backgroundColor: PRIMARY_COLOR,
+    backgroundColor: ACCENT_COLOR,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 8,
     flex: 1,
     marginLeft: 8,

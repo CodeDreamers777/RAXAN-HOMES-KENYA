@@ -31,6 +31,24 @@ import {
 
 const API_BASE_URL = "https://yakubu.pythonanywhere.com";
 const { width } = Dimensions.get("window");
+const COLORS = {
+  primary: "#2C3E50", // Dark blue-gray (main brand color)
+  primaryLight: "#34495E", // Lighter version of primary
+  primaryDark: "#1A2530", // Darker version of primary
+  accent: "#3498DB", // Blue accent color
+  accentLight: "#5DADE2", // Lighter accent for highlights
+  success: "#2ECC71", // Green for success states
+  warning: "#F39C12", // Orange for warnings
+  error: "#E74C3C", // Red for errors
+  gray: "#95A5A6", // Gray for subtle elements
+  lightGray: "#ECF0F1", // Light gray for backgrounds
+  white: "#FFFFFF", // White
+  black: "#333333", // Soft black
+  featuredBadge: "#F1C40F", // Yellow for featured badge
+  pricePerNight: "#3498DB", // Blue for per night prices
+  pricePerMonth: "#2C3E50", // Primary color for monthly prices
+  pricePerSale: "#E74C3C", // Red for sales prices
+};
 
 // Extracted as a separate component for better performance
 const RatingStars = React.memo(({ rating }) => {
@@ -253,12 +271,56 @@ const HomePageContent = ({
     }
   };
 
+  // Function to handle token expiration
+  const handleTokenExpiration = async (response) => {
+    try {
+      // Check if response is JSON
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await response.json();
+
+        // Check for specific token expiration error structure
+        if (
+          errorData.detail === "Given token not valid for any token type" &&
+          errorData.code === "token_not_valid" &&
+          errorData.messages &&
+          errorData.messages.length > 0 &&
+          errorData.messages[0].message === "Token is invalid or expired"
+        ) {
+          console.log("Token expired, redirecting to login...");
+
+          // Clear tokens from storage
+          await AsyncStorage.removeItem("accessToken");
+          await AsyncStorage.removeItem("refreshToken");
+
+          // Force navigation to login screen
+          // We need to use a timeout to ensure the navigation happens outside of fetch promise
+          setTimeout(() => {
+            // Using a global navigation reference or NavigationService approach
+            navigation.navigate("Login");
+          }, 100);
+
+          return true; // Token was expired and handled
+        }
+      }
+      return false; // Not a token expiration error
+    } catch (error) {
+      console.error("Error handling potential token expiration:", error);
+      return false;
+    }
+  };
+
+  // Modified fetchProperties function with token expiration handling
   const fetchProperties = async () => {
     try {
       const accessTokenData = await AsyncStorage.getItem("accessToken");
+      if (!accessTokenData) {
+        throw new Error("No access token found");
+      }
+
       const { value: accessToken } = JSON.parse(accessTokenData);
       if (!accessToken) {
-        throw new Error("No access token found");
+        throw new Error("Invalid access token format");
       }
 
       const response = await fetch(`${API_BASE_URL}/api/v1/properties/`, {
@@ -269,10 +331,19 @@ const HomePageContent = ({
       });
 
       if (!response.ok) {
+        // Check if this is a token expiration error
+        const isExpiredToken = await handleTokenExpiration(response);
+        if (isExpiredToken) {
+          return; // Stop execution if token was expired and handled
+        }
+
+        // Handle other types of errors
         throw new Error("Network response was not ok");
       }
 
+      // Continue with regular response handling
       const data = await response.json();
+      console.log(data);
 
       // Fetch wishlist from the server
       const wishlistResponse = await fetch(`${API_BASE_URL}/api/v1/wishlist/`, {
@@ -518,7 +589,7 @@ const HomePageContent = ({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#228B22" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading properties...</Text>
       </View>
     );
@@ -530,7 +601,7 @@ const HomePageContent = ({
         <Ionicons
           name="search"
           size={24}
-          color="#228B22"
+          color={COLORS.primary} // Update from "#228B22" to COLORS.primary
           style={styles.searchIcon}
         />
         <TextInput
@@ -542,7 +613,7 @@ const HomePageContent = ({
         />
         {searchText ? (
           <TouchableOpacity onPress={() => setSearchText("")}>
-            <Ionicons name="close-circle" size={22} color="#228B22" />
+            <Ionicons name="close-circle" size={22} color={COLORS.primary} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -663,8 +734,8 @@ const HomePageContent = ({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={["#228B22"]}
-              tintColor="#228B22"
+              colors={[COLORS.primary]} // Update from ["#228B22"]
+              tintColor={COLORS.primary} // Update from "#228B22"
             />
           }
           contentContainerStyle={styles.listContainer}
@@ -732,8 +803,10 @@ function HomePage({ navigation }) {
   }, []);
 
   // Define tour steps with refs
+  // Define tour steps with refs and conditional inclusion
   const tourSteps = useMemo(() => {
-    return [
+    const steps = [
+      // Welcome step - no targetRef needed
       {
         title: "Raxan Homes Guide",
         description:
@@ -741,77 +814,104 @@ function HomePage({ navigation }) {
         icon: "home",
         // No targetRef for the welcome step
       },
-      {
+
+      // Only include steps with refs that actually exist
+      searchRef.current && {
         title: "Search Properties",
         description:
           "Use the search bar to find properties by name, location, or description. Type what you're looking for and we'll show you matching results.",
         icon: "search",
         targetRef: searchRef,
       },
-      {
+
+      filterOptionsRef.current && {
         title: "Filter Options",
         description:
           "Quickly filter properties by type - view all properties, or focus on properties for sale, rental, or per-night stays.",
         icon: "filter",
         targetRef: filterOptionsRef,
       },
-      {
+
+      filterButtonRef.current && {
         title: "Advanced Filters",
         description:
           "Need more specific results? Tap 'More Filters' to set price ranges, number of bedrooms, bathrooms, and more.",
         icon: "options",
         targetRef: filterButtonRef,
       },
-      {
+
+      propertyCardRef.current && {
         title: "Property Cards",
         description:
           "Browse through property cards to see images, prices, and ratings.",
         icon: "card",
         targetRef: propertyCardRef,
       },
-      {
+
+      wishlistButtonRef.current && {
         title: "Wishlist",
         description:
           "Like a property? Tap the heart icon to add it to your wishlist for easy access later.",
         icon: "heart",
         targetRef: wishlistButtonRef,
       },
-      {
+
+      exploreTabRef?.current && {
         title: "Explore Tab",
         description:
           "This is where you are now! Browse all available properties and find your perfect home.",
         icon: "search",
         targetRef: exploreTabRef,
       },
-      {
+
+      wishlistTabRef?.current && {
         title: "Wishlist Tab",
         description:
           "Access all your saved properties in one place. Tap to view your wishlist.",
         icon: "heart",
         targetRef: wishlistTabRef,
       },
-      {
+
+      inboxTabRef?.current && {
         title: "Inbox Tab",
         description:
           "Communicate with property owners and manage your inquiries here.",
         icon: "chatbubble",
         targetRef: inboxTabRef,
       },
-      {
+
+      profileTabRef?.current && {
         title: "Profile Tab",
         description:
           "View and edit your profile, manage your listings, and adjust your account settings.",
         icon: "person",
         targetRef: profileTabRef,
       },
+
+      // Final step - no targetRef needed
       {
         title: "You're All Set!",
         description:
           "You're ready to start exploring properties! If you need to see this tour again, just tap the 'Restart Tour' button.",
         icon: "checkmark-circle",
+        // No targetRef for the final step
       },
     ];
-  }, []);
+
+    // Filter out any falsy entries (steps with refs that don't exist)
+    return steps.filter(Boolean);
+  }, [
+    // Add dependencies to ensure steps are recalculated when refs change
+    searchRef.current,
+    filterOptionsRef.current,
+    filterButtonRef.current,
+    propertyCardRef.current,
+    wishlistButtonRef.current,
+    exploreTabRef?.current,
+    wishlistTabRef?.current,
+    inboxTabRef?.current,
+    profileTabRef?.current,
+  ]);
 
   // Force restart the tour for testing
   useEffect(() => {
@@ -878,22 +978,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f8f8f8",
+    backgroundColor: COLORS.lightGray,
   },
   loadingText: {
     marginTop: 10,
-    color: "#228B22",
+    color: COLORS.primary,
     fontWeight: "500",
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 12,
     margin: 16,
-    shadowColor: "#000",
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -914,26 +1014,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   filterButton: {
-    backgroundColor: "#228B22",
+    backgroundColor: COLORS.primary,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    shadowColor: "#000",
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   restartTourButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: COLORS.primaryLight,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    shadowColor: "#000",
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -982,14 +1082,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
   },
-  pricePerNight: {
-    color: "#4a90e2",
-  },
   pricePerMonth: {
-    color: "#228B22",
+    color: COLORS.primary,
+  },
+  pricePerNight: {
+    color: COLORS.pricePerNight,
   },
   pricePerSale: {
-    color: "#FF6347",
+    color: COLORS.pricePerSale,
   },
   propertyInfo: {
     padding: 16,
@@ -1026,7 +1126,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
   },
   activeFilterOption: {
-    backgroundColor: "#228B22",
+    backgroundColor: COLORS.primary,
   },
   filterOptionText: {
     fontSize: 14,
@@ -1037,12 +1137,12 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   featuredPropertyCard: {
-    borderColor: "#228B22",
+    borderColor: COLORS.primary,
     borderWidth: 2,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: "#000",
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -1053,7 +1153,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 10,
     left: 10,
-    backgroundColor: "#ffdd00",
+    backgroundColor: COLORS.featuredBadge,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
