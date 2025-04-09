@@ -1,4 +1,6 @@
 from rest_framework import serializers
+
+
 from .models import (
     Profile,
     RentalProperty,
@@ -14,6 +16,8 @@ from .models import (
     Message,
     BookForSaleViewing,
     PropertyViewing,
+    ChatMessage,
+    ChatSession,
 )
 from django.contrib.auth.models import User
 import json
@@ -741,3 +745,16 @@ class PropertyViewingSerializer(serializers.ModelSerializer):
         return PropertyViewing.objects.create(
             content_type=content_type, object_id=property_id, **validated_data
         )
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatMessage
+        fields = ["id", "message_type", "content", "timestamp"]
+
+
+class ChatSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatSession
+        fields = ["id", "title", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]

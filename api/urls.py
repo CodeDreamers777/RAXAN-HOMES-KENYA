@@ -19,6 +19,17 @@ urlpatterns = [
     path("get-csrf-token/", views.get_csrf_token),
     path("profile/", views.ProfileAPIView.as_view()),
     path("send-otp-mail/", views.SendOTPEmailView.as_view()),
+    path("chat/sessions/", views.ChatSessionView.as_view(), name="chat-sessions"),
+    path(
+        "chat/sessions/<int:session_id>/messages/",
+        views.ChatMessageView.as_view(),
+        name="chat-messages",
+    ),
+    path(
+        "chat/conversation/",
+        views.GetOrCreateChatSessionView.as_view(),
+        name="chat-conversation",
+    ),
     path(
         "forgot-password/", views.ForgotPasswordView.as_view(), name="forgot-password"
     ),

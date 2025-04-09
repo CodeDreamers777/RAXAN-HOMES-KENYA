@@ -47,6 +47,8 @@ from .models import (
     Message,
     Payment,
     BookForSaleViewing,
+    ChatSession,
+    ChatMessage,
 )
 from .serializer import (
     RentalPropertySerializer,
@@ -63,6 +65,8 @@ from .serializer import (
     ForgotPasswordSerializer,
     PerNightBookingSerializer,
     PerNightPropertySerializer,
+    ChatMessageSerializer,
+    ChatSessionSerializer,
     OTPVerificationSerializer,
     ResetPasswordSerializer,
 )
@@ -70,6 +74,7 @@ import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
+from .utils.ai_chat import ai_response
 import logging
 import requests
 import os
@@ -1777,3 +1782,189 @@ class PerNightBookingListView(generics.ListAPIView):
         else:
             # Return an empty queryset for invalid user type
             return PerNightBooking.objects.none()
+
+
+class ChatSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, format=None):
+        """Get all chat sessions for the authenticated user"""
+        sessions = ChatSession.objects.filter(user=request.user)
+        serializer = ChatSessionSerializer(sessions, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, format=None):
+        """Create a new chat session"""
+        serializer = ChatSessionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChatMessageView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, session_id, format=None):
+        """Get all messages for a specific chat session"""
+        session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+        messages = ChatMessage.objects.filter(session=session)
+        serializer = ChatMessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, session_id, format=None):
+        """Send a message to the AI and get a response"""
+        session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+        user_message = request.data.get("message", "")
+
+        if not user_message:
+            return Response(
+                {"error": "Message content is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Save user message
+        user_chat_message = ChatMessage.objects.create(
+            session=session, message_type="user", content=user_message
+        )
+
+        # Get previous messages for context (last 10)
+        previous_messages = ChatMessage.objects.filter(session=session).order_by(
+            "-timestamp"
+        )[:10][::-1]
+
+        # Format messages for OpenRouter API
+        message_history = [
+            {
+                "role": "system",
+                "content": """You are the IOIO property management assistant. IOIO is a mobile app that helps users 
+                manage rental properties and facilitates interactions between landlords and tenants. 
+                
+                You can only answer questions related to property management, rental processes, landlord-tenant 
+                interactions, and using the IOIO app. If users ask about unrelated topics, politely redirect 
+                the conversation to IOIO's features and how they can help with property management.
+                
+                Features of IOIO:
+                - Property listing and management
+                - Rent collection and payment tracking
+                - Maintenance request submission and tracking
+                - Landlord-tenant communication
+                - Document storage (leases, receipts, etc.)
+                - Rental application processing
+                """,
+            }
+        ]
+
+        # Add conversation history
+        for msg in previous_messages:
+            role = "user" if msg.message_type == "user" else "assistant"
+            message_history.append({"role": role, "content": msg.content})
+
+        # Add the current user message
+        message_history.append({"role": "user", "content": user_message})
+
+        # Get AI response
+        ai_response = get_ai_response(message_history)
+
+        # Save AI response
+        assistant_chat_message = ChatMessage.objects.create(
+            session=session, message_type="assistant", content=ai_response
+        )
+
+        # Update session timestamp
+        session.save()  # This updates the updated_at field
+
+        # Return both messages
+        return Response(
+            {
+                "user_message": ChatMessageSerializer(user_chat_message).data,
+                "assistant_message": ChatMessageSerializer(assistant_chat_message).data,
+            }
+        )
+
+
+class GetOrCreateChatSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request, format=None):
+        """Get or create a chat session and handle a message"""
+        # Get active session or create a new one
+        active_session = ChatSession.objects.filter(user=request.user).first()
+
+        if not active_session:
+            active_session = ChatSession.objects.create(user=request.user)
+
+        user_message = request.data.get("message", "")
+
+        if not user_message:
+            return Response(
+                {"error": "Message content is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Save user message
+        user_chat_message = ChatMessage.objects.create(
+            session=active_session, message_type="user", content=user_message
+        )
+
+        # Get previous messages for context (last 10)
+        previous_messages = ChatMessage.objects.filter(session=active_session).order_by(
+            "-timestamp"
+        )[:10][::-1]
+
+        # Format messages for OpenRouter API
+        message_history = [
+            {
+                "role": "system",
+                "content": """You are the IOIO property management assistant. IOIO is a mobile app that helps users 
+                manage rental properties and facilitates interactions between landlords and tenants. 
+                
+                You can only answer questions related to property management, rental processes, landlord-tenant 
+                interactions, and using the IOIO app. If users ask about unrelated topics, politely redirect 
+                the conversation to IOIO's features and how they can help with property management.
+                
+                Features of IOIO:
+                - Property listing and management
+                - Rent collection and payment tracking
+                - Maintenance request submission and tracking
+                - Landlord-tenant communication
+                - Document storage (leases, receipts, etc.)
+                - Rental application processing
+                """,
+            }
+        ]
+
+        # Add conversation history
+        for msg in previous_messages:
+            role = "user" if msg.message_type == "user" else "assistant"
+            message_history.append({"role": role, "content": msg.content})
+
+        # Add the current user message
+        message_history.append({"role": "user", "content": user_message})
+
+        # Get AI response
+        ai_response = get_ai_response(message_history)
+
+        # Save AI response
+        assistant_chat_message = ChatMessage.objects.create(
+            session=active_session, message_type="assistant", content=ai_response
+        )
+
+        # Update session timestamp
+        active_session.save()
+
+        # Return session info, messages and the new AI response
+        return Response(
+            {
+                "session": ChatSessionSerializer(active_session).data,
+                "messages": ChatMessageSerializer(
+                    ChatMessage.objects.filter(session=active_session).order_by(
+                        "timestamp"
+                    ),
+                    many=True,
+                ).data,
+            }
+        )
