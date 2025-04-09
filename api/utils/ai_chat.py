@@ -36,6 +36,8 @@ def get_ai_response(messages: List[Dict[str, str]]) -> str:
 
     try:
         response = requests.post(OPENROUTER_URL, headers=headers, json=data)
+        print(f"Status code: {response.status_code}")
+        print(f"Response content: {response.text}")
         response.raise_for_status()
 
         result = response.json()
