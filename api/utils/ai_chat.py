@@ -28,7 +28,7 @@ def get_ai_response(messages: List[Dict[str, str]]) -> str:
     }
 
     data = {
-        "model": "mistralai/mixtral-8x7b-32768",
+        "model": "mistralai/mistral-7b-instruct",
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 1024,
