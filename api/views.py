@@ -74,7 +74,7 @@ import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 from django.contrib.contenttypes.models import ContentType
 from .utils.send_mail import send_email_via_mailgun
-from .utils.ai_chat import ai_response
+from .utils.ai_chat import get_ai_response
 import logging
 import requests
 import os
