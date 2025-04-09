@@ -60,7 +60,6 @@ INSTALLED_APPS = [
     "cloudinary_storage",  # should come before django.contrib.staticfiles
     "django.contrib.staticfiles",
     "cloudinary",
-    "daphne",  # Required for ASGI support
     "channels",  # Move this above rest_framework
     "rest_framework",
     "api",
