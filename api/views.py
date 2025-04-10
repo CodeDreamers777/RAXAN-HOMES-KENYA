@@ -541,7 +541,7 @@ class VerifyLoginOTPView(APIView):
                 )
 
             # Determine if this is the first login
-            is_new_user = user.last_login is None
+            is_new_user = "false"
 
             # OTP is valid - log user in and generate tokens
             login(request, user)
